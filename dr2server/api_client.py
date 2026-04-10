@@ -93,17 +93,26 @@ def _default_tracks_for_location(location_id: int) -> List[int]:
 class DirtForeverClient:
     """Thin HTTP client for the dirtforever.net game API."""
 
-    def __init__(self, base_url: str = "https://dirtforever.net") -> None:
+    def __init__(self, base_url: str = "https://dirtforever.net", api_token: Optional[str] = None) -> None:
         self.base_url = base_url.rstrip("/")
+        self.api_token = api_token
 
     # ------------------------------------------------------------------
     # Low-level helpers
     # ------------------------------------------------------------------
 
+    def _auth_headers(self) -> Dict[str, str]:
+        """Return Authorization header dict if a token is configured."""
+        if self.api_token:
+            return {"Authorization": f"Bearer {self.api_token}"}
+        return {}
+
     def _get(self, path: str) -> Optional[Dict[str, Any]]:
         url = f"{self.base_url}{path}"
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            headers = {"Accept": "application/json"}
+            headers.update(self._auth_headers())
+            req = urllib.request.Request(url, headers=headers)
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = resp.read()
             return json.loads(raw)
@@ -119,14 +128,16 @@ class DirtForeverClient:
         url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")
         try:
+            headers = {
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+            headers.update(self._auth_headers())
             req = urllib.request.Request(
                 url,
                 data=body,
                 method="POST",
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
+                headers=headers,
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = resp.read()
