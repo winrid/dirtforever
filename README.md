@@ -1,151 +1,116 @@
-# DiRT Rally 2.0 Community Server
+# DirtForever — DiRT Rally 2.0 Community Server
 
-A community replacement for the defunct RaceNet/EgoNet backend that DiRT Rally 2.0 requires to play. Run it locally and the game's online features work without Codemasters servers.
+A community replacement for the defunct RaceNet/EgoNet backend. Run a small local server that intercepts the game's network calls and connects to [dirtforever.net](https://dirtforever.net) for clubs, leaderboards, and stage results.
 
 ---
 
-## For Users
+## Quick Start
 
 ### Prerequisites
 
-- Python 3.9+
-- Windows (the hosts redirect requires editing `%WINDIR%\System32\drivers\etc\hosts`)
+- Windows 10/11
+- Python 3.9+ ([python.org](https://www.python.org/downloads/))
+- `cryptography` package: `pip install cryptography`
 - DiRT Rally 2.0 installed via Steam
-- `cryptography` Python package: `pip install cryptography`
 
-### Quick Start
+### Setup (one time)
 
-Run these steps once per machine, then start the server each session.
+1. Create an account at [dirtforever.net](https://dirtforever.net/register)
+2. Log in and go to your [Dashboard](https://dirtforever.net/dashboard) — click **Generate Game Token** and copy it
+3. Open **PowerShell as Administrator** and run:
 
-**1. Generate a TLS certificate**
-
-```
-python scripts/generate_dev_cert.py
-```
-
-Writes `runtime/certs/dr2server-cert.pem` and `runtime/certs/dr2server-key.pem`.
-
-**2. Install the certificate into the Windows trust store**
-
-```
-powershell -ExecutionPolicy Bypass -File scripts/install_dev_cert.ps1
+```powershell
+cd path\to\dr2server
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 ```
 
-UAC will prompt for administrator access. This is required so the game accepts the self-signed cert.
+The installer will:
+- Generate and trust a local TLS certificate
+- Redirect Codemasters hostnames to your machine
+- Ask you to paste your game token
+- Create a **DirtForever Server** desktop shortcut
 
-**3. Redirect game traffic to localhost**
+### Playing
 
-```
-powershell -ExecutionPolicy Bypass -File scripts/setup_windows_redirect.ps1
-```
-
-Adds hosts entries for `prod.egonet.codemasters.com` and related Codemasters domains. UAC required.
-
-**4. Start the server**
-
-```
-python server.py --ssl-cert runtime/certs/dr2server-cert.pem --ssl-key runtime/certs/dr2server-key.pem
-```
-
-The server listens on `127.0.0.1:8080` (HTTP) and `127.0.0.1:443` (HTTPS).
-
-**5. Launch the game via Steam**
-
-Start DiRT Rally 2.0 normally. Game traffic will reach the local server automatically.
+1. Double-click the **DirtForever Server** shortcut (or run `python server.py --ssl-cert runtime\certs\dr2server-cert.pem --ssl-key runtime\certs\dr2server-key.pem`)
+2. Launch DiRT Rally 2.0 via Steam
+3. Play — clubs, events, and leaderboards are served by dirtforever.net
 
 ### What Works
 
 - Login
-- Events (career mode loads without crashing)
-- Clubs (server-defined custom events)
+- Events / Career mode
+- Clubs with custom server-defined events
+- Stage time submission and leaderboards (via dirtforever.net)
+- Vehicle select, repairs, tuning
 
-### What Does Not Work Yet
+### What Doesn't Work Yet
 
-- Actual race result tracking
-- Leaderboards
-- Multiplayer
+- Full championship progression
+- Multiplayer / Time Trial ghosts
+- In-game currency / store (uses placeholder data)
 
-### Undoing the Hosts Redirect
+### Uninstalling
 
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\remove_windows_redirect.ps1
 ```
-powershell -ExecutionPolicy Bypass -File scripts/remove_windows_redirect.ps1
-```
 
-This removes the DR2 community server block from your hosts file. The certificate installed in step 2 can be removed manually via `certmgr.msc`.
+Remove the certificate manually via `certmgr.msc` if desired. Config is stored at `%APPDATA%\DirtForever\config.json`.
 
 ---
 
 ## For Developers
 
-### Project Layout
+### Layout
 
-```
-server.py                   entry point, delegates to dr2server/httpd.py main()
-dr2server/
-  httpd.py                  HTTP/HTTPS server, request capture, EgoNet RPC dispatch, upstream proxy
-  dispatcher.py             RPC method handlers and fake response payloads
-  egonet.py                 binary stream codec (encode/decode for EgoNet wire format)
-  models.py                 typed data structures used by dispatcher and codec
-  game_data.py              ID enums for locations, tracks, and vehicles
-  account_store.py          file-per-account JSON storage
-scripts/
-  generate_dev_cert.py      generates self-signed cert covering all Codemasters hostnames
-  install_dev_cert.ps1      installs cert into Windows current-user trust store
-  setup_windows_redirect.ps1  adds hosts entries pointing Codemasters domains to 127.0.0.1
-  remove_windows_redirect.ps1 removes those hosts entries
-captures/                   raw JSON captures of every request and response
-runtime/certs/              generated TLS cert and key
-data/accounts/              one JSON file per account
-```
+| Path | Purpose |
+|---|---|
+| `server.py` | Entry point |
+| `dr2server/httpd.py` | HTTPS server, request capture, EgoNet RPC dispatch, upstream proxy |
+| `dr2server/dispatcher.py` | RPC method handlers |
+| `dr2server/egonet.py` | Binary stream codec (EgoNet wire format) |
+| `dr2server/models.py` | Typed data structures for correct binary encoding |
+| `dr2server/game_data.py` | IntEnum IDs for locations, tracks, vehicles |
+| `dr2server/api_client.py` | REST client for dirtforever.net API |
+| `dr2server/account_store.py` | Local account storage (fallback) |
+| `web/` | Flask web frontend (dirtforever.net) |
+| `scripts/` | Setup scripts (cert, hosts, installer) |
+| `data/upstream_templates/` | Captured upstream binary responses used as templates |
 
 ### Architecture
 
-The game makes HTTPS requests to `prod.egonet.codemasters.com` (and a few other Codemasters hostnames). The setup does two things:
+```
+Game Client  --EgoNet/HTTPS-->  Local Server (dr2server)  --REST-->  dirtforever.net
+                                     |
+                               reads config from
+                          %APPDATA%\DirtForever\config.json
+```
 
-1. The Windows hosts file redirects those hostnames to `127.0.0.1`.
-2. A self-signed certificate covering those hostnames is installed as trusted, so the game's TLS verification passes.
-
-Game traffic then arrives at the local Python HTTPS server on port 443. `httpd.py` decodes the EgoNet binary body, dispatches to a handler in `dispatcher.py`, and returns an EgoNet-encoded response.
+The Windows hosts file redirects `prod.egonet.codemasters.com` to `127.0.0.1`. A trusted self-signed cert makes TLS pass. The local server decodes EgoNet binary, calls dirtforever.net for persistent data, and encodes responses back.
 
 ### EgoNet Protocol
 
-The game's RPC transport uses a custom binary stream format. Each value is length-prefixed and tagged with a type. The codec is in `egonet.py`.
+Custom binary format in `egonet.py`. **Types must match exactly** — the game crashes (not errors) if `si32` is sent where `ui32` is expected. Use the wrapper types (`UInt32`, `UInt8`, `Int64`, `Timestamp`) from `egonet.py` and the model classes in `models.py`.
 
-The most important constraint: **types must match exactly**. The game distinguishes `si32`, `ui32`, and `ui08`. Sending the wrong integer type for a field causes an immediate crash, not a graceful error. Use the type aliases in `models.py` to ensure correct encoding.
+All responses require `Content-Type: text/html` and `X-EgoNet-Catalogue-Version: 1.18.0`.
 
-### Required HTTP Headers
+### Auth
 
-Every EgoNet RPC response must use:
-
-- `Content-Type: text/html` (not `application/octet-stream`, the game validates this)
-- `X-EgoNet-Catalogue-Version: 1.18.0`
-
-### Adding a New RPC Handler
-
-1. Add a function to `dispatcher.py` and register it in the handler map.
-2. Return a dict using field names and types from `models.py`.
-3. The codec in `egonet.py` handles encoding automatically based on the model types.
-
-Field names must match exactly what the game expects. Unknown or missing fields cause crashes rather than fallback behavior.
+Game tokens (`df_` + 32 hex chars) are generated on the dirtforever.net dashboard. The local server sends them as `Authorization: Bearer df_xxx` headers. The web API validates tokens and maps them to user accounts.
 
 ### Upstream Proxy Mode
 
-To forward selected EgoNet methods to the real Codemasters servers and capture their responses (useful for reverse engineering unknown payload shapes):
+Forward EgoNet calls to the real Codemasters servers for reverse engineering:
 
 ```
-python server.py \
-  --ssl-cert runtime/certs/dr2server-cert.pem \
-  --ssl-key runtime/certs/dr2server-key.pem \
-  --upstream-ip 159.153.126.42 \
-  --proxy-all
+python server.py --ssl-cert ... --ssl-key ... --upstream-ip 159.153.126.42 --proxy-all
 ```
 
-`--proxy-all` forwards every method upstream. To proxy specific methods only:
+Per-method: `--proxy-method RaceNetCareerLadder.GetRallyChampionship`
 
-```
-  --upstream-ip 159.153.126.42 \
-  --proxy-method RaceNetCareerLadder.GetRallyTierList \
-  --proxy-method RaceNetCareerLadder.GetRallyChampionship
-```
+### Adding RPC Handlers
 
-Captures of both the forwarded request and the upstream response are written to `captures/` in the usual JSON format.
+1. Add handler in `dispatcher.py`, register in the handler map
+2. Use `models.py` types for correct encoding (`UInt32`, `Int64`, etc.)
+3. Field names must match the game's expectations exactly
