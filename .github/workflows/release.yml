@@ -21,6 +21,10 @@ jobs:
         run: |
           pip install pyinstaller cryptography
 
+      - name: Write version from release tag
+        run: |
+          echo "${{ github.event.release.tag_name }}" | sed 's/^v//' > VERSION
+
       - name: Build exe
         run: python build_exe.py
 

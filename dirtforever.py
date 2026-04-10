@@ -18,6 +18,16 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+def _read_version() -> str:
+    """Read version from VERSION file (bundled or local)."""
+    for base in [Path(getattr(sys, "_MEIPASS", "")), Path(__file__).parent]:
+        vf = base / "VERSION"
+        if vf.is_file():
+            return vf.read_text().strip()
+    return "dev"
+
+VERSION = _read_version()
+
 # ---------------------------------------------------------------------------
 # Resource-path helpers (PyInstaller bundle detection)
 # ---------------------------------------------------------------------------
@@ -254,7 +264,7 @@ def run_gui():
 
     # --- Window setup ---
     root = tk.Tk()
-    root.title("DirtForever")
+    root.title(f"DirtForever v{VERSION}")
     root.resizable(False, False)
     root.configure(bg=BG)
 

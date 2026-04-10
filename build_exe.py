@@ -44,6 +44,7 @@ def build() -> None:
     sep = ";" if sys.platform == "win32" else ":"
     add_data = [
         f"{templates_src}{sep}data/upstream_templates",
+        f"{ROOT / 'VERSION'}{sep}.",
     ]
 
     # ------------------------------------------------------------------
