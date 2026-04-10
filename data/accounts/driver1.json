@@ -1,0 +1,16 @@
+{
+  "username": "driver1",
+  "email": "driver1@example.com",
+  "password_hash": "ZxqyIEBu1X/tJW4TZmcKQ1X+gfimF95wlSqc5zfddyE=",
+  "salt": "YPwniniFAvj08KliGZN2OA==",
+  "profile": {
+    "display_name": "driver1",
+    "created_at_epoch": 1775787675,
+    "wallet": {
+      "credits": 0
+    },
+    "flags": {
+      "accepted_terms": false
+    }
+  }
+}
