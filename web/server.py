@@ -1232,6 +1232,11 @@ def profile(username):
     )
 
 
+@app.route('/install')
+def install():
+    return render_template('install.html')
+
+
 @app.route('/about')
 def about():
     return render_template('about.html')

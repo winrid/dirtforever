@@ -17,6 +17,7 @@
         <div class="nav-inner">
             <a href="/" class="nav-logo">DIRT<span class="accent">FOREVER</span></a>
             <div class="nav-links">
+                <a href="/install" class="nav-link {% if request.path == '/install' %}active{% endif %}">Install</a>
                 <a href="/events" class="nav-link {% if request.path.startswith('/events') %}active{% endif %}">Events</a>
                 <a href="/leaderboards" class="nav-link {% if request.path.startswith('/leaderboards') %}active{% endif %}">Leaderboards</a>
                 <a href="/clubs" class="nav-link {% if request.path.startswith('/clubs') %}active{% endif %}">Clubs</a>

@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}Install - DirtForever{% endblock %}
+
+{% block content %}
+<style>
+    .install-section .container { margin-bottom: 3rem; }
+    .install-steps { counter-reset: step; }
+    .install-step {
+        position: relative;
+        padding: 1.75rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+        margin-bottom: 1.25rem;
+    }
+    .install-step::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        top: -0.65rem;
+        left: 1.25rem;
+        font-family: var(--font-display);
+        font-size: 1.3rem;
+        letter-spacing: 1px;
+        background: var(--accent);
+        color: var(--bg-deep);
+        width: 2rem;
+        height: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+    }
+    .install-step h3 {
+        font-family: var(--font-ui);
+        font-size: 1.1rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: .5rem;
+    }
+    .install-step p {
+        color: var(--text);
+        line-height: 1.7;
+    }
+    .install-step p + p { margin-top: .5rem; }
+    .install-code {
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: .75rem 1rem;
+        margin-top: .75rem;
+        font-family: var(--font-mono);
+        font-size: .85rem;
+        color: var(--accent-bright);
+        overflow-x: auto;
+        white-space: pre;
+        line-height: 1.6;
+    }
+    .install-prereqs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    .install-prereq {
+        padding: 1rem 1.25rem;
+        background: var(--bg-elevated);
+        border-radius: var(--radius);
+    }
+    .install-prereq strong {
+        display: block;
+        font-family: var(--font-ui);
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        font-size: .85rem;
+        margin-bottom: .25rem;
+    }
+    .install-prereq span {
+        font-size: .9rem;
+        color: var(--text-muted);
+    }
+    .install-works {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+        margin-top: 1.5rem;
+    }
+    .install-works-col h3 {
+        font-family: var(--font-ui);
+        font-size: .95rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: .75rem;
+    }
+    .install-works-col ul {
+        list-style: none;
+        padding: 0;
+    }
+    .install-works-col ul li {
+        padding: .35rem 0;
+        padding-left: 1.25rem;
+        position: relative;
+        color: var(--text);
+    }
+    .install-works-col ul li::before {
+        position: absolute;
+        left: 0;
+        font-size: .85rem;
+    }
+    .install-works-col.works ul li::before { content: '\2713'; color: var(--green); }
+    .install-works-col.not-yet ul li::before { content: '\2717'; color: var(--text-dim); }
+    .install-uninstall {
+        margin-top: 1rem;
+        padding: 1.25rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-light);
+        border-radius: var(--radius-lg);
+    }
+    .install-uninstall p {
+        color: var(--text-muted);
+        font-size: .9rem;
+        line-height: 1.7;
+    }
+    @media (max-width: 600px) {
+        .install-works { grid-template-columns: 1fr; }
+        .install-prereqs { grid-template-columns: 1fr; }
+    }
+</style>
+
+<section class="section install-section" style="padding-top: 6rem;">
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> INSTALL DIRTFOREVER</h1>
+        <p>Get connected in a few minutes. You'll run a small local server that redirects the game's network calls to dirtforever.net for clubs, leaderboards, and stage results.</p>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> PREREQUISITES</h2>
+        <div class="install-prereqs">
+            <div class="install-prereq">
+                <strong>Windows 10/11</strong>
+                <span>Required for the hosts redirect</span>
+            </div>
+            <div class="install-prereq">
+                <strong>Python 3.9+</strong>
+                <span><a href="https://www.python.org/downloads/">python.org/downloads</a></span>
+            </div>
+            <div class="install-prereq">
+                <strong>DiRT Rally 2.0</strong>
+                <span>Installed via Steam</span>
+            </div>
+            <div class="install-prereq">
+                <strong>cryptography</strong>
+                <span>Run: <code style="color:var(--accent-bright)">pip install cryptography</code></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> SETUP (ONE TIME)</h2>
+        <div class="install-steps">
+            <div class="install-step">
+                <h3>Create an Account</h3>
+                <p>Register at <a href="/register">dirtforever.net</a> if you haven't already.</p>
+            </div>
+
+            <div class="install-step">
+                <h3>Generate a Game Token</h3>
+                <p>Log in and go to your <a href="/dashboard">Dashboard</a> &mdash; click <strong>Generate Game Token</strong> and copy it. This links the local server to your account.</p>
+            </div>
+
+            <div class="install-step">
+                <h3>Download the Server</h3>
+                <p>Clone or download the repository from GitHub.</p>
+                <div class="install-code">git clone https://github.com/winrid/dirtforever.git</div>
+            </div>
+
+            <div class="install-step">
+                <h3>Run the Installer</h3>
+                <p>Open <strong>PowerShell as Administrator</strong> and run:</p>
+                <div class="install-code">cd path\to\dirtforever
+powershell -ExecutionPolicy Bypass -File scripts\install.ps1</div>
+                <p>The installer will generate and trust a TLS certificate, redirect Codemasters hostnames to your machine, ask you to paste your game token, and create a <strong>DirtForever Server</strong> desktop shortcut. UAC will prompt for administrator access.</p>
+            </div>
+
+            <div class="install-step">
+                <h3>Start the Server</h3>
+                <p>Double-click the <strong>DirtForever Server</strong> shortcut on your desktop, or run manually:</p>
+                <div class="install-code">python server.py --ssl-cert runtime\certs\dr2server-cert.pem --ssl-key runtime\certs\dr2server-key.pem</div>
+            </div>
+
+            <div class="install-step">
+                <h3>Launch the Game</h3>
+                <p>Start DiRT Rally 2.0 via Steam as usual. Game traffic will reach your local server automatically, which syncs with dirtforever.net for clubs, events, and leaderboards.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> COMPATIBILITY</h2>
+        <div class="install-works">
+            <div class="install-works-col works">
+                <h3>Working</h3>
+                <ul>
+                    <li>Login</li>
+                    <li>Events / Career mode</li>
+                    <li>Clubs with custom events</li>
+                    <li>Stage time submission &amp; leaderboards</li>
+                    <li>Vehicle select, repairs, tuning</li>
+                </ul>
+            </div>
+            <div class="install-works-col not-yet">
+                <h3>Not Yet</h3>
+                <ul>
+                    <li>Full championship progression</li>
+                    <li>Multiplayer / Time Trial ghosts</li>
+                    <li>In-game currency / store</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING</h2>
+        <div class="install-uninstall">
+            <p>To remove the hosts redirect, open PowerShell as Administrator and run:</p>
+            <div class="install-code">powershell -ExecutionPolicy Bypass -File scripts\remove_windows_redirect.ps1</div>
+            <p style="margin-top:.75rem;">The certificate installed during setup can be removed manually via <code style="color:var(--accent-bright)">certmgr.msc</code>. Config is stored at <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\config.json</code>.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}
