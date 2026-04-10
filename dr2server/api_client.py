@@ -225,6 +225,18 @@ class DirtForeverClient:
             return None
         return result.get("event")
 
+    def get_profile(self) -> Optional[Dict[str, Any]]:
+        """Fetch the authenticated user's game profile from the web API.
+
+        Returns the profile dict (with keys username, display_name, country,
+        soft_currency, hard_currency, garage_slots) or None on error.
+        """
+        result = self._get("/api/game/profile")
+        if not result or not result.get("ok"):
+            log.warning("get_profile: empty or error response")
+            return None
+        return result
+
     def auth(self, steam_name: str, account_id: Optional[int] = None) -> Dict[str, Any]:
         """Validate / link a Steam account.
 

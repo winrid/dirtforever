@@ -1333,6 +1333,41 @@ def api_game_clubs():
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
 
 
+@app.route('/api/game/profile')
+@csrf.exempt
+@game_auth_required
+def api_game_profile():
+    """Return the authenticated user's game profile for the game server."""
+    username = g.game_user
+    user = get_user(username)
+    if not user:
+        return jsonify({'ok': False, 'error': 'user not found'}), 404
+
+    # Initialize game profile fields on first game login if absent
+    changed = False
+    if 'soft_currency' not in user:
+        user['soft_currency'] = 500000
+        changed = True
+    if 'hard_currency' not in user:
+        user['hard_currency'] = 0
+        changed = True
+    if 'garage_slots' not in user:
+        user['garage_slots'] = 8
+        changed = True
+    if changed:
+        save_user(user)
+
+    return jsonify({
+        'ok': True,
+        'username': user['username'],
+        'display_name': user.get('display_name', user['username']),
+        'country': user.get('country', ''),
+        'soft_currency': user['soft_currency'],
+        'hard_currency': user['hard_currency'],
+        'garage_slots': user['garage_slots'],
+    })
+
+
 @app.route('/api/game/stage-complete', methods=['POST'])
 @csrf.exempt
 @game_auth_required

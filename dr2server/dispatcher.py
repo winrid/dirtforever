@@ -62,7 +62,7 @@ class RpcDispatcher:
             "RaceNet.GetTermsAndConditions": self._get_terms,
             "RaceNet.AcceptTerms": self._accept_terms,
             "RaceNet.CheckAccountLinked": self._account_linked,
-            "Clubs.GetClubs": self._template_or_stub("Clubs.GetClubs", self._empty_clubs),
+            "Clubs.GetClubs": self._clubs,
             "Clubs.GetChampionshipLeaderboard": self._clubs_leaderboard,
             "Clubs.GetChampionshipFriendsLeaderboard": self._clubs_leaderboard,
             "Announcements.GetAnnouncements": self._announcements,
@@ -75,7 +75,7 @@ class RpcDispatcher:
             "Advertising.EnabledCheck": self._advertising_enabled,
             "VanityFlags.GetVanityFlags": self._vanity_flags,
             "Staff.GetStaff": self._staff,
-            "RaceNetInventory.GetInventory": self._template_or_stub("RaceNetInventory.GetInventory", self._inventory),
+            "RaceNetInventory.GetInventory": self._inventory,
             "RaceNetInventory.GetStore": self._template_or_stub("RaceNetInventory.GetStore", self._store),
             "RaceNetInventory.GetRewards": self._rewards,
             "RaceNetChallenges.GetChallenges": self._template_or_stub("RaceNetChallenges.GetChallenges", self._challenges),
@@ -212,21 +212,27 @@ class RpcDispatcher:
     def _account_linked(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": True, "IsLinked": True}
 
-    def _empty_clubs(self, params: Dict[str, Any]) -> Dict[str, Any]:
+    def _clubs(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Return club challenges.
 
-        If an api_client is configured, fetch clubs and events from
-        dirtforever.net and convert them to EgoNet Challenge/Club
-        structures.  Falls back to hardcoded test data when api_client
-        is None or the remote call fails.
+        When api_client is configured, always fetch from the dirtforever.net
+        API.  If the API returns no data, return empty clubs (do NOT fall back
+        to hardcoded test data in production mode).  Only use the hardcoded
+        fallback when api_client is None (local development mode with no token).
         """
         if self.api_client is not None:
             result = self._clubs_from_api()
             if result is not None:
                 return result
-            print("[CLUBS] API fetch failed — using hardcoded fallback")
+            # API is configured but returned nothing — return empty, not hardcoded data
+            print("[CLUBS] API returned no clubs — returning empty")
+            return {"ok": True, "Challenges": [], "Progress": [], "Clubs": []}
 
         return self._clubs_hardcoded_fallback()
+
+    def _empty_clubs(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Deprecated alias kept for backwards compatibility."""
+        return self._clubs(params)
 
     def _clubs_from_api(self) -> Optional[Dict[str, Any]]:
         """Fetch and convert clubs from the web API.  Returns None on failure."""
@@ -586,18 +592,45 @@ class RpcDispatcher:
             "RxSpotter": 1,
         }
 
-    @staticmethod
-    def _inventory(params: Dict[str, Any]) -> Dict[str, Any]:
+    def _inventory(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Return the player's inventory.
+
+        When api_client is set, fetch the player's game profile from
+        dirtforever.net and use real per-user currency/slot values.
+        Falls back to a zero-balance stub when no api_client is configured
+        or the profile fetch fails.
+        """
+        soft_currency = 0
+        hard_currency = 0
+        garage_slots = 8
+
+        if self.api_client is not None:
+            try:
+                profile = self.api_client.get_profile()
+            except Exception as exc:
+                print(f"[INVENTORY] api_client.get_profile() raised: {exc}")
+                profile = None
+
+            if profile:
+                soft_currency = int(profile.get("soft_currency", 500000))
+                hard_currency = int(profile.get("hard_currency", 0))
+                garage_slots = int(profile.get("garage_slots", 8))
+            else:
+                # Profile fetch failed — give starter credits so the game is playable
+                soft_currency = 500000
+
         return {
             "ok": True,
-            "HardCurrency": 0,
-            "SoftCurrency": 0,
-            "Boosters": [],
-            "Vehicles": [],
-            "Upgrades": [],
-            "Liveries": [],
-            "Entitlements": [],
-            "SeasonFlags": 0,
+            "Inventory": {
+                "SoftCurrency": soft_currency,
+                "HardCurrency": hard_currency,
+                "GarageSlots": garage_slots,
+                "Vehicles": [],
+                "Upgrades": [],
+                "Entitlements": [],
+                "Liveries": [],
+                "SeasonFlags": UInt32(0),
+            },
         }
 
     @staticmethod

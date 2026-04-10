@@ -6,3 +6,4 @@ scripts/__pycache__
 web/data
 web/.venv
 .env
+data/upstream_templates/
