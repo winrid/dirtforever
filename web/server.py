@@ -484,6 +484,17 @@ CAR_CLASSES = {
 
 CONDITIONS = ['Clear', 'Overcast', 'Light Rain', 'Heavy Rain', 'Dusk', 'Night']
 
+LOCATION_SURFACE = {
+    'Monaco': 'Tarmac',
+    'Spain': 'Tarmac',
+}
+
+DURATION_OPTIONS = {
+    '24h': ('daily', timedelta(hours=24)),
+    '1week': ('weekly', timedelta(weeks=1)),
+    '1month': ('monthly', timedelta(days=30)),
+}
+
 
 def _seed_users() -> list[dict[str, Any]]:
     profiles = [
@@ -1089,7 +1100,10 @@ def club_detail(club_id: str) -> str:
         abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
     events = [e for e in get_all_events() if e.get('club_id') == club_id]
-    return render_template('club_detail.html', club=club, members=members, events=events)
+    return render_template(
+        'club_detail.html', club=club, members=members, events=events,
+        stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+    )
 
 
 @app.route('/clubs/<club_id>/join', methods=['POST'])
@@ -1124,6 +1138,79 @@ def leave_club(club_id: str) -> Response:
             user['clubs'].remove(club_id)
             save_user(user)
         flash(f'Left {club["name"]}.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/events', methods=['POST'])
+@verified_required
+def create_club_event(club_id: str) -> Response:
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    user = current_user()
+    assert user is not None
+    if club['created_by'] != user['username']:
+        abort(403)
+
+    name = request.form.get('name', '').strip()
+    location = request.form.get('location', '').strip()
+    car_class = request.form.get('car_class', '').strip()
+    cond = request.form.get('conditions', '').strip()
+    duration = request.form.get('duration', '').strip()
+    try:
+        num_stages = int(request.form.get('num_stages', '0'))
+    except ValueError:
+        num_stages = 0
+
+    errors: list[str] = []
+    if not name:
+        errors.append('Event name is required.')
+    elif len(name) > 60:
+        errors.append('Event name must be under 60 characters.')
+    if location not in STAGES:
+        errors.append('Invalid location.')
+    if car_class not in CAR_CLASSES:
+        errors.append('Invalid vehicle class.')
+    if cond not in CONDITIONS:
+        errors.append('Invalid conditions.')
+    if duration not in DURATION_OPTIONS:
+        errors.append('Invalid duration.')
+    available = len(STAGES.get(location, []))
+    if num_stages < 1 or (available and num_stages > available):
+        errors.append(f'Stage count must be between 1 and {available}.')
+
+    if errors:
+        for e in errors:
+            flash(e, 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+
+    event_type, delta = DURATION_OPTIONS[duration]
+    now = datetime.now()
+    surface = LOCATION_SURFACE.get(location, 'Gravel')
+
+    stage_list = [
+        {'name': sname, 'distance_km': dist, 'conditions': cond}
+        for sname, dist in STAGES[location][:num_stages]
+    ]
+
+    event = {
+        'id': f'evt-{uuid.uuid4().hex[:8]}',
+        'name': name,
+        'type': event_type,
+        'location': location,
+        'car_class': car_class,
+        'surface': surface,
+        'conditions': cond,
+        'stages': stage_list,
+        'start_time': now.isoformat(),
+        'end_time': (now + delta).isoformat(),
+        'active': True,
+        'featured': False,
+        'club_id': club_id,
+    }
+
+    save_event(event)
+    flash(f'Event "{name}" created!', 'success')
     return redirect(url_for('club_detail', club_id=club_id))
 
 

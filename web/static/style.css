@@ -1133,6 +1133,22 @@ button { cursor: pointer; font-family: inherit; }
     color: var(--accent);
 }
 
+.create-event-form-wrap {
+    border-bottom: 1px solid var(--border-light);
+}
+
+.create-event-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.create-event-actions {
+    display: flex;
+    gap: .75rem;
+}
+
 .club-info-card,
 .event-info-card {
     display: flex;
@@ -1641,6 +1657,7 @@ button { cursor: pointer; font-family: inherit; }
     .stats-grid-sm { grid-template-columns: repeat(3, 1fr); }
 
     .events-grid { grid-template-columns: 1fr; }
+    .create-event-grid { grid-template-columns: 1fr; }
 
     .activity-item {
         flex-wrap: wrap;
