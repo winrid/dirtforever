@@ -21,6 +21,7 @@ logging.basicConfig(
     force=True,
 )
 log = logging.getLogger('dirtforever')
+log.info('dirtforever server module loading')
 
 from flask import (
     Flask, render_template, request, redirect,
@@ -860,6 +861,7 @@ def forgot_password():
 @app.route('/forgot', methods=['POST'])
 def forgot_password_post():
     email = request.form.get('email', '').strip()
+    log.info('Forgot password request for email=%s', email)
     if not email:
         flash('Please enter your email address.', 'error')
         return redirect(url_for('forgot_password'))
@@ -868,6 +870,7 @@ def forgot_password_post():
     # Always show the same message to prevent email enumeration
     flash('If an account with that email exists, we sent a password reset link.', 'info')
     if not user:
+        log.info('No user found for email=%s', email)
         return redirect(url_for('forgot_password'))
 
     # If the user never verified their email, resend verification too
