@@ -63,7 +63,40 @@
     </div>
 
     <div class="dashboard-side">
-        <div class="card reveal" style="animation-delay:.15s">
+        <div class="card reveal" style="animation-delay:.1s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Game Server Token</h2>
+            </div>
+            <div class="card-body">
+                {% if new_token %}
+                <p style="margin-bottom:.75rem; color: var(--green); font-weight: 700;">Token generated! Copy it now &mdash; it won't be shown again.</p>
+                <div style="background:var(--bg-deep); border:1px solid var(--border); border-radius:var(--radius); padding:.75rem 1rem; font-family:var(--font-mono); font-size:.85rem; color:var(--accent-bright); word-break:break-all; margin-bottom:1rem;">{{ new_token }}</div>
+                {% elif has_token %}
+                <p style="margin-bottom:.5rem;">Your token: <code style="color:var(--accent-bright)">{{ token_masked }}</code></p>
+                {% endif %}
+
+                {% if has_token %}
+                <div style="display:flex; gap:.5rem; margin-bottom:1rem;">
+                    <form method="post" action="/api/token/generate" style="margin:0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Regenerate</button>
+                    </form>
+                    <form method="post" action="/api/token/revoke" style="margin:0">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--red)">Revoke</button>
+                    </form>
+                </div>
+                {% else %}
+                <form method="post" action="/api/token/generate" style="margin-bottom:1rem">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-accent btn-sm">Generate Token</button>
+                </form>
+                {% endif %}
+                <p class="text-muted" style="font-size:.8rem; line-height:1.5;">Paste this token when setting up <a href="/install">DirtForever.exe</a>. It links the game to your account for leaderboards and clubs.</p>
+            </div>
+        </div>
+
+        <div class="card reveal" style="animation-delay:.2s">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> My Clubs</h2>
                 <a href="/clubs" class="card-link">Browse &rarr;</a>
