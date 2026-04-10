@@ -137,23 +137,15 @@
     </div>
 
     <div class="container">
-        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> PREREQUISITES</h2>
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> REQUIREMENTS</h2>
         <div class="install-prereqs">
             <div class="install-prereq">
                 <strong>Windows 10/11</strong>
-                <span>Required for the hosts redirect</span>
-            </div>
-            <div class="install-prereq">
-                <strong>Python 3.9+</strong>
-                <span><a href="https://www.python.org/downloads/">python.org/downloads</a></span>
+                <span>Required for the local server</span>
             </div>
             <div class="install-prereq">
                 <strong>DiRT Rally 2.0</strong>
                 <span>Installed via Steam</span>
-            </div>
-            <div class="install-prereq">
-                <strong>cryptography</strong>
-                <span>Run: <code style="color:var(--accent-bright)">pip install cryptography</code></span>
             </div>
         </div>
     </div>
@@ -163,7 +155,7 @@
         <div class="install-steps">
             <div class="install-step">
                 <h3>Create an Account</h3>
-                <p>Register at <a href="/register">dirtforever.net</a> if you haven't already.</p>
+                <p><a href="/register">Register at dirtforever.net</a> if you haven't already.</p>
             </div>
 
             <div class="install-step">
@@ -172,28 +164,21 @@
             </div>
 
             <div class="install-step">
-                <h3>Download the Server</h3>
-                <p>Clone or download the repository from GitHub.</p>
-                <div class="install-code">git clone https://github.com/winrid/dirtforever.git</div>
+                <h3>Download and Run DirtForever</h3>
+                <p>Download the latest release and run it. No Python or other tools needed.</p>
+                <p style="margin-top: 1rem;">
+                    <a href="https://github.com/winrid/dirtforever/releases/latest/download/DirtForever.exe"
+                       style="display:inline-block; padding:.75rem 2rem; background:var(--accent); color:var(--bg-deep); font-family:var(--font-ui); font-weight:700; text-transform:uppercase; letter-spacing:1px; border-radius:var(--radius); text-decoration:none; font-size:.95rem;">
+                        Download DirtForever.exe
+                    </a>
+                </p>
+                <p style="margin-top: .75rem; color: var(--text-muted); font-size: .9rem;">Windows will ask for administrator access. The app sets up a local TLS certificate and redirects game traffic to your machine. It will ask you to paste your game token.</p>
             </div>
 
             <div class="install-step">
-                <h3>Run the Installer</h3>
-                <p>Open <strong>PowerShell as Administrator</strong> and run:</p>
-                <div class="install-code">cd path\to\dirtforever
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1</div>
-                <p>The installer will generate and trust a TLS certificate, redirect Codemasters hostnames to your machine, ask you to paste your game token, and create a <strong>DirtForever Server</strong> desktop shortcut. UAC will prompt for administrator access.</p>
-            </div>
-
-            <div class="install-step">
-                <h3>Start the Server</h3>
-                <p>Double-click the <strong>DirtForever Server</strong> shortcut on your desktop, or run manually:</p>
-                <div class="install-code">python server.py --ssl-cert runtime\certs\dr2server-cert.pem --ssl-key runtime\certs\dr2server-key.pem</div>
-            </div>
-
-            <div class="install-step">
-                <h3>Launch the Game</h3>
-                <p>Start DiRT Rally 2.0 via Steam as usual. Game traffic will reach your local server automatically, which syncs with dirtforever.net for clubs, events, and leaderboards.</p>
+                <h3>Play</h3>
+                <p>Run <strong>DirtForever.exe</strong>, then launch DiRT Rally 2.0 via Steam. Clubs, events, and leaderboards are powered by dirtforever.net.</p>
+                <p style="color: var(--text-muted); font-size: .9rem; margin-top: .5rem;">Run DirtForever.exe before each gaming session. The game needs it running to connect.</p>
             </div>
         </div>
     </div>
@@ -225,9 +210,11 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1</div>
     <div class="container">
         <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING</h2>
         <div class="install-uninstall">
-            <p>To remove the hosts redirect, open PowerShell as Administrator and run:</p>
-            <div class="install-code">powershell -ExecutionPolicy Bypass -File scripts\remove_windows_redirect.ps1</div>
-            <p style="margin-top:.75rem;">The certificate installed during setup can be removed manually via <code style="color:var(--accent-bright)">certmgr.msc</code>. Config is stored at <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\config.json</code>.</p>
+            <p>Run <strong>DirtForever.exe --setup</strong> to reconfigure, or to fully remove:</p>
+            <p style="margin-top:.5rem;">1. Delete <code style="color:var(--accent-bright)">DirtForever.exe</code></p>
+            <p>2. Remove hosts entries: open <code style="color:var(--accent-bright)">C:\Windows\System32\drivers\etc\hosts</code> as admin and delete the <code style="color:var(--accent-bright)"># BEGIN DIRTFOREVER</code> block</p>
+            <p>3. Remove the certificate via <code style="color:var(--accent-bright)">certmgr.msc</code> (look under Trusted Root for "dirtforever")</p>
+            <p>4. Delete config: <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\</code></p>
         </div>
     </div>
 </section>
