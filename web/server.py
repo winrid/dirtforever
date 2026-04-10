@@ -1,0 +1,958 @@
+import os
+import json
+import hashlib
+import secrets
+import uuid
+import random
+from datetime import datetime, timedelta
+from functools import wraps
+
+from flask import (
+    Flask, render_template, request, redirect,
+    url_for, session, flash, abort,
+)
+
+app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+
+BASE = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR   = os.path.join(BASE, 'data')
+USERS_DIR  = os.path.join(DATA_DIR, 'users')
+CLUBS_DIR  = os.path.join(DATA_DIR, 'clubs')
+EVENTS_DIR = os.path.join(DATA_DIR, 'events')
+RESULTS_DIR = os.path.join(DATA_DIR, 'results')
+
+for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR):
+    os.makedirs(d, exist_ok=True)
+
+
+# ── File helpers ─────────────────────────────────────────
+
+def _load(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def _save(path, data):
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+
+def _list_json(directory):
+    out = []
+    if os.path.isdir(directory):
+        for fn in sorted(os.listdir(directory)):
+            if fn.endswith('.json'):
+                out.append(_load(os.path.join(directory, fn)))
+    return out
+
+
+# ── User ops ─────────────────────────────────────────────
+
+def get_user(username):
+    p = os.path.join(USERS_DIR, f'{username}.json')
+    return _load(p) if os.path.exists(p) else None
+
+
+def save_user(u):
+    _save(os.path.join(USERS_DIR, f"{u['username']}.json"), u)
+
+
+def get_all_users():
+    return _list_json(USERS_DIR)
+
+
+def create_user(username, email, password, display_name=None, country='', bio=''):
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
+    u = {
+        'username': username,
+        'email': email,
+        'password_hash': dk.hex(),
+        'salt': salt.hex(),
+        'display_name': display_name or username,
+        'country': country,
+        'bio': bio,
+        'created_at': datetime.now().isoformat(),
+        'clubs': [],
+    }
+    save_user(u)
+    return u
+
+
+def check_password(password, user):
+    salt = bytes.fromhex(user['salt'])
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
+    return dk.hex() == user['password_hash']
+
+
+# ── Club ops ─────────────────────────────────────────────
+
+def get_club(cid):
+    p = os.path.join(CLUBS_DIR, f'{cid}.json')
+    return _load(p) if os.path.exists(p) else None
+
+
+def save_club(c):
+    _save(os.path.join(CLUBS_DIR, f"{c['id']}.json"), c)
+
+
+def get_all_clubs():
+    return _list_json(CLUBS_DIR)
+
+
+# ── Event ops ────────────────────────────────────────────
+
+def get_event(eid):
+    p = os.path.join(EVENTS_DIR, f'{eid}.json')
+    return _load(p) if os.path.exists(p) else None
+
+
+def save_event(e):
+    _save(os.path.join(EVENTS_DIR, f"{e['id']}.json"), e)
+
+
+def get_all_events():
+    return _list_json(EVENTS_DIR)
+
+
+def get_events_by_type(t):
+    return [e for e in get_all_events() if e.get('type') == t]
+
+
+# ── Result ops ───────────────────────────────────────────
+
+def get_results(eid):
+    p = os.path.join(RESULTS_DIR, f'{eid}.json')
+    if os.path.exists(p):
+        return _load(p)
+    return {'event_id': eid, 'entries': []}
+
+
+def save_results(eid, data):
+    _save(os.path.join(RESULTS_DIR, f'{eid}.json'), data)
+
+
+# ── Auth decorator ───────────────────────────────────────
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if 'username' not in session:
+            flash('Please sign in to continue.', 'warning')
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def current_user():
+    if 'username' in session:
+        return get_user(session['username'])
+    return None
+
+
+# ── Context & filters ────────────────────────────────────
+
+@app.context_processor
+def inject_globals():
+    return dict(current_user=current_user())
+
+
+@app.template_filter('rally_time')
+def rally_time_filter(ms):
+    if ms is None:
+        return '--:--.---'
+    ms = int(ms)
+    minutes = ms // 60000
+    seconds = (ms % 60000) // 1000
+    millis = ms % 1000
+    return f'{minutes:02d}:{seconds:02d}.{millis:03d}'
+
+
+@app.template_filter('time_diff')
+def time_diff_filter(ms):
+    if ms is None or ms == 0:
+        return ''
+    sign = '+' if ms > 0 else '-'
+    a = abs(int(ms))
+    s = a // 1000
+    m = a % 1000
+    if s >= 60:
+        return f'{sign}{s // 60}:{s % 60:02d}.{m:03d}'
+    return f'{sign}{s}.{m:03d}'
+
+
+@app.template_filter('timeago')
+def timeago_filter(dt_str):
+    try:
+        dt = datetime.fromisoformat(dt_str)
+        diff = datetime.now() - dt
+        if diff.days > 30:
+            return f'{diff.days // 30}mo ago'
+        if diff.days > 0:
+            return f'{diff.days}d ago'
+        h = diff.seconds // 3600
+        if h > 0:
+            return f'{h}h ago'
+        m = diff.seconds // 60
+        return f'{m}m ago' if m > 0 else 'just now'
+    except Exception:
+        return dt_str
+
+
+@app.template_filter('countdown')
+def countdown_filter(dt_str):
+    try:
+        dt = datetime.fromisoformat(dt_str)
+        diff = dt - datetime.now()
+        if diff.total_seconds() <= 0:
+            return 'Ended'
+        d = diff.days
+        h = diff.seconds // 3600
+        m = (diff.seconds % 3600) // 60
+        if d > 0:
+            return f'{d}d {h}h'
+        if h > 0:
+            return f'{h}h {m}m'
+        return f'{m}m'
+    except Exception:
+        return dt_str
+
+
+# ── Seed data ────────────────────────────────────────────
+
+STAGES = {
+    'Argentina': [
+        ('Las Juntas', 8.25), ('Valle de los puentes', 7.55),
+        ('Camino de acantilados', 5.30), ('San Isidro', 6.85),
+        ('Miraflores', 3.35), ('El Rodeo', 7.00),
+    ],
+    'Australia': [
+        ('Mount Kaye Pass', 12.50), ('Chandlers Creek', 12.34),
+        ('Bondi Forest', 7.00), ('Rockton Plains', 6.87),
+        ('Yambulla Mountain Ascent', 6.64), ('Noorinbee Ridge Descent', 6.30),
+    ],
+    'Finland': [
+        ('Kakaristo', 16.20), ('Kontinjarvi', 15.04),
+        ('Naarajarvi', 12.14), ('Jyrkysjarvi', 7.51),
+        ('Kailajarvi', 7.43), ('Paskuri', 5.72),
+    ],
+    'Greece': [
+        ('Fourketa Kourva', 10.36), ('Anodou Farmakas', 9.10),
+        ('Pomona Erixi', 5.09), ('Koryfi Dafni', 4.95),
+        ('Abies Koilada', 7.09), ('Tsiristra Thea', 5.79),
+    ],
+    'Monaco': [
+        ('Vallee descendante', 10.87), ("Pra d'Alart", 9.83),
+        ('Col de Turini Depart', 9.05), ('Route de Turini', 10.87),
+        ('Col de Turini Sprint', 5.17), ('Gordolon', 5.17),
+    ],
+    'New Zealand': [
+        ('Waimarama Point Forward', 15.06), ('Te Awanga Forward', 11.44),
+        ('Waimarama Sprint Forward', 5.23), ('Elsthorpe Sprint Forward', 4.79),
+        ('Ocean Beach Sprint Forward', 7.15), ('Te Awanga Sprint Forward', 4.83),
+    ],
+    'Poland': [
+        ('Leczna', 16.46), ('Zienki', 13.42),
+        ('Zagorze', 8.75), ('Jezioro Rotcze', 6.59),
+        ('Borysik', 6.82), ('Jozefow', 9.17),
+    ],
+    'Scotland': [
+        ('Rosebank Farm', 7.17), ('South Morningside', 12.58),
+        ('Annbank Station', 7.77), ('Newhouse Bridge', 12.85),
+    ],
+    'Spain': [
+        ('Comiols', 14.35), ('Descenso por carretera', 10.57),
+        ('Centenera', 10.57), ('Ascenso bosque', 5.30),
+        ('Vinedos dentro del monasterio', 6.81), ('El Montaje', 3.20),
+    ],
+    'Sweden': [
+        ('Hamra', 12.34), ('Ransbysater', 11.98),
+        ('Elgsjon', 7.28), ('Stor-jangen Sprint', 6.69),
+        ('Algsjon Sprint', 5.25), ('Ostra Hinnsjon', 4.93),
+    ],
+    'USA': [
+        ('Beaver Creek Trail Forward', 12.86),
+        ('North Fork Pass', 12.50),
+        ('Hancock Creek Burst', 6.89),
+        ('Fuller Mountain Ascent', 6.64),
+        ('Fury Lake Depart', 5.97),
+        ('Hancock Hill Sprint', 6.01),
+    ],
+    'Wales': [
+        ('River Severn Valley', 11.40), ('Sweet Lamb', 9.93),
+        ('Geufron Forest', 10.03), ('Pant Mawr', 5.72),
+        ('Bidno Moorland', 4.87), ('Bronfelen', 5.10),
+    ],
+}
+
+CAR_CLASSES = {
+    'Group A': [
+        'Subaru Impreza 1995', 'Mitsubishi Lancer Evo VI',
+        'Ford Escort RS Cosworth', 'Subaru Legacy RS',
+    ],
+    'Group B (4WD)': [
+        'Audi Sport quattro S1 E2', 'Peugeot 205 T16 Evo 2',
+        'Lancia Delta S4', 'Ford RS200', 'MG Metro 6R4',
+    ],
+    'Group B (RWD)': [
+        'Lancia 037 Evo 2', 'Opel Manta 400', 'BMW M1 Procar Rally',
+    ],
+    'R5': [
+        'Ford Fiesta R5', 'Volkswagen Polo GTI R5',
+        'Citroen C3 R5', 'Skoda Fabia R5',
+        'Peugeot 208 T16 R5',
+    ],
+    'NR4/R4': [
+        'Subaru WRX STI NR4', 'Mitsubishi Lancer Evo X',
+    ],
+    'H2 (RWD)': [
+        'Porsche 911 SC RS', 'Fiat 131 Abarth Rally',
+        'Opel Kadett C GT/E',
+    ],
+    'Rally GT': [
+        'Porsche 911 RGT Rally Spec', 'BMW M2 Competition',
+        'Chevrolet Camaro GT4.R', 'Aston Martin V8 Vantage GT4',
+    ],
+    'F2 Kit Car': [
+        'Peugeot 306 Maxi', 'Seat Ibiza Kit Car',
+        'Volkswagen Golf Kitcar',
+    ],
+    '2000cc': [
+        'Citroen C4 Rally', 'Skoda Fabia Rally',
+        'Ford Focus RS Rally 2007', 'Subaru Impreza 2008',
+    ],
+}
+
+CONDITIONS = ['Clear', 'Overcast', 'Light Rain', 'Heavy Rain', 'Dusk', 'Night']
+
+
+def _seed_users():
+    profiles = [
+        ('GravelKing',     'Finland',      'Scandinavian gravel specialist'),
+        ('McRaeFan95',     'Scotland',     'If in doubt, flat out'),
+        ('TarmacTerror',   'Spain',        'Tarmac is the only true surface'),
+        ('DirtDemon',      'Australia',    'Red dust runs through my veins'),
+        ('SidewaysSteve',  'Wales',        'Powerslide enthusiast'),
+        ('RallyRat',       'Poland',       'Living life one stage at a time'),
+        ('CoDriverCarl',   'Monaco',       'Five left tightens into three right'),
+        ('SendItSarah',    'New Zealand',  'Full send, no regrets'),
+        ('FlatOutFrank',   'Sweden',       'Scandinavian flick specialist'),
+        ('PaceNotePete',   'Greece',       'Precision over speed'),
+        ('HandbrakeHero',  'Argentina',    'Hairpins are my specialty'),
+        ('MudSlinger',     'USA',          'The muddier the better'),
+    ]
+    users = []
+    for username, country, bio in profiles:
+        u = create_user(
+            username=username,
+            email=f'{username.lower()}@dirtforever.local',
+            password='rally2025',
+            display_name=username,
+            country=country,
+            bio=bio,
+        )
+        users.append(u)
+    return users
+
+
+def _seed_clubs(users):
+    clubs_data = [
+        {
+            'id': 'club-scandinavian',
+            'name': 'Scandinavian Sideways',
+            'description': 'Nordic rally enthusiasts who live for gravel, snow, and the Scandinavian flick.',
+            'created_by': 'GravelKing',
+            'created_at': (datetime.now() - timedelta(days=45)).isoformat(),
+            'members': ['GravelKing', 'FlatOutFrank', 'McRaeFan95', 'SidewaysSteve', 'SendItSarah'],
+        },
+        {
+            'id': 'club-tarmac',
+            'name': 'Tarmac Titans',
+            'description': 'Asphalt specialists. Clean lines, late braking, maximum precision.',
+            'created_by': 'TarmacTerror',
+            'created_at': (datetime.now() - timedelta(days=30)).isoformat(),
+            'members': ['TarmacTerror', 'CoDriverCarl', 'PaceNotePete', 'RallyRat'],
+        },
+        {
+            'id': 'club-fullsend',
+            'name': 'Full Send Racing',
+            'description': 'No half measures. Flat out or nothing.',
+            'created_by': 'SendItSarah',
+            'created_at': (datetime.now() - timedelta(days=20)).isoformat(),
+            'members': ['SendItSarah', 'DirtDemon', 'HandbrakeHero', 'MudSlinger', 'FlatOutFrank', 'McRaeFan95'],
+        },
+        {
+            'id': 'club-weekend',
+            'name': 'Weekend Warriors',
+            'description': 'Casual rally fans. Fun first, times second.',
+            'created_by': 'MudSlinger',
+            'created_at': (datetime.now() - timedelta(days=15)).isoformat(),
+            'members': ['MudSlinger', 'RallyRat', 'SidewaysSteve', 'HandbrakeHero'],
+        },
+    ]
+    for c in clubs_data:
+        save_club(c)
+        for uname in c['members']:
+            u = get_user(uname)
+            if u and c['id'] not in u.get('clubs', []):
+                u.setdefault('clubs', []).append(c['id'])
+                save_user(u)
+    return clubs_data
+
+
+def _gen_time(base_km, rng):
+    """Generate a plausible stage time in ms given stage length in km."""
+    pace = rng.uniform(5.8, 7.5)  # minutes per km
+    base_ms = int(base_km * pace * 60 * 1000)
+    variance = rng.uniform(-0.04, 0.08)
+    return int(base_ms * (1 + variance))
+
+
+def _seed_events_and_results(users):
+    rng = random.Random(42)
+    now = datetime.now()
+    usernames = [u['username'] for u in users]
+
+    events_spec = [
+        {
+            'id': 'evt-daily-argentina',
+            'name': 'Argentina Sprint',
+            'type': 'daily',
+            'location': 'Argentina',
+            'car_class': 'Group A',
+            'surface': 'Gravel',
+            'conditions': 'Clear',
+            'stage_indices': [0, 2, 4],
+            'start': now - timedelta(hours=6),
+            'end': now + timedelta(hours=18),
+            'featured': True,
+            'club_id': None,
+        },
+        {
+            'id': 'evt-daily-finland',
+            'name': 'Finland Night Rally',
+            'type': 'daily',
+            'location': 'Finland',
+            'car_class': 'R5',
+            'surface': 'Gravel',
+            'conditions': 'Night',
+            'stage_indices': [3, 4],
+            'start': now - timedelta(hours=2),
+            'end': now + timedelta(hours=22),
+            'featured': False,
+            'club_id': None,
+        },
+        {
+            'id': 'evt-weekly-wales',
+            'name': 'Wales Classic',
+            'type': 'weekly',
+            'location': 'Wales',
+            'car_class': 'Group B (4WD)',
+            'surface': 'Gravel',
+            'conditions': 'Overcast',
+            'stage_indices': [0, 1, 2, 3],
+            'start': now - timedelta(days=3),
+            'end': now + timedelta(days=4),
+            'featured': False,
+            'club_id': 'club-scandinavian',
+        },
+        {
+            'id': 'evt-weekly-greece',
+            'name': 'Greece Gravel Grind',
+            'type': 'weekly',
+            'location': 'Greece',
+            'car_class': 'NR4/R4',
+            'surface': 'Gravel',
+            'conditions': 'Clear',
+            'stage_indices': [0, 1, 4],
+            'start': now - timedelta(days=2),
+            'end': now + timedelta(days=5),
+            'featured': False,
+            'club_id': 'club-tarmac',
+        },
+        {
+            'id': 'evt-monthly-monaco',
+            'name': 'Monte Carlo Championship',
+            'type': 'monthly',
+            'location': 'Monaco',
+            'car_class': 'R5',
+            'surface': 'Tarmac',
+            'conditions': 'Light Rain',
+            'stage_indices': [0, 1, 2, 3, 4, 5],
+            'start': now - timedelta(days=10),
+            'end': now + timedelta(days=20),
+            'featured': False,
+            'club_id': None,
+        },
+        {
+            'id': 'evt-monthly-australia',
+            'name': 'Australia Endurance',
+            'type': 'monthly',
+            'location': 'Australia',
+            'car_class': 'Group A',
+            'surface': 'Gravel',
+            'conditions': 'Dusk',
+            'stage_indices': [0, 1, 2, 3, 4],
+            'start': now - timedelta(days=8),
+            'end': now + timedelta(days=22),
+            'featured': False,
+            'club_id': 'club-fullsend',
+        },
+    ]
+
+    for spec in events_spec:
+        loc = spec['location']
+        all_stages = STAGES[loc]
+        stages = []
+        for si in spec['stage_indices']:
+            name, km = all_stages[si]
+            stages.append({'name': name, 'distance_km': km, 'conditions': spec['conditions']})
+
+        event = {
+            'id': spec['id'],
+            'name': spec['name'],
+            'type': spec['type'],
+            'location': spec['location'],
+            'car_class': spec['car_class'],
+            'surface': spec['surface'],
+            'conditions': spec['conditions'],
+            'stages': stages,
+            'start_time': spec['start'].isoformat(),
+            'end_time': spec['end'].isoformat(),
+            'active': True,
+            'featured': spec['featured'],
+            'club_id': spec.get('club_id'),
+        }
+        save_event(event)
+
+        cars = CAR_CLASSES.get(spec['car_class'], ['Unknown Car'])
+        participants = rng.sample(usernames, k=min(rng.randint(6, 10), len(usernames)))
+        entries = []
+        for uname in participants:
+            car = rng.choice(cars)
+            stage_times = []
+            total = 0
+            for stage in stages:
+                t = _gen_time(stage['distance_km'], rng)
+                penalty = rng.choice([0, 0, 0, 0, 0, 5000, 10000, 15000])
+                stage_times.append({
+                    'time_ms': t,
+                    'penalties_ms': penalty,
+                    'submitted_at': (spec['start'] + timedelta(
+                        hours=rng.uniform(1, max(1.1, (spec['end'] - spec['start']).total_seconds() / 7200))
+                    )).isoformat(),
+                })
+                total += t + penalty
+            entries.append({
+                'username': uname,
+                'car': car,
+                'stages': stage_times,
+                'total_time_ms': total,
+            })
+        entries.sort(key=lambda e: e['total_time_ms'])
+        save_results(spec['id'], {'event_id': spec['id'], 'entries': entries})
+
+
+def seed_data():
+    if os.listdir(USERS_DIR):
+        return
+    users = _seed_users()
+    _seed_clubs(users)
+    _seed_events_and_results(users)
+
+
+# ── Routes: pages ────────────────────────────────────────
+
+@app.route('/')
+def home():
+    users  = get_all_users()
+    clubs  = get_all_clubs()
+    events = get_all_events()
+    all_results = [get_results(e['id']) for e in events]
+    total_entries = sum(len(r.get('entries', [])) for r in all_results)
+
+    stats = {
+        'total_drivers': len(users),
+        'total_clubs':   len(clubs),
+        'active_events': len([e for e in events if e.get('active')]),
+        'total_entries': total_entries,
+    }
+    featured = next((e for e in events if e.get('featured')), events[0] if events else None)
+
+    recent = []
+    for r in all_results:
+        evt = get_event(r['event_id'])
+        if not evt:
+            continue
+        for entry in r.get('entries', []):
+            pos = r['entries'].index(entry) + 1
+            recent.append({
+                'username': entry['username'],
+                'event_name': evt['name'],
+                'event_id': evt['id'],
+                'total_time_ms': entry['total_time_ms'],
+                'car': entry['car'],
+                'position': pos,
+                'submitted_at': entry['stages'][-1]['submitted_at'] if entry['stages'] else evt['start_time'],
+            })
+    recent.sort(key=lambda x: x['submitted_at'], reverse=True)
+
+    return render_template('home.html', stats=stats, featured_event=featured, recent=recent[:8])
+
+
+@app.route('/login', methods=['GET'])
+def login():
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
+
+
+@app.route('/login', methods=['POST'])
+def login_post():
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    user = get_user(username)
+    if not user or not check_password(password, user):
+        flash('Invalid username or password.', 'error')
+        return redirect(url_for('login'))
+    session['username'] = username
+    flash(f'Welcome back, {user["display_name"]}!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/register', methods=['GET'])
+def register():
+    if 'username' in session:
+        return redirect(url_for('dashboard'))
+    return render_template('register.html')
+
+
+@app.route('/register', methods=['POST'])
+def register_post():
+    username = request.form.get('username', '').strip()
+    email    = request.form.get('email', '').strip()
+    password = request.form.get('password', '')
+    confirm  = request.form.get('confirm', '')
+
+    if not username or not email or not password:
+        flash('All fields are required.', 'error')
+        return redirect(url_for('register'))
+    if len(username) < 3 or len(username) > 24:
+        flash('Username must be 3-24 characters.', 'error')
+        return redirect(url_for('register'))
+    if password != confirm:
+        flash('Passwords do not match.', 'error')
+        return redirect(url_for('register'))
+    if len(password) < 6:
+        flash('Password must be at least 6 characters.', 'error')
+        return redirect(url_for('register'))
+    if get_user(username):
+        flash('Username already taken.', 'error')
+        return redirect(url_for('register'))
+
+    create_user(username, email, password)
+    session['username'] = username
+    flash(f'Welcome to DirtForever, {username}!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.pop('username', None)
+    flash('Signed out.', 'info')
+    return redirect(url_for('home'))
+
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user = current_user()
+    my_clubs = [get_club(cid) for cid in user.get('clubs', []) if get_club(cid)]
+    events = get_all_events()
+    active = [e for e in events if e.get('active')]
+
+    my_results = []
+    for evt in events:
+        res = get_results(evt['id'])
+        for i, entry in enumerate(res.get('entries', [])):
+            if entry['username'] == user['username']:
+                my_results.append({
+                    'event': evt,
+                    'entry': entry,
+                    'position': i + 1,
+                    'total_entries': len(res['entries']),
+                })
+    my_results.sort(
+        key=lambda x: x['entry']['stages'][-1]['submitted_at'] if x['entry']['stages'] else '',
+        reverse=True,
+    )
+
+    return render_template(
+        'dashboard.html', user=user, my_clubs=my_clubs,
+        active_events=active, my_results=my_results[:10],
+    )
+
+
+@app.route('/leaderboards')
+def leaderboards():
+    events = get_all_events()
+    event_id = request.args.get('event')
+    stage_idx = request.args.get('stage', type=int)
+
+    selected_event = None
+    entries = []
+    leader_time = None
+
+    if event_id:
+        selected_event = get_event(event_id)
+        if selected_event:
+            res = get_results(event_id)
+            raw = res.get('entries', [])
+            if stage_idx is not None and selected_event.get('stages'):
+                filtered = []
+                for e in raw:
+                    if stage_idx < len(e.get('stages', [])):
+                        st = e['stages'][stage_idx]
+                        filtered.append({
+                            'username': e['username'],
+                            'car': e['car'],
+                            'time_ms': st['time_ms'] + st['penalties_ms'],
+                            'penalties_ms': st['penalties_ms'],
+                        })
+                filtered.sort(key=lambda x: x['time_ms'])
+                entries = filtered
+            else:
+                entries = [
+                    {
+                        'username': e['username'],
+                        'car': e['car'],
+                        'time_ms': e['total_time_ms'],
+                        'penalties_ms': sum(s.get('penalties_ms', 0) for s in e.get('stages', [])),
+                    }
+                    for e in raw
+                ]
+            if entries:
+                leader_time = entries[0]['time_ms']
+    elif events:
+        return redirect(url_for('leaderboards', event=events[0]['id']))
+
+    return render_template(
+        'leaderboards.html', events=events, selected_event=selected_event,
+        entries=entries, leader_time=leader_time, stage_idx=stage_idx,
+    )
+
+
+@app.route('/clubs')
+def clubs():
+    all_clubs = get_all_clubs()
+    return render_template('clubs.html', clubs=all_clubs)
+
+
+@app.route('/clubs', methods=['POST'])
+@login_required
+def create_club():
+    name = request.form.get('name', '').strip()
+    desc = request.form.get('description', '').strip()
+    if not name:
+        flash('Club name is required.', 'error')
+        return redirect(url_for('clubs'))
+    if len(name) > 40:
+        flash('Club name must be under 40 characters.', 'error')
+        return redirect(url_for('clubs'))
+
+    user = current_user()
+    cid = f'club-{uuid.uuid4().hex[:8]}'
+    club = {
+        'id': cid,
+        'name': name,
+        'description': desc,
+        'created_by': user['username'],
+        'created_at': datetime.now().isoformat(),
+        'members': [user['username']],
+    }
+    save_club(club)
+    user.setdefault('clubs', []).append(cid)
+    save_user(user)
+    flash(f'Club "{name}" created!', 'success')
+    return redirect(url_for('club_detail', club_id=cid))
+
+
+@app.route('/clubs/<club_id>')
+def club_detail(club_id):
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    members = [get_user(m) for m in club.get('members', []) if get_user(m)]
+    events = [e for e in get_all_events() if e.get('club_id') == club_id]
+    return render_template('club_detail.html', club=club, members=members, events=events)
+
+
+@app.route('/clubs/<club_id>/join', methods=['POST'])
+@login_required
+def join_club(club_id):
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    user = current_user()
+    if user['username'] not in club['members']:
+        club['members'].append(user['username'])
+        save_club(club)
+        user.setdefault('clubs', []).append(club_id)
+        save_user(user)
+        flash(f'Joined {club["name"]}!', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/leave', methods=['POST'])
+@login_required
+def leave_club(club_id):
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    user = current_user()
+    if user['username'] in club['members']:
+        club['members'].remove(user['username'])
+        save_club(club)
+        if club_id in user.get('clubs', []):
+            user['clubs'].remove(club_id)
+            save_user(user)
+        flash(f'Left {club["name"]}.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/events')
+def events():
+    t = request.args.get('type', 'daily')
+    all_events = get_all_events()
+    filtered = [e for e in all_events if e.get('type') == t]
+    counts = {}
+    for e in all_events:
+        counts[e['type']] = counts.get(e['type'], 0) + 1
+    return render_template('events.html', events=filtered, event_type=t, counts=counts)
+
+
+@app.route('/events/<event_id>')
+def event_detail(event_id):
+    event = get_event(event_id)
+    if not event:
+        abort(404)
+    results = get_results(event_id)
+    entries = results.get('entries', [])
+    club = get_club(event['club_id']) if event.get('club_id') else None
+    cars = CAR_CLASSES.get(event.get('car_class', ''), [])
+    return render_template('event_detail.html', event=event, entries=entries, club=club, cars=cars)
+
+
+@app.route('/events/<event_id>/submit', methods=['POST'])
+@login_required
+def submit_time(event_id):
+    event = get_event(event_id)
+    if not event:
+        abort(404)
+
+    user = current_user()
+    results = get_results(event_id)
+    entries = results.get('entries', [])
+
+    existing = next((e for e in entries if e['username'] == user['username']), None)
+    if existing:
+        flash('You have already submitted times for this event.', 'warning')
+        return redirect(url_for('event_detail', event_id=event_id))
+
+    car = request.form.get('car', '')
+    stage_times = []
+    total = 0
+    for i, stage in enumerate(event.get('stages', [])):
+        raw = request.form.get(f'stage_{i}', '0')
+        try:
+            parts = raw.replace(',', '.').split(':')
+            if len(parts) == 2:
+                mins, rest = parts
+                secs_parts = rest.split('.')
+                secs = int(secs_parts[0])
+                millis = int(secs_parts[1].ljust(3, '0')[:3]) if len(secs_parts) > 1 else 0
+                ms = int(mins) * 60000 + secs * 1000 + millis
+            else:
+                ms = int(float(raw) * 1000)
+        except (ValueError, IndexError):
+            ms = 0
+
+        if ms <= 0:
+            flash(f'Invalid time for stage {i + 1}.', 'error')
+            return redirect(url_for('event_detail', event_id=event_id))
+
+        stage_times.append({
+            'time_ms': ms,
+            'penalties_ms': 0,
+            'submitted_at': datetime.now().isoformat(),
+        })
+        total += ms
+
+    entry = {
+        'username': user['username'],
+        'car': car,
+        'stages': stage_times,
+        'total_time_ms': total,
+    }
+    entries.append(entry)
+    entries.sort(key=lambda e: e['total_time_ms'])
+    results['entries'] = entries
+    save_results(event_id, results)
+
+    pos = next(i for i, e in enumerate(entries) if e['username'] == user['username']) + 1
+    flash(f'Times submitted! You placed P{pos} of {len(entries)}.', 'success')
+    return redirect(url_for('event_detail', event_id=event_id))
+
+
+@app.route('/profile/<username>')
+def profile(username):
+    user = get_user(username)
+    if not user:
+        abort(404)
+
+    user_clubs = [get_club(cid) for cid in user.get('clubs', []) if get_club(cid)]
+    events = get_all_events()
+    results_list = []
+    total_stages = 0
+    best_positions = []
+    for evt in events:
+        res = get_results(evt['id'])
+        for i, entry in enumerate(res.get('entries', [])):
+            if entry['username'] == username:
+                pos = i + 1
+                best_positions.append(pos)
+                total_stages += len(entry.get('stages', []))
+                results_list.append({
+                    'event': evt,
+                    'entry': entry,
+                    'position': pos,
+                    'total_entries': len(res['entries']),
+                })
+
+    stats = {
+        'total_events': len(results_list),
+        'total_stages': total_stages,
+        'wins': best_positions.count(1),
+        'podiums': sum(1 for p in best_positions if p <= 3),
+        'avg_position': round(sum(best_positions) / len(best_positions), 1) if best_positions else 0,
+    }
+
+    return render_template(
+        'profile.html', profile_user=user, user_clubs=user_clubs,
+        results=results_list, stats=stats,
+    )
+
+
+# ── Error pages ──────────────────────────────────────────
+
+@app.errorhandler(404)
+def not_found(e):
+    return render_template('base.html', error='Page not found'), 404
+
+
+# ── Main ─────────────────────────────────────────────────
+
+if __name__ == '__main__':
+    seed_data()
+    app.run(host='0.0.0.0', port=5001, debug=True)

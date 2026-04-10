@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <h1 class="page-title">Welcome back, <span class="accent">{{ user.display_name }}</span></h1>
+                <p class="page-subtitle text-muted">{{ user.country }}{% if user.bio %} &mdash; {{ user.bio }}{% endif %}</p>
+            </div>
+            <a href="/profile/{{ user.username }}" class="btn btn-ghost btn-sm">View Profile</a>
+        </div>
+    </div>
+</section>
+
+<div class="container dashboard-grid">
+    <div class="dashboard-main">
+        <div class="card reveal">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Active Events</h2>
+                <a href="/events" class="card-link">View All &rarr;</a>
+            </div>
+            <div class="card-body">
+                {% if active_events %}
+                <div class="event-list-compact">
+                    {% for event in active_events %}
+                    <a href="/events/{{ event.id }}" class="event-row">
+                        <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
+                        <span class="event-row-name">{{ event.name }}</span>
+                        <span class="event-row-meta text-muted">{{ event.location }} &middot; {{ event.car_class }}</span>
+                        <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted empty-state">No active events right now.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card reveal" style="animation-delay:.1s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> My Results</h2>
+            </div>
+            <div class="card-body">
+                {% if my_results %}
+                <div class="results-compact">
+                    {% for r in my_results %}
+                    <a href="/events/{{ r.event.id }}" class="result-row">
+                        <span class="result-pos pos-{{ r.position }}">P{{ r.position }}</span>
+                        <span class="result-event">{{ r.event.name }}</span>
+                        <span class="result-time mono">{{ r.entry.total_time_ms | rally_time }}</span>
+                        <span class="result-of text-muted">of {{ r.total_entries }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted empty-state">No results yet. Enter an event to get started!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-side">
+        <div class="card reveal" style="animation-delay:.15s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> My Clubs</h2>
+                <a href="/clubs" class="card-link">Browse &rarr;</a>
+            </div>
+            <div class="card-body">
+                {% if my_clubs %}
+                <div class="club-list-compact">
+                    {% for club in my_clubs %}
+                    <a href="/clubs/{{ club.id }}" class="club-row">
+                        <span class="club-row-name">{{ club.name }}</span>
+                        <span class="club-row-members text-muted">{{ club.members | length }} members</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted empty-state">You haven't joined any clubs yet.</p>
+                <a href="/clubs" class="btn btn-ghost btn-sm" style="margin-top:.75rem">Browse Clubs</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

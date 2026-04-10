@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}{{ club.name }} — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb"><a href="/clubs">Clubs</a> <span class="accent">/</span></p>
+                <h1 class="page-title">{{ club.name }}</h1>
+                <p class="page-subtitle text-muted">{{ club.description }}</p>
+            </div>
+            {% if current_user %}
+                {% if current_user.username in club.members %}
+                <form method="post" action="/clubs/{{ club.id }}/leave">
+                    <button type="submit" class="btn btn-ghost btn-sm">Leave Club</button>
+                </form>
+                {% else %}
+                <form method="post" action="/clubs/{{ club.id }}/join">
+                    <button type="submit" class="btn btn-primary btn-sm">Join Club</button>
+                </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<div class="container club-detail-grid">
+    <div class="club-detail-main">
+        <div class="card reveal">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Club Events</h2>
+            </div>
+            <div class="card-body">
+                {% if events %}
+                <div class="event-list-compact">
+                    {% for event in events %}
+                    <a href="/events/{{ event.id }}" class="event-row">
+                        <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
+                        <span class="event-row-name">{{ event.name }}</span>
+                        <span class="event-row-meta text-muted">{{ event.location }} &middot; {{ event.car_class }}</span>
+                        <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted empty-state">No events in this club yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="club-detail-side">
+        <div class="card reveal" style="animation-delay:.1s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Members <span class="text-muted">({{ members | length }})</span></h2>
+            </div>
+            <div class="card-body">
+                <div class="member-list">
+                    {% for member in members %}
+                    <a href="/profile/{{ member.username }}" class="member-row">
+                        <span class="member-name">{{ member.display_name }}</span>
+                        <span class="member-country text-muted">{{ member.country }}</span>
+                        {% if member.username == club.created_by %}
+                        <span class="member-badge">Owner</span>
+                        {% endif %}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card reveal" style="animation-delay:.15s">
+            <div class="card-body club-info-card">
+                <div class="club-info-row">
+                    <span class="text-muted">Created by</span>
+                    <a href="/profile/{{ club.created_by }}">{{ club.created_by }}</a>
+                </div>
+                <div class="club-info-row">
+                    <span class="text-muted">Created</span>
+                    <span>{{ club.created_at | timeago }}</span>
+                </div>
+                <div class="club-info-row">
+                    <span class="text-muted">Members</span>
+                    <span>{{ members | length }}</span>
+                </div>
+                <div class="club-info-row">
+                    <span class="text-muted">Events</span>
+                    <span>{{ events | length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

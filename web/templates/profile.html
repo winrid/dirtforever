@@ -1,0 +1,106 @@
+{% extends 'base.html' %}
+{% block title %}{{ profile_user.display_name }} — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header profile-header">
+    <div class="container">
+        <div class="profile-header-content">
+            <div class="profile-info">
+                <div class="profile-avatar">{{ profile_user.display_name[0] | upper }}</div>
+                <div>
+                    <h1 class="page-title">{{ profile_user.display_name }}</h1>
+                    <p class="page-subtitle text-muted">
+                        {% if profile_user.country %}{{ profile_user.country }}{% endif %}
+                        {% if profile_user.bio %} &mdash; {{ profile_user.bio }}{% endif %}
+                    </p>
+                    <p class="profile-joined text-muted">Joined {{ profile_user.created_at | timeago }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container">
+    <div class="stats-grid stats-grid-sm reveal">
+        <div class="stat-card stat-card-sm">
+            <div class="stat-value stat-value-sm" data-count="{{ stats.total_events }}">0</div>
+            <div class="stat-label">Events</div>
+        </div>
+        <div class="stat-card stat-card-sm">
+            <div class="stat-value stat-value-sm" data-count="{{ stats.total_stages }}">0</div>
+            <div class="stat-label">Stages</div>
+        </div>
+        <div class="stat-card stat-card-sm">
+            <div class="stat-value stat-value-sm" data-count="{{ stats.wins }}">0</div>
+            <div class="stat-label">Wins</div>
+        </div>
+        <div class="stat-card stat-card-sm">
+            <div class="stat-value stat-value-sm" data-count="{{ stats.podiums }}">0</div>
+            <div class="stat-label">Podiums</div>
+        </div>
+        <div class="stat-card stat-card-sm">
+            <div class="stat-value stat-value-sm">{{ stats.avg_position }}</div>
+            <div class="stat-label">Avg Position</div>
+        </div>
+    </div>
+
+    <div class="profile-grid">
+        <div class="profile-main">
+            <div class="card reveal" style="animation-delay:.1s">
+                <div class="card-header">
+                    <h2 class="card-title"><span class="accent">//</span> Rally History</h2>
+                </div>
+                <div class="card-body">
+                    {% if results %}
+                    <div class="lb-table">
+                        <div class="lb-row lb-row-header">
+                            <span class="lb-col lb-pos">Pos</span>
+                            <span class="lb-col lb-driver">Event</span>
+                            <span class="lb-col lb-car">Car</span>
+                            <span class="lb-col lb-time">Total Time</span>
+                        </div>
+                        {% for r in results %}
+                        <div class="lb-row">
+                            <span class="lb-col lb-pos">
+                                <span class="pos-badge pos-{{ r.position }}">P{{ r.position }}</span>
+                            </span>
+                            <span class="lb-col lb-driver">
+                                <a href="/events/{{ r.event.id }}">{{ r.event.name }}</a>
+                                <span class="text-muted" style="font-size:.8rem;display:block;">{{ r.event.location }} &middot; {{ r.event.car_class }}</span>
+                            </span>
+                            <span class="lb-col lb-car text-muted">{{ r.entry.car }}</span>
+                            <span class="lb-col lb-time mono">{{ r.entry.total_time_ms | rally_time }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted empty-state">No rally history yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-side">
+            <div class="card reveal" style="animation-delay:.15s">
+                <div class="card-header">
+                    <h2 class="card-title"><span class="accent">//</span> Clubs</h2>
+                </div>
+                <div class="card-body">
+                    {% if user_clubs %}
+                    <div class="club-list-compact">
+                        {% for club in user_clubs %}
+                        <a href="/clubs/{{ club.id }}" class="club-row">
+                            <span class="club-row-name">{{ club.name }}</span>
+                            <span class="club-row-members text-muted">{{ club.members | length }} members</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted empty-state">Not in any clubs.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Clubs — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <h1 class="page-title"><span class="accent">//</span> Clubs</h1>
+            {% if current_user %}
+            <button class="btn btn-primary btn-sm" onclick="document.getElementById('createClub').classList.toggle('hidden')">
+                Create Club
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<div class="container">
+    {% if current_user %}
+    <div id="createClub" class="card create-club-card hidden reveal">
+        <div class="card-header">
+            <h2 class="card-title">Create a New Club</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" action="/clubs" class="create-club-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name" class="form-label">Club Name</label>
+                        <input type="text" id="name" name="name" class="form-input" required
+                               placeholder="Max 40 characters" maxlength="40">
+                    </div>
+                    <div class="form-group form-group-grow">
+                        <label for="description" class="form-label">Description</label>
+                        <input type="text" id="description" name="description" class="form-input"
+                               placeholder="What's your club about?">
+                    </div>
+                    <div class="form-group form-group-btn">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if clubs %}
+    <div class="clubs-grid">
+        {% for club in clubs %}
+        <a href="/clubs/{{ club.id }}" class="club-card reveal" style="animation-delay:{{ loop.index0 * 0.06 }}s">
+            <div class="club-card-accent"></div>
+            <div class="club-card-body">
+                <h3 class="club-card-name">{{ club.name }}</h3>
+                <p class="club-card-desc text-muted">{{ club.description }}</p>
+                <div class="club-card-footer">
+                    <span class="club-card-members">{{ club.members | length }} members</span>
+                    <span class="club-card-creator text-muted">by {{ club.created_by }}</span>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state-box">
+        <p class="text-muted">No clubs yet. Be the first to create one!</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
