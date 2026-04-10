@@ -84,63 +84,6 @@
                 {% endif %}
             </div>
         </div>
-
-        <div class="card reveal" style="animation-delay:.2s">
-            <div class="card-header">
-                <h2 class="card-title"><span class="accent">//</span> Game Server Token</h2>
-            </div>
-            <div class="card-body">
-                {% if new_token %}
-                <p class="text-muted" style="margin-bottom:.5rem;font-size:.8rem;">Copy this token now — it will not be shown again in full.</p>
-                <div class="mono" style="background:var(--bg-2,#111);padding:.6rem .75rem;border-radius:4px;word-break:break-all;font-size:.85rem;margin-bottom:.75rem;">{{ new_token }}</div>
-                {% elif user.game_token %}
-                <p class="mono text-muted" style="font-size:.85rem;margin-bottom:.75rem;">df_****...{{ user.game_token[-8:] }}</p>
-                {% else %}
-                <p class="text-muted empty-state" style="margin-bottom:.75rem;">No token yet. Generate one to use the game server installer.</p>
-                {% endif %}
-
-                <p class="text-muted" style="font-size:.8rem;margin-bottom:.75rem;">Paste this token when running the DirtForever installer on your PC.</p>
-
-                <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-                    {% if user.game_token and not new_token %}
-                    <form id="tokenRegenForm" action="/api/token/generate" method="post">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-ghost btn-sm">Regenerate</button>
-                    </form>
-                    <form id="tokenRevokeForm" action="/api/token/revoke" method="post">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger,#e55);">Revoke</button>
-                    </form>
-                    {% else %}
-                    <form id="tokenGenForm" action="/api/token/generate" method="post">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-primary btn-sm">Generate Token</button>
-                    </form>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
     </div>
 </div>
-
-<script>
-(function () {
-    function ajaxTokenForm(formId, onSuccess) {
-        var form = document.getElementById(formId);
-        if (!form) return;
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var fd = new FormData(form);
-            fetch(form.action, { method: 'POST', body: fd })
-                .then(function (r) { return r.json(); })
-                .then(function (data) { if (data.ok) onSuccess(data); })
-                .catch(function () { window.location.reload(); });
-        });
-    }
-
-    ajaxTokenForm('tokenGenForm', function (data) { window.location.reload(); });
-    ajaxTokenForm('tokenRegenForm', function (data) { window.location.reload(); });
-    ajaxTokenForm('tokenRevokeForm', function (data) { window.location.reload(); });
-})();
-</script>
 {% endblock %}

@@ -20,6 +20,7 @@
                 <a href="/events" class="nav-link {% if request.path.startswith('/events') %}active{% endif %}">Events</a>
                 <a href="/leaderboards" class="nav-link {% if request.path.startswith('/leaderboards') %}active{% endif %}">Leaderboards</a>
                 <a href="/clubs" class="nav-link {% if request.path.startswith('/clubs') %}active{% endif %}">Clubs</a>
+                <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">About / FAQ</a>
                 {% if current_user %}
                 <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
                 <div class="nav-user">

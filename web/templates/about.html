@@ -1,0 +1,52 @@
+{% extends 'base.html' %}
+{% block title %}About / FAQ - DirtForever{% endblock %}
+
+{% block content %}
+<style>
+    .about-section .container { margin-bottom: 3rem; }
+</style>
+<section class="section about-section" style="padding-top: 6rem;">
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> WHO ARE YOU AND ARE YOU TRYING TO HACK MY COMPUTER</h1>
+        <p>
+            Hello! Since DirtForever is open source, anyone can contribute to or audit the source code. However the person writing this
+            is Devon, the initial creator. I run some other bigger projects like <a href="https://fastcomments.com">FastComments.com</a> which
+            has an <a href="https://www.trustpilot.com/review/fastcomments.com" target="_blank">almost 5 star rating on TrustPilot</a> and <a href="https://sidewaysdata.com/" target="_blank">SidewaysData</a>, a combined motorsports live timing and registration platform primarily used by SCCA RallyCross organizers on the US West coast.
+        </p>
+    </div>
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> HOW DO I INSTALL DIRTFOREVER</h1>
+        <p>
+            We'll have installation instructions in a few days (currently it's april 10th). Feel free to create your account and we'll send out an email update later. We'll be making it easy so you can migrate your clubs over.
+        </p>
+    </div>
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> HOW MUCH WILL THIS COST</h1>
+        <p>
+            I'm not charging anything for it. You can create clubs, register, and play the games and use our leaderboards/servers for free.
+        </p>
+    </div>
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> WHAT ABOUT PLAYER STATS AND DAILY EVENTS</h1>
+        <p>
+            You'll be starting fresh. We plan to run daily events just like CodeMasters has always done, except maybe we'll add a voting feature.
+        </p>
+    </div>
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> HOW DOES IT WORK AND WILL I GET VAC'ED</h1>
+        <p>
+            We run our own servers which speaks the RaceNet protocol, which we understood by creating a man-in-the-middle proxy later and
+            analyzing the traffic. This did not require decompiling the game binary, changing the game files, or reading its memory.
+        </p>
+        <p>
+            The application that runs on your computer is a little network proxy that intercepts requests to the racenet site (which they call egonet) and redirects them to us, that's it. You can uninstall it and go back to RaceNet at any time.
+        </p>
+    </div>
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> IS THERE A DISCORD</h1>
+        <p>
+            No. But feel free to file issues on GitHub <a href="https://github.com/winrid/dirtforever/issues" target="_blank">here</a>
+        </p>
+    </div>
+</section>
+{% endblock %}

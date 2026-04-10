@@ -25,7 +25,7 @@ log.info('dirtforever server module loading')
 
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, flash, abort, jsonify, g,
+    url_for, session, flash, abort, jsonify,
 )
 from flask_wtf.csrf import CSRFProtect
 
@@ -972,13 +972,9 @@ def dashboard():
         reverse=True,
     )
 
-    # Pop the newly generated token from session so it shows exactly once
-    new_token = session.pop('new_game_token', None)
-
     return render_template(
         'dashboard.html', user=user, my_clubs=my_clubs,
         active_events=active, my_results=my_results[:10],
-        new_token=new_token,
     )
 
 
@@ -1236,52 +1232,16 @@ def profile(username):
     )
 
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
+
+
 # ── Error pages ──────────────────────────────────────────
 
 @app.errorhandler(404)
 def not_found(e):
     return render_template('base.html', error='Page not found'), 404
-
-
-# ── Token management ─────────────────────────────────────
-
-_TOKEN_RE = re.compile(r'^df_[0-9a-f]{32}$')
-
-
-def _find_user_by_token(token):
-    """Return the user dict whose game_token matches, or None."""
-    if not token or not _TOKEN_RE.match(token):
-        return None
-    for u in get_all_users():
-        if hmac.compare_digest(u.get('game_token', ''), token):
-            return u
-    return None
-
-
-def _generate_token():
-    return 'df_' + secrets.token_hex(16)
-
-
-@app.route('/api/token/generate', methods=['POST'])
-@login_required
-def api_token_generate():
-    user = current_user()
-    token = _generate_token()
-    user['game_token'] = token
-    save_user(user)
-    # Store the plain token in the session for one dashboard render
-    session['new_game_token'] = token
-    return jsonify({'ok': True, 'token': token})
-
-
-@app.route('/api/token/revoke', methods=['POST'])
-@login_required
-def api_token_revoke():
-    user = current_user()
-    user.pop('game_token', None)
-    save_user(user)
-    session.pop('new_game_token', None)
-    return jsonify({'ok': True})
 
 
 # ── Game API ─────────────────────────────────────────────
@@ -1293,25 +1253,8 @@ def _api_error(msg, status=400):
     return jsonify({'ok': False, 'error': msg}), status
 
 
-def game_auth_required(f):
-    """Decorator: validate Bearer token and set g.game_user to the username."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        auth_header = request.headers.get('Authorization', '')
-        token = None
-        if auth_header.startswith('Bearer '):
-            token = auth_header[7:].strip()
-        user = _find_user_by_token(token)
-        if not user:
-            return _api_error('invalid or missing API token', 401)
-        g.game_user = user['username']
-        return f(*args, **kwargs)
-    return wrapper
-
-
 @app.route('/api/game/clubs')
 @csrf.exempt
-@game_auth_required
 def api_game_clubs():
     """Return all clubs and their active events for the game server."""
     clubs = get_all_clubs()
@@ -1321,20 +1264,19 @@ def api_game_clubs():
 
 @app.route('/api/game/stage-complete', methods=['POST'])
 @csrf.exempt
-@game_auth_required
 def api_game_stage_complete():
     """Accept a completed stage submission from the game server."""
     data = request.get_json(silent=True) or {}
     event_id = data.get('event_id', '').strip()
-    # Use the authenticated user rather than a caller-supplied username
-    username = g.game_user
-    if not event_id:
-        return _api_error('event_id is required')
+    username = data.get('username', '').strip()
+    if not event_id or not username:
+        return _api_error('event_id and username are required')
 
     try:
         _validate_id(event_id)
+        _validate_id(username)
     except Exception:
-        return _api_error('invalid event_id')
+        return _api_error('invalid event_id or username')
 
     event = get_event(event_id)
     if not event:
@@ -1396,7 +1338,6 @@ def api_game_stage_complete():
 
 @app.route('/api/game/leaderboard/<event_id>')
 @csrf.exempt
-@game_auth_required
 def api_game_leaderboard(event_id):
     """Return leaderboard entries for an event."""
     try:
@@ -1421,7 +1362,6 @@ def api_game_leaderboard(event_id):
 
 @app.route('/api/game/events/<event_id>')
 @csrf.exempt
-@game_auth_required
 def api_game_event(event_id):
     """Return event details with stages."""
     try:
@@ -1437,7 +1377,6 @@ def api_game_event(event_id):
 
 @app.route('/api/game/auth', methods=['POST'])
 @csrf.exempt
-@game_auth_required
 def api_game_auth():
     """Validate a game session / link a Steam account to a web account."""
     data = request.get_json(silent=True) or {}

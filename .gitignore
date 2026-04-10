@@ -5,3 +5,4 @@ runtime
 scripts/__pycache__
 web/data
 web/.venv
+.env

@@ -82,12 +82,11 @@ class App:
         upstream_ip: Optional[str] = None,
         proxy_methods: Optional[Set[str]] = None,
         api_url: Optional[str] = None,
-        api_token: Optional[str] = None,
     ) -> None:
         self.account_store = AccountStore(data_root / "accounts")
         api_client: Optional[DirtForeverClient] = None
         if api_url:
-            api_client = DirtForeverClient(base_url=api_url, api_token=api_token)
+            api_client = DirtForeverClient(base_url=api_url)
             print(f"[API] Connected to dirtforever API at {api_url}")
         self.dispatcher = RpcDispatcher(self.account_store, api_client=api_client)
         self.capture_root = capture_root
@@ -533,9 +532,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="Base URL for the dirtforever.net web API "
                              "(e.g. https://dirtforever.net). "
                              "When omitted, the server uses local fallback data.")
-    parser.add_argument("--api-token", default=None,
-                        help="Bearer token for authenticating with the dirtforever.net web API "
-                             "(starts with df_). Obtain one from your dashboard.")
     return parser
 
 
@@ -547,36 +543,8 @@ def create_server(host: str, port: int, app: App, ssl_context: Optional[ssl.SSLC
     return server
 
 
-def _load_config_file() -> Dict[str, Any]:
-    """Load %APPDATA%\\DirtForever\\config.json if it exists."""
-    import os
-    appdata = os.environ.get("APPDATA", "")
-    if not appdata:
-        return {}
-    config_path = Path(appdata) / "DirtForever" / "config.json"
-    if not config_path.exists():
-        return {}
-    try:
-        with open(config_path) as f:
-            data = json.load(f)
-        print(f"[CONFIG] Loaded config from {config_path}")
-        return data
-    except Exception as exc:
-        print(f"[CONFIG] Failed to read {config_path}: {exc}")
-        return {}
-
-
 def main() -> int:
-    file_cfg = _load_config_file()
-    # Inject config-file values as defaults before argparse runs
-    import sys
-    argv = sys.argv[1:]
-    # Only apply file defaults when the arg is not already on the command line
-    if file_cfg.get("api_url") and "--api-url" not in argv:
-        argv = ["--api-url", file_cfg["api_url"]] + argv
-    if file_cfg.get("api_token") and "--api-token" not in argv:
-        argv = ["--api-token", file_cfg["api_token"]] + argv
-    args = build_arg_parser().parse_args(argv)
+    args = build_arg_parser().parse_args()
     proxy_methods: Optional[Set[str]] = None
     if args.proxy_all:
         # Special sentinel: _handle_egonet_rpc checks membership, so we use
@@ -602,7 +570,6 @@ def main() -> int:
         upstream_ip=args.upstream_ip,
         proxy_methods=proxy_methods,
         api_url=args.api_url,
-        api_token=args.api_token,
     )
     servers = []
 
