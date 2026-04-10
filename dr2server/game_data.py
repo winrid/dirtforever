@@ -416,24 +416,23 @@ _TRACK_META: Dict[Track, dict] = {
 # ---------------------------------------------------------------------------
 
 class VehicleClass(IntEnum):
-    """Vehicle class IDs used in challenge Requirements."""
-    GROUP_A        = 86
-    H1_FWD         = 100
-    H2_FWD         = 101
-    H2_RWD         = 102
-    H3_RWD         = 103
-    GROUP_B_RWD    = 104
-    GROUP_B_4WD    = 105
-    R2             = 106
-    F2_KIT_CAR     = 107
-    R5             = 108
-    RALLY_GT       = 109
-    NR4_R4         = 110
-    CC_4WD         = 111   # 2000cc 4WD
-    # Rallycross classes
-    RX_SUPER_1600    = 200
-    RX_SUPERCARS     = 201
-    RX_SUPERCARS_2019 = 202
+    """Vehicle class IDs used in challenge Requirements.
+
+    Confirmed by in-game testing against the real EgoNet protocol.
+    Invalid IDs crash the game client.
+    """
+    GROUP_A        = 72
+    RX_SUPERCARS   = 78
+    F2_KIT_CAR     = 86
+    RX_SUPER_1600  = 92
+    R5             = 93
+    NR4_R4         = 96
+    H2_RWD         = 97
+    H3_RWD         = 98
+    H2_FWD         = 100
+    # IDs not yet confirmed (need in-game testing):
+    # H1_FWD, Group B RWD, Group B 4WD, R2, Rally GT,
+    # 2000cc 4WD, RX Supercars 2019
 
     @property
     def label(self) -> str:
@@ -445,21 +444,14 @@ class VehicleClass(IntEnum):
 
 _VEHICLE_CLASS_LABELS: Dict[VehicleClass, str] = {
     VehicleClass.GROUP_A:          "Group A",
-    VehicleClass.H1_FWD:           "H1 FWD",
-    VehicleClass.H2_FWD:           "H2 FWD",
+    VehicleClass.RX_SUPERCARS:     "RX Supercars",
+    VehicleClass.F2_KIT_CAR:       "F2 Kit Car",
+    VehicleClass.RX_SUPER_1600:    "RX Super 1600",
+    VehicleClass.R5:               "R5",
+    VehicleClass.NR4_R4:           "NR4/R4",
     VehicleClass.H2_RWD:           "H2 RWD",
     VehicleClass.H3_RWD:           "H3 RWD",
-    VehicleClass.GROUP_B_RWD:      "Group B RWD",
-    VehicleClass.GROUP_B_4WD:      "Group B 4WD",
-    VehicleClass.R2:               "R2",
-    VehicleClass.F2_KIT_CAR:       "F2 Kit Car",
-    VehicleClass.R5:               "R5",
-    VehicleClass.RALLY_GT:         "Rally GT",
-    VehicleClass.NR4_R4:           "NR4/R4",
-    VehicleClass.CC_4WD:           "2000cc 4WD",
-    VehicleClass.RX_SUPER_1600:    "RX Super 1600",
-    VehicleClass.RX_SUPERCARS:     "RX Supercars",
-    VehicleClass.RX_SUPERCARS_2019:"RX Supercars 2019",
+    VehicleClass.H2_FWD:           "H2 FWD",
 }
 
 
@@ -514,17 +506,17 @@ class Vehicle(IntEnum):
 
 _VEHICLE_META: Dict[Vehicle, dict] = {
     # H1 FWD
-    Vehicle.LANCIA_FULVIA_HF:  {"display_name": "Lancia Fulvia HF",        "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "ful"},
-    Vehicle.MINI_COOPER_S:     {"display_name": "Mini Cooper S",            "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "mcs"},
-    Vehicle.CITROEN_DS_21:     {"display_name": "Citroen DS 21",            "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "cds"},
+    Vehicle.LANCIA_FULVIA_HF:  {"display_name": "Lancia Fulvia HF",        "vehicle_class": None,      "abbrev": "ful"},
+    Vehicle.MINI_COOPER_S:     {"display_name": "Mini Cooper S",            "vehicle_class": None,      "abbrev": "mcs"},
+    Vehicle.CITROEN_DS_21:     {"display_name": "Citroen DS 21",            "vehicle_class": None,      "abbrev": "cds"},
     # H2 FWD
     Vehicle.VW_GOLF_GTI_16V:   {"display_name": "Volkswagen Golf GTI 16V",  "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "gti"},
     # H2 RWD
     Vehicle.FORD_ESCORT_MK2:   {"display_name": "Ford Escort Mk II",        "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "mr5"},
     Vehicle.ALPINE_A110_1600S: {"display_name": "Alpine A110 1600 S",       "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "alp"},
     # Group B 4WD
-    Vehicle.AUDI_SPORT_QUATTRO_S1_E2: {"display_name": "Audi Sport Quattro S1 E2", "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "aqe"},
-    Vehicle.MG_METRO_6R4:             {"display_name": "MG Metro 6R4",             "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "6r4"},
+    Vehicle.AUDI_SPORT_QUATTRO_S1_E2: {"display_name": "Audi Sport Quattro S1 E2", "vehicle_class": None, "abbrev": "aqe"},
+    Vehicle.MG_METRO_6R4:             {"display_name": "MG Metro 6R4",             "vehicle_class": None, "abbrev": "6r4"},
     # Group A
     Vehicle.MITSUBISHI_LANCER_EVO6:   {"display_name": "Mitsubishi Lancer Evo VI", "vehicle_class": VehicleClass.GROUP_A,    "abbrev": "ev6"},
     # R5
@@ -534,11 +526,11 @@ _VEHICLE_META: Dict[Vehicle, dict] = {
     Vehicle.SKODA_FABIA_R5:       {"display_name": "Skoda Fabia R5",           "vehicle_class": VehicleClass.R5, "abbrev": "sr5"},
     Vehicle.MITSUBISHI_SPACE_STAR_R5: {"display_name": "Mitsubishi Space Star R5", "vehicle_class": VehicleClass.R5, "abbrev": "msr"},
     # Rally GT
-    Vehicle.PORSCHE_911_RGT:  {"display_name": "Porsche 911 RGT Rally",    "vehicle_class": VehicleClass.RALLY_GT, "abbrev": "99r"},
-    Vehicle.ASTON_MARTIN_V8:  {"display_name": "Aston Martin V8 Vantage",  "vehicle_class": VehicleClass.RALLY_GT, "abbrev": "amr"},
+    Vehicle.PORSCHE_911_RGT:  {"display_name": "Porsche 911 RGT Rally",    "vehicle_class": None, "abbrev": "99r"},
+    Vehicle.ASTON_MARTIN_V8:  {"display_name": "Aston Martin V8 Vantage",  "vehicle_class": None, "abbrev": "amr"},
     # 2000cc 4WD
-    Vehicle.SUBARU_IMPREZA_2001: {"display_name": "Subaru Impreza 2001",      "vehicle_class": VehicleClass.CC_4WD, "abbrev": "srs"},
-    Vehicle.SUBARU_IMPREZA_S4:   {"display_name": "Subaru Impreza S4 Rally",  "vehicle_class": VehicleClass.CC_4WD, "abbrev": "srs_05"},
+    Vehicle.SUBARU_IMPREZA_2001: {"display_name": "Subaru Impreza 2001",      "vehicle_class": None, "abbrev": "srs"},
+    Vehicle.SUBARU_IMPREZA_S4:   {"display_name": "Subaru Impreza S4 Rally",  "vehicle_class": None, "abbrev": "srs_05"},
 }
 
 
@@ -699,7 +691,7 @@ VEHICLE_CLASSES: Dict[int, str] = {
 VEHICLES: Dict[int, dict] = {
     int(v): {
         "name":   _VEHICLE_META[v]["display_name"],
-        "class":  int(_VEHICLE_META[v]["vehicle_class"]),
+        "class":  int(_VEHICLE_META[v]["vehicle_class"]) if _VEHICLE_META[v]["vehicle_class"] is not None else None,
         "abbrev": _VEHICLE_META[v]["abbrev"],
     }
     for v in Vehicle
