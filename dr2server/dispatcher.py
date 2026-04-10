@@ -271,7 +271,7 @@ class RpcDispatcher:
 
     @staticmethod
     def _post_time(params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"ok": True, "accepted": True, "entry_id": secrets.token_hex(8)}
+        return {"ok": True, "Accepted": True, "EntryId": secrets.token_hex(8)}
 
     @staticmethod
     def _status(params: Dict[str, Any]) -> Dict[str, Any]:

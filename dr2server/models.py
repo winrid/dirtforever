@@ -276,15 +276,15 @@ class VehicleMud:
     @classmethod
     def from_egonet(cls, data: Dict[str, Any]) -> VehicleMud:
         return cls(
-            dirt=float(data.get("Dirt", 0)),
-            wheel_mud_0=float(data.get("WheelMud0", 0)),
-            wheel_mud_1=float(data.get("WheelMud1", 0)),
-            wheel_mud_2=float(data.get("WheelMud2", 0)),
-            wheel_mud_3=float(data.get("WheelMud3", 0)),
-            mud=float(data.get("Mud", 0)),
-            clean_height=float(data.get("CleanHeight", 0)),
-            clean_dirt=float(data.get("CleanDirt", 0)),
-            clean_mud=float(data.get("CleanMud", 0)),
+            dirt=float(_val(data.get("Dirt", 0))),
+            wheel_mud_0=float(_val(data.get("WheelMud0", 0))),
+            wheel_mud_1=float(_val(data.get("WheelMud1", 0))),
+            wheel_mud_2=float(_val(data.get("WheelMud2", 0))),
+            wheel_mud_3=float(_val(data.get("WheelMud3", 0))),
+            mud=float(_val(data.get("Mud", 0))),
+            clean_height=float(_val(data.get("CleanHeight", 0))),
+            clean_dirt=float(_val(data.get("CleanDirt", 0))),
+            clean_mud=float(_val(data.get("CleanMud", 0))),
         )
 
 
@@ -310,22 +310,22 @@ class CompDamage:
     @classmethod
     def from_egonet(cls, data: Dict[str, Any]) -> CompDamage:
         return cls(
-            quick_repairs=int(data.get("QuickRepairs", 0)),
-            bodywork=int(data.get("Bodywork", 0)),
-            brakes=int(data.get("Brakes", 0)),
-            clutch=float(data.get("Clutch", 0)),
-            dampers=int(data.get("Dampers", 0)),
-            diff_wear=int(data.get("DiffWear", 0)),
-            diff_impact=int(data.get("DiffImpact", 0)),
-            engine=float(data.get("Engine", 0)),
-            exhaust=float(data.get("Exhaust", 0)),
-            gearbox=int(data.get("Gearbox", 0)),
-            lights=float(data.get("Lights", 0)),
-            radiator=float(data.get("Radiator", 0)),
-            springs=int(data.get("Springs", 0)),
-            turbo=int(data.get("Turbo", 0)),
-            wheels_wear=int(data.get("WheelsWear", 0)),
-            wheels_impact=int(data.get("WheelsImpact", 0)),
+            quick_repairs=_val(data.get("QuickRepairs", 0)),
+            bodywork=_val(data.get("Bodywork", 0)),
+            brakes=_val(data.get("Brakes", 0)),
+            clutch=float(_val(data.get("Clutch", 0))),
+            dampers=_val(data.get("Dampers", 0)),
+            diff_wear=_val(data.get("DiffWear", 0)),
+            diff_impact=_val(data.get("DiffImpact", 0)),
+            engine=float(_val(data.get("Engine", 0))),
+            exhaust=float(_val(data.get("Exhaust", 0))),
+            gearbox=_val(data.get("Gearbox", 0)),
+            lights=float(_val(data.get("Lights", 0))),
+            radiator=float(_val(data.get("Radiator", 0))),
+            springs=_val(data.get("Springs", 0)),
+            turbo=_val(data.get("Turbo", 0)),
+            wheels_wear=_val(data.get("WheelsWear", 0)),
+            wheels_impact=_val(data.get("WheelsImpact", 0)),
         )
 
 
