@@ -293,13 +293,27 @@ def run_gui():
     def save_token():
         t = token_var.get().strip()
         config["game_token"] = t
+        config.setdefault("api_url", API_URL)
         save_config(config)
-        if t:
-            token_status_label.configure(text="Saved", fg=GREEN)
-        else:
+        if not t:
             token_status_label.configure(text="No token", fg=ACCENT)
-        root.after(2000, lambda: token_status_label.configure(
-            text="Get token at dirtforever.net/dashboard", fg=MUTED))
+            return
+        token_status_label.configure(text="Testing token...", fg=MUTED)
+        save_btn.configure(state="disabled")
+
+        def verify():
+            from dr2server.api_client import DirtForeverClient
+            client = DirtForeverClient(base_url=config.get("api_url", API_URL), api_token=t)
+            username = client.test_token()
+            if username:
+                root.after(0, lambda u=username: token_status_label.configure(
+                    text=f"\u2713 Token working \u2014 linked to {u}", fg=GREEN))
+            else:
+                root.after(0, lambda: token_status_label.configure(
+                    text="\u2717 Token invalid or server unreachable", fg=RED))
+            root.after(0, lambda: save_btn.configure(state="normal"))
+
+        threading.Thread(target=verify, daemon=True).start()
 
     save_btn = tk.Button(
         token_input_frame, text="Save", font=("Segoe UI", 8, "bold"),
@@ -456,8 +470,10 @@ def run_gui():
                 s.shutdown()
                 s.server_close()
 
-        except Exception as exc:
-            root.after(0, lambda: log(f"Server error: {exc}"))
+        except Exception:
+            import traceback
+            err = traceback.format_exc()
+            root.after(0, lambda e=err: log(f"Server error:\n{e}"))
         finally:
             server_running.clear()
             root.after(0, lambda: set_status(False))

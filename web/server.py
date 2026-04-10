@@ -1315,6 +1315,14 @@ def api_token_revoke():
     return redirect(url_for('dashboard'))
 
 
+@app.route('/api/game/token-test')
+@csrf.exempt
+@game_auth_required
+def api_game_token_test():
+    """Verify a game token is valid. Returns the linked username."""
+    return jsonify({'ok': True, 'username': g.game_user})
+
+
 @app.route('/api/game/clubs')
 @csrf.exempt
 @game_auth_required

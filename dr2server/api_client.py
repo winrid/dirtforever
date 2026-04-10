@@ -93,17 +93,24 @@ def _default_tracks_for_location(location_id: int) -> List[int]:
 class DirtForeverClient:
     """Thin HTTP client for the dirtforever.net game API."""
 
-    def __init__(self, base_url: str = "https://dirtforever.net") -> None:
+    def __init__(self, base_url: str = "https://dirtforever.net", api_token: Optional[str] = None) -> None:
         self.base_url = base_url.rstrip("/")
+        self.api_token = api_token
 
     # ------------------------------------------------------------------
     # Low-level helpers
     # ------------------------------------------------------------------
 
+    def _auth_headers(self) -> Dict[str, str]:
+        h = {"Accept": "application/json"}
+        if self.api_token:
+            h["Authorization"] = f"Bearer {self.api_token}"
+        return h
+
     def _get(self, path: str) -> Optional[Dict[str, Any]]:
         url = f"{self.base_url}{path}"
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            req = urllib.request.Request(url, headers=self._auth_headers())
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = resp.read()
             return json.loads(raw)
@@ -119,14 +126,13 @@ class DirtForeverClient:
         url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")
         try:
+            headers = self._auth_headers()
+            headers["Content-Type"] = "application/json"
             req = urllib.request.Request(
                 url,
                 data=body,
                 method="POST",
-                headers={
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
+                headers=headers,
             )
             with urllib.request.urlopen(req, timeout=10) as resp:
                 raw = resp.read()
@@ -142,6 +148,13 @@ class DirtForeverClient:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
+
+    def test_token(self) -> Optional[str]:
+        """Test if the current token is valid. Returns username or None."""
+        data = self._get("/api/game/token-test")
+        if data and data.get("ok"):
+            return data.get("username")
+        return None
 
     def get_clubs(self) -> Dict[str, Any]:
         """Fetch clubs and active events from the web API.
