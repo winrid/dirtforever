@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import json
 import fcntl
 import hashlib
@@ -12,6 +13,14 @@ import random
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
+
+logging.basicConfig(
+    stream=sys.stderr,
+    level=getattr(logging, os.environ.get('LOG_LEVEL', 'INFO').upper(), logging.INFO),
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    force=True,
+)
+log = logging.getLogger('dirtforever')
 
 from flask import (
     Flask, render_template, request, redirect,
@@ -49,11 +58,6 @@ SMTP_PASS = os.environ.get('EMAIL_HOST_PASSWORD', '')
 SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
-
-_handler = logging.StreamHandler()
-_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
-app.logger.addHandler(_handler)
-app.logger.setLevel(logging.INFO)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE, 'data')
@@ -154,10 +158,10 @@ def check_password(password, user):
 # ── Email ───────────────────────────────────────────────
 
 def _send_email(to, subject, body):
-    app.logger.info('Sending email to=%s subject=%r host=%s port=%s',
+    log.info('Sending email to=%s subject=%r host=%s port=%s',
                     to, subject, SMTP_HOST or '(not set)', SMTP_PORT)
     if not SMTP_HOST:
-        app.logger.warning('EMAIL_HOST not configured — email not sent')
+        log.warning('EMAIL_HOST not configured — email not sent')
         return False
     msg = EmailMessage()
     msg['Subject'] = subject
@@ -165,26 +169,26 @@ def _send_email(to, subject, body):
     msg['To'] = to
     msg.set_content(body)
     try:
-        app.logger.debug('Connecting to %s:%s (TLS=%s)', SMTP_HOST, SMTP_PORT, SMTP_USE_TLS)
+        log.debug('Connecting to %s:%s (TLS=%s)', SMTP_HOST, SMTP_PORT, SMTP_USE_TLS)
         if SMTP_USE_TLS:
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
             server.starttls()
         else:
             server = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10)
         if SMTP_USER:
-            app.logger.debug('Authenticating as %s', SMTP_USER)
+            log.debug('Authenticating as %s', SMTP_USER)
             server.login(SMTP_USER, SMTP_PASS)
         server.send_message(msg)
         server.quit()
-        app.logger.info('Email sent to %s', to)
+        log.info('Email sent to %s', to)
         return True
     except Exception:
-        app.logger.exception('Failed to send email to %s', to)
+        log.exception('Failed to send email to %s', to)
         return False
 
 
 def send_verification_email(user):
-    app.logger.info('Sending verification email to user=%s email=%s',
+    log.info('Sending verification email to user=%s email=%s',
                     user['username'], user['email'])
     link = f'{SITE_URL}/verify/{user["verify_token"]}'
     body = (
@@ -198,7 +202,7 @@ def send_verification_email(user):
 
 
 def send_reset_email(user):
-    app.logger.info('Sending password reset email to user=%s email=%s',
+    log.info('Sending password reset email to user=%s email=%s',
                     user['username'], user['email'])
     link = f'{SITE_URL}/reset/{user["reset_token"]}'
     body = (
