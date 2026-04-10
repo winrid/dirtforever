@@ -172,6 +172,19 @@ def send_verification_email(user):
     return _send_email(user['email'], 'Verify your DirtForever account', body)
 
 
+def send_reset_email(user):
+    link = f'{SITE_URL}/reset/{user["reset_token"]}'
+    body = (
+        f'Hi {user["display_name"]},\n\n'
+        f'We received a request to reset your DirtForever password. '
+        f'Visit the link below to choose a new password:\n\n'
+        f'{link}\n\n'
+        f'This link expires in 1 hour. If you did not request this, ignore this email.\n\n'
+        f'— DirtForever'
+    )
+    return _send_email(user['email'], 'Reset your DirtForever password', body)
+
+
 # ── Club ops ─────────────────────────────────────────────
 
 def get_club(cid):
@@ -806,6 +819,89 @@ def verify_email(token):
             return redirect(url_for('dashboard'))
     flash('Invalid or expired verification link.', 'error')
     return redirect(url_for('login'))
+
+
+@app.route('/forgot', methods=['GET'])
+def forgot_password():
+    return render_template('forgot_password.html')
+
+
+@app.route('/forgot', methods=['POST'])
+def forgot_password_post():
+    email = request.form.get('email', '').strip()
+    if not email:
+        flash('Please enter your email address.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    user = next((u for u in get_all_users() if u.get('email') == email), None)
+    # Always show the same message to prevent email enumeration
+    flash('If an account with that email exists, we sent a password reset link.', 'info')
+    if not user:
+        return redirect(url_for('forgot_password'))
+
+    # If the user never verified their email, resend verification too
+    if not user.get('email_verified'):
+        if not user.get('verify_token'):
+            user['verify_token'] = secrets.token_urlsafe(32)
+        send_verification_email(user)
+
+    user['reset_token'] = secrets.token_urlsafe(32)
+    user['reset_token_expires'] = (datetime.now() + timedelta(hours=1)).isoformat()
+    save_user(user)
+    send_reset_email(user)
+    return redirect(url_for('forgot_password'))
+
+
+@app.route('/reset/<token>', methods=['GET'])
+def reset_password(token):
+    if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
+        abort(400)
+    user = next((u for u in get_all_users()
+                 if u.get('reset_token') == token), None)
+    if not user:
+        flash('Invalid or expired reset link.', 'error')
+        return redirect(url_for('forgot_password'))
+    expires = user.get('reset_token_expires', '')
+    if expires and datetime.fromisoformat(expires) < datetime.now():
+        flash('This reset link has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+    return render_template('reset_password.html', token=token)
+
+
+@app.route('/reset/<token>', methods=['POST'])
+def reset_password_post(token):
+    if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
+        abort(400)
+    user = next((u for u in get_all_users()
+                 if u.get('reset_token') == token), None)
+    if not user:
+        flash('Invalid or expired reset link.', 'error')
+        return redirect(url_for('forgot_password'))
+    expires = user.get('reset_token_expires', '')
+    if expires and datetime.fromisoformat(expires) < datetime.now():
+        flash('This reset link has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+
+    password = request.form.get('password', '')
+    confirm = request.form.get('confirm', '')
+    if len(password) < 6:
+        flash('Password must be at least 6 characters.', 'error')
+        return redirect(url_for('reset_password', token=token))
+    if password != confirm:
+        flash('Passwords do not match.', 'error')
+        return redirect(url_for('reset_password', token=token))
+
+    salt = secrets.token_bytes(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
+    user['password_hash'] = dk.hex()
+    user['salt'] = salt.hex()
+    user['reset_token'] = None
+    user['reset_token_expires'] = None
+    save_user(user)
+
+    session['username'] = user['username']
+    flash('Password updated.', 'success')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/logout', methods=['POST'])
