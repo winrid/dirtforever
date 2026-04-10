@@ -4,10 +4,13 @@ import json
 import fcntl
 import hashlib
 import hmac
+import logging
 import secrets
+import smtplib
 import uuid
 import random
 from datetime import datetime, timedelta
+from email.message import EmailMessage
 from functools import wraps
 
 from flask import (
@@ -23,6 +26,16 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
 
 csrf = CSRFProtect(app)
+
+SMTP_HOST = os.environ.get('EMAIL_HOST', '')
+SMTP_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+SMTP_USER = os.environ.get('EMAIL_HOST_USER', '')
+SMTP_PASS = os.environ.get('EMAIL_HOST_PASSWORD', '')
+SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
+MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
+SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
+
+log = logging.getLogger(__name__)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE, 'data')
@@ -92,9 +105,11 @@ def get_all_users():
     return _list_json(USERS_DIR)
 
 
-def create_user(username, email, password, display_name=None, country='', bio=''):
+def create_user(username, email, password, display_name=None, country='', bio='',
+                email_verified=False):
     salt = secrets.token_bytes(16)
     dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
+    verify_token = secrets.token_urlsafe(32) if not email_verified else None
     u = {
         'username': username,
         'email': email,
@@ -105,6 +120,8 @@ def create_user(username, email, password, display_name=None, country='', bio=''
         'bio': bio,
         'created_at': datetime.now().isoformat(),
         'clubs': [],
+        'email_verified': email_verified,
+        'verify_token': verify_token,
     }
     save_user(u)
     return u
@@ -114,6 +131,45 @@ def check_password(password, user):
     salt = bytes.fromhex(user['salt'])
     dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
     return hmac.compare_digest(dk.hex(), user['password_hash'])
+
+
+# ── Email ───────────────────────────────────────────────
+
+def _send_email(to, subject, body):
+    if not SMTP_HOST:
+        log.warning('SMTP not configured — email to %s not sent: %s', to, subject)
+        return False
+    msg = EmailMessage()
+    msg['Subject'] = subject
+    msg['From'] = MAIL_FROM
+    msg['To'] = to
+    msg.set_content(body)
+    try:
+        if SMTP_USE_TLS:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+            server.starttls()
+        else:
+            server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
+        if SMTP_USER:
+            server.login(SMTP_USER, SMTP_PASS)
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception:
+        log.exception('Failed to send email to %s', to)
+        return False
+
+
+def send_verification_email(user):
+    link = f'{SITE_URL}/verify/{user["verify_token"]}'
+    body = (
+        f'Hi {user["display_name"]},\n\n'
+        f'Welcome to DirtForever! Please verify your email address by visiting:\n\n'
+        f'{link}\n\n'
+        f'If you did not create this account, ignore this email.\n\n'
+        f'— DirtForever'
+    )
+    return _send_email(user['email'], 'Verify your DirtForever account', body)
 
 
 # ── Club ops ─────────────────────────────────────────────
@@ -177,6 +233,18 @@ def login_required(f):
         if 'username' not in session:
             flash('Please sign in to continue.', 'warning')
             return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def verified_required(f):
+    @wraps(f)
+    @login_required
+    def wrapper(*args, **kwargs):
+        user = current_user()
+        if not user or not user.get('email_verified'):
+            flash('Please verify your email address first.', 'warning')
+            return redirect(url_for('verify_prompt'))
         return f(*args, **kwargs)
     return wrapper
 
@@ -387,6 +455,7 @@ def _seed_users():
             display_name=username,
             country=country,
             bio=bio,
+            email_verified=True,
         )
         users.append(u)
     return users
@@ -666,6 +735,9 @@ def register():
 
 @app.route('/register', methods=['POST'])
 def register_post():
+    if request.form.get('website', ''):
+        return redirect(url_for('home'))
+
     username = request.form.get('username', '').strip()
     email    = request.form.get('email', '').strip()
     password = request.form.get('password', '')
@@ -690,10 +762,50 @@ def register_post():
         flash('Username already taken.', 'error')
         return redirect(url_for('register'))
 
-    create_user(username, email, password)
+    user = create_user(username, email, password)
+    send_verification_email(user)
     session['username'] = username
-    flash(f'Welcome to DirtForever, {username}!', 'success')
-    return redirect(url_for('dashboard'))
+    flash('Account created! Check your email to verify your address.', 'success')
+    return redirect(url_for('verify_prompt'))
+
+
+@app.route('/verify/resend', methods=['POST'])
+@login_required
+def resend_verification():
+    user = current_user()
+    if user.get('email_verified'):
+        return redirect(url_for('dashboard'))
+    if not user.get('verify_token'):
+        user['verify_token'] = secrets.token_urlsafe(32)
+        save_user(user)
+    send_verification_email(user)
+    flash('Verification email sent.', 'success')
+    return redirect(url_for('verify_prompt'))
+
+
+@app.route('/verify/pending')
+@login_required
+def verify_prompt():
+    user = current_user()
+    if user.get('email_verified'):
+        return redirect(url_for('dashboard'))
+    return render_template('verify_email.html', user=user)
+
+
+@app.route('/verify/<token>')
+def verify_email(token):
+    if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
+        abort(400)
+    for u in get_all_users():
+        if u.get('verify_token') == token:
+            u['email_verified'] = True
+            u['verify_token'] = None
+            save_user(u)
+            session['username'] = u['username']
+            flash('Email verified! Welcome to DirtForever.', 'success')
+            return redirect(url_for('dashboard'))
+    flash('Invalid or expired verification link.', 'error')
+    return redirect(url_for('login'))
 
 
 @app.route('/logout', methods=['POST'])
@@ -793,7 +905,7 @@ def clubs():
 
 
 @app.route('/clubs', methods=['POST'])
-@login_required
+@verified_required
 def create_club():
     name = request.form.get('name', '').strip()
     desc = request.form.get('description', '').strip()
@@ -832,7 +944,7 @@ def club_detail(club_id):
 
 
 @app.route('/clubs/<club_id>/join', methods=['POST'])
-@login_required
+@verified_required
 def join_club(club_id):
     club = get_club(club_id)
     if not club:
@@ -848,7 +960,7 @@ def join_club(club_id):
 
 
 @app.route('/clubs/<club_id>/leave', methods=['POST'])
-@login_required
+@verified_required
 def leave_club(club_id):
     club = get_club(club_id)
     if not club:
@@ -888,7 +1000,7 @@ def event_detail(event_id):
 
 
 @app.route('/events/<event_id>/submit', methods=['POST'])
-@login_required
+@verified_required
 def submit_time(event_id):
     event = get_event(event_id)
     if not event:

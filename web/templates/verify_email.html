@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Verify Email — DirtForever{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-card reveal">
+        <div class="auth-header">
+            <h1 class="auth-title">Verify Your Email</h1>
+            <p class="auth-sub">We sent a verification link to <strong>{{ user.email }}</strong>.</p>
+        </div>
+        <div style="padding:0 2rem 2rem;">
+            <p class="text-muted" style="margin-bottom:1.5rem;">
+                Click the link in the email to activate your account. Check your spam folder if you don't see it.
+            </p>
+            <form method="post" action="/verify/resend">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-full">Resend Verification Email</button>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}
