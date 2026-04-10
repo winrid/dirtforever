@@ -61,7 +61,7 @@ MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
 
 BASE = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR   = os.path.join(BASE, 'data')
+DATA_DIR   = os.environ.get('DATA_DIR', os.path.join(BASE, 'data'))
 USERS_DIR  = os.path.join(DATA_DIR, 'users')
 CLUBS_DIR  = os.path.join(DATA_DIR, 'clubs')
 EVENTS_DIR = os.path.join(DATA_DIR, 'events')
@@ -197,7 +197,7 @@ def send_verification_email(user):
         f'Welcome to DirtForever! Please verify your email address by visiting:\n\n'
         f'{link}\n\n'
         f'If you did not create this account, ignore this email.\n\n'
-        f'— DirtForever'
+        f'- DirtForever'
     )
     return _send_email(user['email'], 'Verify your DirtForever account', body)
 
@@ -212,7 +212,7 @@ def send_reset_email(user):
         f'Visit the link below to choose a new password:\n\n'
         f'{link}\n\n'
         f'This link expires in 1 hour. If you did not request this, ignore this email.\n\n'
-        f'— DirtForever'
+        f'- DirtForever'
     )
     return _send_email(user['email'], 'Reset your DirtForever password', body)
 
@@ -296,7 +296,10 @@ def verified_required(f):
 
 def current_user():
     if 'username' in session:
-        return get_user(session['username'])
+        user = get_user(session['username'])
+        if not user:
+            session.pop('username', None)
+        return user
     return None
 
 
