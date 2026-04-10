@@ -24,6 +24,7 @@
                 <div class="nav-user">
                     <a href="/profile/{{ current_user.username }}" class="nav-link nav-username">{{ current_user.display_name }}</a>
                     <form action="/logout" method="post" class="nav-logout-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="nav-link btn-link">Sign Out</button>
                     </form>
                 </div>

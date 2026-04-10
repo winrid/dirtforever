@@ -32,6 +32,7 @@
         </div>
         <div class="card-body">
             <form method="post" action="/clubs" class="create-club-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="name" class="form-label">Club Name</label>

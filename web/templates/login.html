@@ -9,6 +9,7 @@
             <p class="auth-sub">Welcome back, driver.</p>
         </div>
         <form method="post" action="/login" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" id="username" name="username" class="form-input" required autofocus

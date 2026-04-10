@@ -13,10 +13,12 @@
             {% if current_user %}
                 {% if current_user.username in club.members %}
                 <form method="post" action="/clubs/{{ club.id }}/leave">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-ghost btn-sm">Leave Club</button>
                 </form>
                 {% else %}
                 <form method="post" action="/clubs/{{ club.id }}/join">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-primary btn-sm">Join Club</button>
                 </form>
                 {% endif %}

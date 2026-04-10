@@ -1,0 +1,6 @@
+pyproject.toml
+dirtforever_web.egg-info/PKG-INFO
+dirtforever_web.egg-info/SOURCES.txt
+dirtforever_web.egg-info/dependency_links.txt
+dirtforever_web.egg-info/requires.txt
+dirtforever_web.egg-info/top_level.txt

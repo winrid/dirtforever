@@ -5,6 +5,7 @@ description = "DirtForever web frontend"
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.0",
+    "flask-wtf>=1.2.0",
     "gunicorn>=23.0.0",
 ]
 

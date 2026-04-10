@@ -1,6 +1,9 @@
 import os
+import re
 import json
+import fcntl
 import hashlib
+import hmac
 import secrets
 import uuid
 import random
@@ -11,9 +14,15 @@ from flask import (
     Flask, render_template, request, redirect,
     url_for, session, flash, abort,
 )
+from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
+
+csrf = CSRFProtect(app)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE, 'data')
@@ -26,16 +35,35 @@ for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR):
     os.makedirs(d, exist_ok=True)
 
 
+# ── ID validation ───────────────────────────────────────
+
+_SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+
+def _validate_id(value):
+    if not value or not _SAFE_ID_RE.match(value):
+        abort(400)
+    return value
+
+
 # ── File helpers ─────────────────────────────────────────
 
 def _load(path):
     with open(path) as f:
-        return json.load(f)
+        fcntl.flock(f, fcntl.LOCK_SH)
+        try:
+            return json.load(f)
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def _save(path, data):
     with open(path, 'w') as f:
-        json.dump(data, f, indent=2)
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            json.dump(data, f, indent=2)
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 def _list_json(directory):
@@ -50,11 +78,13 @@ def _list_json(directory):
 # ── User ops ─────────────────────────────────────────────
 
 def get_user(username):
+    _validate_id(username)
     p = os.path.join(USERS_DIR, f'{username}.json')
     return _load(p) if os.path.exists(p) else None
 
 
 def save_user(u):
+    _validate_id(u['username'])
     _save(os.path.join(USERS_DIR, f"{u['username']}.json"), u)
 
 
@@ -83,17 +113,19 @@ def create_user(username, email, password, display_name=None, country='', bio=''
 def check_password(password, user):
     salt = bytes.fromhex(user['salt'])
     dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
-    return dk.hex() == user['password_hash']
+    return hmac.compare_digest(dk.hex(), user['password_hash'])
 
 
 # ── Club ops ─────────────────────────────────────────────
 
 def get_club(cid):
+    _validate_id(cid)
     p = os.path.join(CLUBS_DIR, f'{cid}.json')
     return _load(p) if os.path.exists(p) else None
 
 
 def save_club(c):
+    _validate_id(c['id'])
     _save(os.path.join(CLUBS_DIR, f"{c['id']}.json"), c)
 
 
@@ -104,11 +136,13 @@ def get_all_clubs():
 # ── Event ops ────────────────────────────────────────────
 
 def get_event(eid):
+    _validate_id(eid)
     p = os.path.join(EVENTS_DIR, f'{eid}.json')
     return _load(p) if os.path.exists(p) else None
 
 
 def save_event(e):
+    _validate_id(e['id'])
     _save(os.path.join(EVENTS_DIR, f"{e['id']}.json"), e)
 
 
@@ -123,6 +157,7 @@ def get_events_by_type(t):
 # ── Result ops ───────────────────────────────────────────
 
 def get_results(eid):
+    _validate_id(eid)
     p = os.path.join(RESULTS_DIR, f'{eid}.json')
     if os.path.exists(p):
         return _load(p)
@@ -130,6 +165,7 @@ def get_results(eid):
 
 
 def save_results(eid, data):
+    _validate_id(eid)
     _save(os.path.join(RESULTS_DIR, f'{eid}.json'), data)
 
 
@@ -640,6 +676,9 @@ def register_post():
         return redirect(url_for('register'))
     if len(username) < 3 or len(username) > 24:
         flash('Username must be 3-24 characters.', 'error')
+        return redirect(url_for('register'))
+    if not _SAFE_ID_RE.match(username):
+        flash('Username may only contain letters, numbers, hyphens, and underscores.', 'error')
         return redirect(url_for('register'))
     if password != confirm:
         flash('Passwords do not match.', 'error')
