@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Register — DirtForever{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-card reveal">
+        <div class="auth-header">
+            <h1 class="auth-title">Register</h1>
+            <p class="auth-sub">Join the community. Start racing.</p>
+        </div>
+        <form method="post" action="/register" class="auth-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required autofocus
+                       autocomplete="username" placeholder="3-24 characters" minlength="3" maxlength="24">
+            </div>
+            <div class="form-group">
+                <label for="email" class="form-label">Email</label>
+                <input type="email" id="email" name="email" class="form-input" required
+                       autocomplete="email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required
+                       autocomplete="new-password" placeholder="At least 6 characters" minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="confirm" class="form-label">Confirm Password</label>
+                <input type="password" id="confirm" name="confirm" class="form-input" required
+                       autocomplete="new-password" placeholder="Repeat your password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+        </form>
+        <div class="auth-footer">
+            <p>Already have an account? <a href="/login">Sign In</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}

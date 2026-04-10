@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}DirtForever — Rally Lives On{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-topo"></div>
+    <div class="dust-container" id="dust"></div>
+    <div class="hero-content">
+        <div class="hero-badge">COMMUNITY RALLY SERVERS</div>
+        <h1 class="hero-title">
+            <span class="hero-line hero-dirt">DIRT</span>
+            <span class="hero-line hero-forever">FOREVER</span>
+        </h1>
+        <p class="hero-subtitle">Play Dirt Rally 2 &copy; Using Our Servers, complete with Clubs and Leaderboards. <a href="https://github.com/winrid/dirtforever" class="hero-link">Free and open source.</a></p>
+        <div class="hero-cta">
+            {% if current_user %}
+            <a href="/dashboard" class="btn btn-primary">Dashboard</a>
+            <a href="/events" class="btn btn-ghost">View Events</a>
+            {% else %}
+            <a href="/register" class="btn btn-primary">Start Racing</a>
+            <a href="/login" class="btn btn-ghost">Sign In</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="hero-fade"></div>
+</section>
+
+<div class="stripe-divider"></div>
+
+<section class="section stats-section">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-card reveal">
+                <div class="stat-value" data-count="{{ stats.total_drivers }}">0</div>
+                <div class="stat-label">Active Drivers</div>
+            </div>
+            <div class="stat-card reveal" style="animation-delay:.1s">
+                <div class="stat-value" data-count="{{ stats.total_clubs }}">0</div>
+                <div class="stat-label">Clubs</div>
+            </div>
+            <div class="stat-card reveal" style="animation-delay:.2s">
+                <div class="stat-value" data-count="{{ stats.active_events }}">0</div>
+                <div class="stat-label">Live Events</div>
+            </div>
+            <div class="stat-card reveal" style="animation-delay:.3s">
+                <div class="stat-value" data-count="{{ stats.total_entries }}">0</div>
+                <div class="stat-label">Stage Runs</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if featured_event %}
+<section class="section">
+    <div class="container">
+        <h2 class="section-title"><span class="accent">//</span> Featured Event</h2>
+        <div class="featured-card reveal">
+            <div class="featured-body">
+                <div class="featured-top">
+                    <span class="event-badge badge-{{ featured_event.type }}">{{ featured_event.type | upper }}</span>
+                    <span class="featured-surface">{{ featured_event.surface }}</span>
+                </div>
+                <h3 class="featured-name">{{ featured_event.name }}</h3>
+                <div class="featured-meta">
+                    <span class="meta-item"><strong>{{ featured_event.location }}</strong></span>
+                    <span class="meta-dot"></span>
+                    <span class="meta-item">{{ featured_event.car_class }}</span>
+                    <span class="meta-dot"></span>
+                    <span class="meta-item">{{ featured_event.conditions }}</span>
+                    <span class="meta-dot"></span>
+                    <span class="meta-item">{{ featured_event.stages | length }} stages</span>
+                </div>
+                <div class="featured-stages">
+                    {% for stage in featured_event.stages %}
+                    <div class="featured-stage">
+                        <span class="stage-num">S{{ loop.index }}</span>
+                        <span class="stage-name">{{ stage.name }}</span>
+                        <span class="stage-km mono">{{ "%.1f"|format(stage.distance_km) }} km</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="featured-footer">
+                    <span class="countdown-badge">
+                        <span class="countdown-icon">&#9201;</span>
+                        Ends in <strong>{{ featured_event.end_time | countdown }}</strong>
+                    </span>
+                    <a href="/events/{{ featured_event.id }}" class="btn btn-primary btn-sm">View Event &rarr;</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if recent %}
+<div class="stripe-divider"></div>
+<section class="section">
+    <div class="container">
+        <h2 class="section-title"><span class="accent">//</span> Recent Activity</h2>
+        <div class="activity-list">
+            {% for r in recent %}
+            <div class="activity-item reveal" style="animation-delay:{{ loop.index0 * 0.06 }}s">
+                <div class="activity-pos pos-{{ r.position }}">P{{ r.position }}</div>
+                <div class="activity-info">
+                    <a href="/profile/{{ r.username }}" class="activity-username">{{ r.username }}</a>
+                    <span class="activity-detail">
+                        completed
+                        <a href="/events/{{ r.event_id }}" class="activity-event">{{ r.event_name }}</a>
+                    </span>
+                </div>
+                <div class="activity-right">
+                    <span class="mono activity-time">{{ r.total_time_ms | rally_time }}</span>
+                    <span class="activity-car">{{ r.car }}</span>
+                </div>
+                <div class="activity-ago">{{ r.submitted_at | timeago }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

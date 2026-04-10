@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Leaderboards — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title"><span class="accent">//</span> Leaderboards</h1>
+    </div>
+</section>
+
+<div class="container">
+    <div class="leaderboard-layout">
+        <aside class="leaderboard-sidebar">
+            <h3 class="sidebar-title">Events</h3>
+            <div class="sidebar-list">
+                {% for evt in events %}
+                <a href="/leaderboards?event={{ evt.id }}"
+                   class="sidebar-item {% if selected_event and selected_event.id == evt.id %}active{% endif %}">
+                    <span class="event-badge badge-{{ evt.type }} badge-xs">{{ evt.type[:1] | upper }}</span>
+                    <span class="sidebar-item-name">{{ evt.name }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </aside>
+
+        <div class="leaderboard-main">
+            {% if selected_event %}
+            <div class="leaderboard-header reveal">
+                <div class="leaderboard-event-info">
+                    <span class="event-badge badge-{{ selected_event.type }}">{{ selected_event.type | upper }}</span>
+                    <h2 class="leaderboard-event-name">{{ selected_event.name }}</h2>
+                    <span class="text-muted">{{ selected_event.location }} &middot; {{ selected_event.car_class }} &middot; {{ selected_event.conditions }}</span>
+                </div>
+            </div>
+
+            {% if selected_event.stages | length > 1 %}
+            <div class="stage-tabs reveal" style="animation-delay:.05s">
+                <a href="/leaderboards?event={{ selected_event.id }}"
+                   class="stage-tab {% if stage_idx is none %}active{% endif %}">Overall</a>
+                {% for stage in selected_event.stages %}
+                <a href="/leaderboards?event={{ selected_event.id }}&stage={{ loop.index0 }}"
+                   class="stage-tab {% if stage_idx == loop.index0 %}active{% endif %}">
+                    S{{ loop.index }}: {{ stage.name }}
+                </a>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {% if entries %}
+            <div class="lb-table reveal" style="animation-delay:.1s">
+                <div class="lb-row lb-row-header">
+                    <span class="lb-col lb-pos">Pos</span>
+                    <span class="lb-col lb-driver">Driver</span>
+                    <span class="lb-col lb-car">Car</span>
+                    <span class="lb-col lb-time">Time</span>
+                    <span class="lb-col lb-diff">Diff</span>
+                </div>
+                {% for entry in entries %}
+                <div class="lb-row {% if current_user and entry.username == current_user.username %}lb-row-me{% endif %}"
+                     style="animation-delay:{{ 0.1 + loop.index0 * 0.03 }}s">
+                    <span class="lb-col lb-pos">
+                        <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
+                    </span>
+                    <span class="lb-col lb-driver">
+                        <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
+                    </span>
+                    <span class="lb-col lb-car text-muted">{{ entry.car }}</span>
+                    <span class="lb-col lb-time mono">{{ entry.time_ms | rally_time }}</span>
+                    <span class="lb-col lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
+                        {% if loop.index == 1 %}
+                        &mdash;
+                        {% else %}
+                        {{ (entry.time_ms - leader_time) | time_diff }}
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-box reveal">
+                <p class="text-muted">No results submitted yet for this event.</p>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state-box reveal">
+                <p class="text-muted">Select an event from the sidebar to view its leaderboard.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

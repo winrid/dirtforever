@@ -1,0 +1,171 @@
+{% extends 'base.html' %}
+{% block title %}{{ event.name }} — DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb"><a href="/events?type={{ event.type }}">Events</a> <span class="accent">/</span></p>
+                <div class="page-header-badges">
+                    <span class="event-badge badge-{{ event.type }}">{{ event.type | upper }}</span>
+                    {% if club %}
+                    <a href="/clubs/{{ club.id }}" class="event-club-link">{{ club.name }}</a>
+                    {% endif %}
+                </div>
+                <h1 class="page-title">{{ event.name }}</h1>
+                <p class="page-subtitle text-muted">
+                    {{ event.location }} &middot; {{ event.car_class }} &middot; {{ event.conditions }} &middot; {{ event.surface }}
+                </p>
+            </div>
+            <div class="page-header-right">
+                <div class="countdown-large">
+                    <span class="countdown-label">Ends in</span>
+                    <span class="countdown-value mono">{{ event.end_time | countdown }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container event-detail-layout">
+    <div class="event-detail-main">
+        <div class="card reveal">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Stages</h2>
+                <span class="text-muted">{{ event.stages | length }} stages &middot;
+                    {{ "%.1f"|format(event.stages | sum(attribute='distance_km')) }} km total</span>
+            </div>
+            <div class="card-body">
+                <div class="stage-detail-list">
+                    {% for stage in event.stages %}
+                    <div class="stage-detail-row">
+                        <span class="stage-detail-num">S{{ loop.index }}</span>
+                        <span class="stage-detail-name">{{ stage.name }}</span>
+                        <span class="stage-detail-conditions text-muted">{{ stage.conditions }}</span>
+                        <span class="stage-detail-km mono">{{ "%.1f"|format(stage.distance_km) }} km</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card reveal" style="animation-delay:.1s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Leaderboard</h2>
+                <span class="text-muted">{{ entries | length }} entries</span>
+            </div>
+            <div class="card-body">
+                {% if entries %}
+                {% set leader = entries[0].total_time_ms %}
+                <div class="lb-table">
+                    <div class="lb-row lb-row-header">
+                        <span class="lb-col lb-pos">Pos</span>
+                        <span class="lb-col lb-driver">Driver</span>
+                        <span class="lb-col lb-car">Car</span>
+                        {% for stage in event.stages %}
+                        <span class="lb-col lb-stage-time">S{{ loop.index }}</span>
+                        {% endfor %}
+                        <span class="lb-col lb-time">Total</span>
+                        <span class="lb-col lb-diff">Gap</span>
+                    </div>
+                    {% for entry in entries %}
+                    <div class="lb-row {% if current_user and entry.username == current_user.username %}lb-row-me{% endif %}">
+                        <span class="lb-col lb-pos">
+                            <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
+                        </span>
+                        <span class="lb-col lb-driver">
+                            <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
+                        </span>
+                        <span class="lb-col lb-car text-muted">{{ entry.car }}</span>
+                        {% for st in entry.stages %}
+                        <span class="lb-col lb-stage-time mono text-muted">{{ st.time_ms | rally_time }}</span>
+                        {% endfor %}
+                        <span class="lb-col lb-time mono">{{ entry.total_time_ms | rally_time }}</span>
+                        <span class="lb-col lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
+                            {% if loop.index == 1 %}&mdash;{% else %}{{ (entry.total_time_ms - leader) | time_diff }}{% endif %}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted empty-state">No entries yet. Be the first!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="event-detail-side">
+        {% if current_user %}
+        {% set already_submitted = entries | selectattr('username', 'equalto', current_user.username) | list | length > 0 %}
+        <div class="card reveal" style="animation-delay:.15s">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Submit Times</h2>
+            </div>
+            <div class="card-body">
+                {% if already_submitted %}
+                <p class="text-muted">You've already submitted times for this event.</p>
+                {% else %}
+                <form method="post" action="/events/{{ event.id }}/submit" class="submit-form">
+                    <div class="form-group">
+                        <label class="form-label">Car</label>
+                        <select name="car" class="form-input form-select" required>
+                            <option value="">Select car...</option>
+                            {% for car in cars %}
+                            <option value="{{ car }}">{{ car }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% for stage in event.stages %}
+                    <div class="form-group">
+                        <label class="form-label">S{{ loop.index }}: {{ stage.name }}</label>
+                        <input type="text" name="stage_{{ loop.index0 }}" class="form-input mono"
+                               placeholder="MM:SS.mmm" required pattern="\d{1,2}:\d{2}\.\d{1,3}">
+                        <span class="form-hint">Format: MM:SS.mmm (e.g. 04:23.456)</span>
+                    </div>
+                    {% endfor %}
+                    <button type="submit" class="btn btn-primary btn-full">Submit Times</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <div class="card reveal" style="animation-delay:.15s">
+            <div class="card-body" style="text-align:center;padding:2rem;">
+                <p class="text-muted">Sign in to submit your times.</p>
+                <a href="/login" class="btn btn-primary btn-sm" style="margin-top:1rem;">Sign In</a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="card reveal" style="animation-delay:.2s">
+            <div class="card-body event-info-card">
+                <div class="event-info-row">
+                    <span class="text-muted">Location</span>
+                    <span>{{ event.location }}</span>
+                </div>
+                <div class="event-info-row">
+                    <span class="text-muted">Surface</span>
+                    <span>{{ event.surface }}</span>
+                </div>
+                <div class="event-info-row">
+                    <span class="text-muted">Car Class</span>
+                    <span>{{ event.car_class }}</span>
+                </div>
+                <div class="event-info-row">
+                    <span class="text-muted">Conditions</span>
+                    <span>{{ event.conditions }}</span>
+                </div>
+                <div class="event-info-row">
+                    <span class="text-muted">Total Distance</span>
+                    <span class="mono">{{ "%.1f"|format(event.stages | sum(attribute='distance_km')) }} km</span>
+                </div>
+                <div class="event-info-row">
+                    <span class="text-muted">Entries</span>
+                    <span>{{ entries | length }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

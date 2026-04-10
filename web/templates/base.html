@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DirtForever{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Rajdhani:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="grain"></div>
+
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="/" class="nav-logo">DIRT<span class="accent">FOREVER</span></a>
+            <div class="nav-links">
+                <a href="/events" class="nav-link {% if request.path.startswith('/events') %}active{% endif %}">Events</a>
+                <a href="/leaderboards" class="nav-link {% if request.path.startswith('/leaderboards') %}active{% endif %}">Leaderboards</a>
+                <a href="/clubs" class="nav-link {% if request.path.startswith('/clubs') %}active{% endif %}">Clubs</a>
+                {% if current_user %}
+                <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                <div class="nav-user">
+                    <a href="/profile/{{ current_user.username }}" class="nav-link nav-username">{{ current_user.display_name }}</a>
+                    <form action="/logout" method="post" class="nav-logout-form">
+                        <button type="submit" class="nav-link btn-link">Sign Out</button>
+                    </form>
+                </div>
+                {% else %}
+                <a href="/login" class="nav-link">Sign In</a>
+                <a href="/register" class="btn btn-primary btn-sm nav-register">Register</a>
+                {% endif %}
+            </div>
+            <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+    </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">
+            <span class="flash-text">{{ message }}</span>
+            <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <main>
+        {% if error %}
+        <div class="section" style="text-align:center;padding:6rem 2rem;">
+            <h1 class="section-title" style="font-size:4rem;">404</h1>
+            <p class="text-muted">{{ error }}</p>
+            <a href="/" class="btn btn-primary" style="margin-top:2rem;">Back Home</a>
+        </div>
+        {% else %}
+        {% block content %}{% endblock %}
+        {% endif %}
+    </main>
+
+    <footer class="footer">
+        <div class="stripe-divider"></div>
+        <div class="footer-inner">
+            <div class="footer-brand">DIRT<span class="accent">FOREVER</span></div>
+            <p class="footer-text">Play Dirt Rally 2 &copy; Using Our Servers. <a href="https://github.com/winrid/dirtforever">Free and open source.</a></p>
+            <p class="footer-sub">DiRT Rally 2.0 is a trademark of Codemasters. DirtForever is not affiliated with Codemasters or EA.</p>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='enhance.js') }}"></script>
+</body>
+</html>

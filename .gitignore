@@ -3,3 +3,5 @@ dr2server/__pycache__
 captures
 runtime
 scripts/__pycache__
+web/data
+web/.venv

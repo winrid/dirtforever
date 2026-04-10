@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Sign In — DirtForever{% endblock %}
+
+{% block content %}
+<section class="auth-page">
+    <div class="auth-card reveal">
+        <div class="auth-header">
+            <h1 class="auth-title">Sign In</h1>
+            <p class="auth-sub">Welcome back, driver.</p>
+        </div>
+        <form method="post" action="/login" class="auth-form">
+            <div class="form-group">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-input" required autofocus
+                       autocomplete="username" placeholder="Your username">
+            </div>
+            <div class="form-group">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-input" required
+                       autocomplete="current-password" placeholder="Your password">
+            </div>
+            <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+        </form>
+        <div class="auth-footer">
+            <p>Don't have an account? <a href="/register">Register</a></p>
+        </div>
+    </div>
+</section>
+{% endblock %}
