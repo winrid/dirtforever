@@ -20,7 +20,7 @@ from flask import (
 from flask_wtf.csrf import CSRFProtect
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', secrets.token_hex(32))
+app.secret_key = os.environ['SECRET_KEY']
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
@@ -35,7 +35,13 @@ SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
 
-app.logger.setLevel(logging.DEBUG)
+if not app.debug:
+    gunicorn_logger = logging.getLogger('gunicorn.error')
+    if gunicorn_logger.handlers:
+        app.logger.handlers = gunicorn_logger.handlers
+        app.logger.setLevel(gunicorn_logger.level)
+    else:
+        app.logger.setLevel(logging.DEBUG)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE, 'data')
