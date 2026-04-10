@@ -19,6 +19,21 @@ from flask import (
 )
 from flask_wtf.csrf import CSRFProtect
 
+
+def _load_dotenv(path):
+    if not os.path.exists(path):
+        return
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            key, val = line.split('=', 1)
+            os.environ.setdefault(key.strip(), val.strip())
+
+
+_load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
+
 app = Flask(__name__)
 app.secret_key = os.environ['SECRET_KEY']
 app.config['SESSION_COOKIE_HTTPONLY'] = True
