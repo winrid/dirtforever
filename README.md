@@ -1,180 +1,151 @@
-# DiRT Rally 2.0 Community Server Bootstrap
+# DiRT Rally 2.0 Community Server
 
-This repository is a Python proof of concept for emulating parts of the DiRT Rally 2.0 backend.
+A community replacement for the defunct RaceNet/EgoNet backend that DiRT Rally 2.0 requires to play. Run it locally and the game's online features work without Codemasters servers.
 
-The first goal is not a full replacement. The first goal is to:
+---
 
-- capture requests the game makes
-- stub known RaceNet style methods
-- provide a basic website/API for account creation
-- store each account in its own JSON file
+## For Users
 
-## What We Already Know
+### Prerequisites
 
-Static string inspection of `dirtrally2.exe` shows these likely backend hostnames:
+- Python 3.9+
+- Windows (the hosts redirect requires editing `%WINDIR%\System32\drivers\etc\hosts`)
+- DiRT Rally 2.0 installed via Steam
+- `cryptography` Python package: `pip install cryptography`
 
-- `prod.egonet.codemasters.com`
-- `qa.egonet.codemasters.com`
-- `terms.codemasters.com`
-- `aurora.codemasters.local`
+### Quick Start
 
-It also exposes backend-style method names including:
+Run these steps once per machine, then start the server each session.
 
-- `Login.Login`
-- `Login.GetCurrentVersion`
-- `RaceNet.SignIn`
-- `RaceNet.CreateAccount`
-- `RaceNet.GetTermsAndConditions`
-- `RaceNet.AcceptTerms`
-- `Clubs.GetClubs`
-- `RaceNetLeaderboard.GetLeaderboardEntries`
-- `TimeTrial.PostTime`
+**1. Generate a TLS certificate**
 
-That strongly suggests the game talks to an HTTP or HTTPS API with RPC-like operation names on top.
-
-## Important Constraint
-
-Steam is probably not the hardest part.
-
-The harder part is that the game likely talks to Codemasters services over HTTPS. Pointing DNS or the hosts file at your own server is easy. Making the client accept your TLS certificate requires one of these:
-
-1. a trusted local certificate for the original hostname
-2. a TLS interception setup such as `mitmproxy`
-3. a binary patch that disables certificate checks or rewrites backend URLs
-
-Launching outside Steam may help with iteration, but it will not by itself replace the RaceNet backend.
-
-## Quick Start
-
-```powershell
-python .\scripts\generate_dev_cert.py
-powershell -ExecutionPolicy Bypass -File .\scripts\install_dev_cert.ps1
-python server.py --host 127.0.0.1 --port 8080 --https-port 443 --ssl-cert .\runtime\certs\dr2server-cert.pem --ssl-key .\runtime\certs\dr2server-key.pem
+```
+python scripts/generate_dev_cert.py
 ```
 
-Open:
+Writes `runtime/certs/dr2server-cert.pem` and `runtime/certs/dr2server-key.pem`.
 
-- `http://127.0.0.1:8080/` for a tiny web UI
-- `http://127.0.0.1:8080/api/health` for health
+**2. Install the certificate into the Windows trust store**
 
-## Layout
-
-- `server.py`: entry point
-- `dr2server/account_store.py`: file-per-account storage
-- `dr2server/dispatcher.py`: method dispatch and stub responses
-- `dr2server/httpd.py`: HTTP server and request capture
-- `scripts/setup_windows_redirect.ps1`: adds Windows hosts redirects with UAC elevation
-- `scripts/remove_windows_redirect.ps1`: removes those hosts redirects
-- `scripts/generate_dev_cert.py`: generates a local TLS certificate and key
-- `scripts/install_dev_cert.ps1`: trusts that certificate for the current Windows user
-- `captures/`: raw captured requests from the game or browser
-- `data/accounts/`: one JSON file per account
-
-## Current Endpoints
-
-- `GET /`
-- `GET /register`
-- `GET /login`
-- `POST /api/account/register`
-- `POST /api/account/login`
-- `GET /api/health`
-- `POST /rpc`
-- `POST /rpc/<method>`
-
-`POST /rpc` accepts JSON such as:
-
-```json
-{
-  "method": "Login.Login",
-  "params": {
-    "username": "driver1",
-    "password": "secret"
-  }
-}
+```
+powershell -ExecutionPolicy Bypass -File scripts/install_dev_cert.ps1
 ```
 
-## Suggested Reverse Engineering Workflow
+UAC will prompt for administrator access. This is required so the game accepts the self-signed cert.
 
-1. Redirect `prod.egonet.codemasters.com` to your machine with a hosts override or local DNS.
-2. Terminate TLS for that hostname with a cert the machine trusts.
-3. Run this Python server or place it behind a reverse proxy.
-4. Launch the game and inspect files written to `captures/`.
-5. Add handlers for whatever the client expects next.
+**3. Redirect game traffic to localhost**
 
-## Windows Redirect Helper
-
-For local testing on Windows:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows_redirect.ps1 -ServerIp 127.0.0.1
+```
+powershell -ExecutionPolicy Bypass -File scripts/setup_windows_redirect.ps1
 ```
 
-This script:
+Adds hosts entries for `prod.egonet.codemasters.com` and related Codemasters domains. UAC required.
 
-- prompts for UAC elevation if needed
-- adds hosts entries for the known Codemasters backend names
-- is safe to run repeatedly because it rewrites only its own marked block
+**4. Start the server**
 
-To remove the redirect:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\remove_windows_redirect.ps1
+```
+python server.py --ssl-cert runtime/certs/dr2server-cert.pem --ssl-key runtime/certs/dr2server-key.pem
 ```
 
-## Certificate Helper
+The server listens on `127.0.0.1:8080` (HTTP) and `127.0.0.1:443` (HTTPS).
 
-Generate and trust a local certificate for the current user:
+**5. Launch the game via Steam**
 
-```powershell
-python .\scripts\generate_dev_cert.py
-powershell -ExecutionPolicy Bypass -File .\scripts\install_dev_cert.ps1
+Start DiRT Rally 2.0 normally. Game traffic will reach the local server automatically.
+
+### What Works
+
+- Login
+- Events (career mode loads without crashing)
+- Clubs (server-defined custom events)
+
+### What Does Not Work Yet
+
+- Actual race result tracking
+- Leaderboards
+- Multiplayer
+
+### Undoing the Hosts Redirect
+
+```
+powershell -ExecutionPolicy Bypass -File scripts/remove_windows_redirect.ps1
 ```
 
-Then start the server with HTTPS enabled on `443`:
+This removes the DR2 community server block from your hosts file. The certificate installed in step 2 can be removed manually via `certmgr.msc`.
 
-```powershell
-python server.py --host 127.0.0.1 --port 8080 --https-port 443 --ssl-cert .\runtime\certs\dr2server-cert.pem --ssl-key .\runtime\certs\dr2server-key.pem
+---
+
+## For Developers
+
+### Project Layout
+
+```
+server.py                   entry point, delegates to dr2server/httpd.py main()
+dr2server/
+  httpd.py                  HTTP/HTTPS server, request capture, EgoNet RPC dispatch, upstream proxy
+  dispatcher.py             RPC method handlers and fake response payloads
+  egonet.py                 binary stream codec (encode/decode for EgoNet wire format)
+  models.py                 typed data structures used by dispatcher and codec
+  game_data.py              ID enums for locations, tracks, and vehicles
+  account_store.py          file-per-account JSON storage
+scripts/
+  generate_dev_cert.py      generates self-signed cert covering all Codemasters hostnames
+  install_dev_cert.ps1      installs cert into Windows current-user trust store
+  setup_windows_redirect.ps1  adds hosts entries pointing Codemasters domains to 127.0.0.1
+  remove_windows_redirect.ps1 removes those hosts entries
+captures/                   raw JSON captures of every request and response
+runtime/certs/              generated TLS cert and key
+data/accounts/              one JSON file per account
 ```
 
-## Local UI Automation
+### Architecture
 
-For repeatable local menu navigation on Windows:
+The game makes HTTPS requests to `prod.egonet.codemasters.com` (and a few other Codemasters hostnames). The setup does two things:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_game_flow.ps1 -Action events
-powershell -ExecutionPolicy Bypass -File .\scripts\run_game_flow.ps1 -Action clubs
+1. The Windows hosts file redirects those hostnames to `127.0.0.1`.
+2. A self-signed certificate covering those hostnames is installed as trusted, so the game's TLS verification passes.
+
+Game traffic then arrives at the local Python HTTPS server on port 443. `httpd.py` decodes the EgoNet binary body, dispatches to a handler in `dispatcher.py`, and returns an EgoNet-encoded response.
+
+### EgoNet Protocol
+
+The game's RPC transport uses a custom binary stream format. Each value is length-prefixed and tagged with a type. The codec is in `egonet.py`.
+
+The most important constraint: **types must match exactly**. The game distinguishes `si32`, `ui32`, and `ui08`. Sending the wrong integer type for a field causes an immediate crash, not a graceful error. Use the type aliases in `models.py` to ensure correct encoding.
+
+### Required HTTP Headers
+
+Every EgoNet RPC response must use:
+
+- `Content-Type: text/html` (not `application/octet-stream`, the game validates this)
+- `X-EgoNet-Catalogue-Version: 1.18.0`
+
+### Adding a New RPC Handler
+
+1. Add a function to `dispatcher.py` and register it in the handler map.
+2. Return a dict using field names and types from `models.py`.
+3. The codec in `egonet.py` handles encoding automatically based on the model types.
+
+Field names must match exactly what the game expects. Unknown or missing fields cause crashes rather than fallback behavior.
+
+### Upstream Proxy Mode
+
+To forward selected EgoNet methods to the real Codemasters servers and capture their responses (useful for reverse engineering unknown payload shapes):
+
+```
+python server.py \
+  --ssl-cert runtime/certs/dr2server-cert.pem \
+  --ssl-key runtime/certs/dr2server-key.pem \
+  --upstream-ip 159.153.126.42 \
+  --proxy-all
 ```
 
-This wrapper:
+`--proxy-all` forwards every method upstream. To proxy specific methods only:
 
-- launches or focuses `DiRT Rally 2.0`
-- sends the fixed key sequence from `notes/how_to_control_game.md`
-- captures a full-screen screenshot with `nircmd`
-- runs OCR with `tesseract`
-- writes artifacts under `runtime/gamebot/<timestamp>`
+```
+  --upstream-ip 159.153.126.42 \
+  --proxy-method RaceNetCareerLadder.GetRallyTierList \
+  --proxy-method RaceNetCareerLadder.GetRallyChampionship
+```
 
-## What You Can And Cannot Automate
-
-You can automate admin-required local changes such as:
-
-- hosts file updates
-- local firewall rules
-- installing your own trusted certificate for your own redirector
-
-You should not rely on "silent" admin access. On normal Windows machines, the correct pattern is to relaunch the setup step with `RunAs` so the user sees the UAC prompt.
-
-For other users, the clean distribution model is:
-
-1. ship the community server
-2. ship a setup script or installer that requests admin once
-3. add hosts entries or local DNS settings
-4. install a trusted certificate if HTTPS interception is needed
-
-The script in this repo now covers step 2 and the hosts-file part of step 3.
-
-## Next Steps
-
-- confirm exact request shape the game uses
-- identify whether payloads are JSON, protobuf, or another framed format
-- determine whether Steam auth tickets are required for login
-- expand handlers for profile, clubs, leaderboards, and time trial flows
+Captures of both the forwarded request and the upstream response are written to `captures/` in the usual JSON format.
