@@ -240,25 +240,29 @@ def run_gui():
     server_running = threading.Event()
     shutdown_flag = threading.Event()
 
+    # Colors (matched to dirtforever.net web theme)
+    BG = "#08080C"
+    BG_CARD = "#14141C"
+    BG_ELEVATED = "#1A1A24"
+    ACCENT = "#E8720C"
+    ACCENT_BRIGHT = "#FF8C2E"
+    GREEN = "#22C55E"
+    RED = "#EF4444"
+    TEXT = "#E8E4DF"
+    MUTED = "#8A8992"
+    BORDER = "#2A2A36"
+
     # --- Window setup ---
     root = tk.Tk()
     root.title("DirtForever")
     root.resizable(False, False)
-    root.configure(bg="#1a1a2e")
+    root.configure(bg=BG)
 
     # Center on screen
-    w, h = 420, 380
+    w, h = 440, 500
     x = (root.winfo_screenwidth() - w) // 2
     y = (root.winfo_screenheight() - h) // 2
     root.geometry(f"{w}x{h}+{x}+{y}")
-
-    # Colors
-    BG = "#1a1a2e"
-    BG_CARD = "#16213e"
-    ACCENT = "#e94560"
-    GREEN = "#4ecca3"
-    TEXT = "#eee"
-    MUTED = "#888"
 
     # --- Header ---
     header = tk.Frame(root, bg=BG)
@@ -268,28 +272,73 @@ def run_gui():
     tk.Label(header, text="DiRT Rally 2.0 Community Server", font=("Segoe UI", 9),
              fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(6, 0))
 
+    # --- Token config ---
+    token_frame = tk.Frame(root, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+    token_frame.pack(fill="x", padx=20, pady=(10, 5))
+
+    tk.Label(token_frame, text="GAME TOKEN", font=("Segoe UI", 8, "bold"),
+             fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
+
+    token_input_frame = tk.Frame(token_frame, bg=BG_CARD)
+    token_input_frame.pack(fill="x", padx=12, pady=(0, 8))
+
+    token_var = tk.StringVar(value=config.get("game_token", ""))
+    token_entry = tk.Entry(
+        token_input_frame, textvariable=token_var, font=("Consolas", 9),
+        bg=BG, fg=TEXT, insertbackground=TEXT, relief="flat",
+        highlightbackground=BORDER, highlightthickness=1,
+    )
+    token_entry.pack(side="left", fill="x", expand=True, ipady=4)
+
+    def save_token():
+        t = token_var.get().strip()
+        config["game_token"] = t
+        save_config(config)
+        if t:
+            token_status_label.configure(text="Saved", fg=GREEN)
+        else:
+            token_status_label.configure(text="No token", fg=ACCENT)
+        root.after(2000, lambda: token_status_label.configure(
+            text="Get token at dirtforever.net/dashboard", fg=MUTED))
+
+    save_btn = tk.Button(
+        token_input_frame, text="Save", font=("Segoe UI", 8, "bold"),
+        bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=save_token,
+    )
+    save_btn.pack(side="right", padx=(5, 0))
+
+    token_status_label = tk.Label(token_frame, text="", font=("Segoe UI", 8), fg=MUTED, bg=BG_CARD)
+    token_status_label.pack(anchor="w", padx=12, pady=(0, 6))
+
+    if config.get("game_token"):
+        token_status_label.configure(text="Token configured", fg=GREEN)
+    else:
+        token_status_label.configure(text="Get token at dirtforever.net/dashboard", fg=MUTED)
+
     # --- Status ---
-    status_frame = tk.Frame(root, bg=BG_CARD, highlightbackground="#333", highlightthickness=1)
-    status_frame.pack(fill="x", padx=20, pady=10)
+    status_frame = tk.Frame(root, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+    status_frame.pack(fill="x", padx=20, pady=5)
 
     status_dot = tk.Label(status_frame, text="\u25cf", font=("Segoe UI", 14),
                           fg=MUTED, bg=BG_CARD)
-    status_dot.pack(side="left", padx=(15, 5), pady=12)
+    status_dot.pack(side="left", padx=(15, 5), pady=10)
 
     status_label = tk.Label(status_frame, text="Stopped", font=("Segoe UI", 12, "bold"),
                             fg=TEXT, bg=BG_CARD)
-    status_label.pack(side="left", pady=12)
+    status_label.pack(side="left", pady=10)
 
     status_detail = tk.Label(status_frame, text="", font=("Segoe UI", 9),
                              fg=MUTED, bg=BG_CARD)
-    status_detail.pack(side="right", padx=15, pady=12)
+    status_detail.pack(side="right", padx=15, pady=10)
 
     # --- Log area ---
     log_frame = tk.Frame(root, bg=BG)
-    log_frame.pack(fill="both", expand=True, padx=20, pady=(0, 5))
+    log_frame.pack(fill="both", expand=True, padx=20, pady=(5, 5))
 
-    log_text = tk.Text(log_frame, height=6, bg="#0f0f23", fg="#ccc",
-                       font=("Consolas", 9), relief="flat", wrap="word",
+    log_text = tk.Text(log_frame, height=5, bg=BG, fg=MUTED,
+                       font=("Consolas", 8), relief="flat", wrap="word",
                        state="disabled", borderwidth=0)
     log_text.pack(fill="both", expand=True)
 
@@ -301,41 +350,31 @@ def run_gui():
 
     # --- Buttons ---
     btn_frame = tk.Frame(root, bg=BG)
-    btn_frame.pack(fill="x", padx=20, pady=(5, 10))
+    btn_frame.pack(fill="x", padx=20, pady=(5, 8))
 
     start_btn = tk.Button(
         btn_frame, text="START DIRTFOREVER", font=("Segoe UI", 11, "bold"),
-        bg=GREEN, fg="#111", activebackground="#3ba88a", activeforeground="#111",
+        bg=GREEN, fg="#111", activebackground="#1a9e4a", activeforeground="#111",
         relief="flat", cursor="hand2", padx=20, pady=10,
     )
     start_btn.pack(fill="x", pady=(0, 5))
 
     stop_btn = tk.Button(
-        btn_frame, text="STOP", font=("Segoe UI", 11, "bold"),
-        bg="#444", fg=TEXT, activebackground="#555", activeforeground=TEXT,
-        relief="flat", cursor="hand2", padx=20, pady=10,
+        btn_frame, text="STOP", font=("Segoe UI", 10, "bold"),
+        bg=BG_ELEVATED, fg=MUTED, activebackground="#333", activeforeground=TEXT,
+        relief="flat", cursor="hand2", padx=20, pady=8,
         state="disabled",
     )
     stop_btn.pack(fill="x")
 
-    # --- Footer links ---
+    # --- Footer ---
     footer = tk.Frame(root, bg=BG)
-    footer.pack(fill="x", padx=20, pady=(0, 15))
+    footer.pack(fill="x", padx=20, pady=(0, 12))
 
-    token_status = tk.Label(footer, text="", font=("Segoe UI", 8), fg=MUTED, bg=BG)
-    token_status.pack(side="left")
-
-    dash_link = tk.Label(footer, text="Dashboard", font=("Segoe UI", 8, "underline"),
+    dash_link = tk.Label(footer, text="dirtforever.net/dashboard", font=("Segoe UI", 8, "underline"),
                          fg=ACCENT, bg=BG, cursor="hand2")
     dash_link.pack(side="right")
     dash_link.bind("<Button-1>", lambda e: webbrowser.open(DASHBOARD_URL))
-
-    # Update token status
-    if config.get("game_token"):
-        t = config["game_token"]
-        token_status.configure(text=f"Token: {t[:6]}...{t[-4:]}", fg=GREEN)
-    else:
-        token_status.configure(text="No token configured", fg=ACCENT)
 
     # --- Server control ---
     def set_status(running: bool, detail: str = ""):
@@ -343,14 +382,14 @@ def run_gui():
             status_dot.configure(fg=GREEN)
             status_label.configure(text="Running")
             status_detail.configure(text=detail or "Launch DR2 to play")
-            start_btn.configure(state="disabled", bg="#555")
-            stop_btn.configure(state="normal", bg=ACCENT)
+            start_btn.configure(state="disabled", bg=BG_ELEVATED)
+            stop_btn.configure(state="normal", bg=RED, fg=TEXT)
         else:
             status_dot.configure(fg=MUTED)
             status_label.configure(text="Stopped")
             status_detail.configure(text=detail)
             start_btn.configure(state="normal", bg=GREEN)
-            stop_btn.configure(state="disabled", bg="#444")
+            stop_btn.configure(state="disabled", bg=BG_ELEVATED, fg=MUTED)
 
     def server_worker():
         """Run the game server in a background thread."""

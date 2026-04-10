@@ -82,11 +82,12 @@ class App:
         upstream_ip: Optional[str] = None,
         proxy_methods: Optional[Set[str]] = None,
         api_url: Optional[str] = None,
+        api_token: Optional[str] = None,
     ) -> None:
         self.account_store = AccountStore(data_root / "accounts")
         api_client: Optional[DirtForeverClient] = None
         if api_url:
-            api_client = DirtForeverClient(base_url=api_url)
+            api_client = DirtForeverClient(base_url=api_url, api_token=api_token)
             print(f"[API] Connected to dirtforever API at {api_url}")
         self.dispatcher = RpcDispatcher(self.account_store, api_client=api_client)
         self.capture_root = capture_root
@@ -532,6 +533,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="Base URL for the dirtforever.net web API "
                              "(e.g. https://dirtforever.net). "
                              "When omitted, the server uses local fallback data.")
+    parser.add_argument("--api-token", default=None,
+                        help="Game API token (df_xxx) for authenticating with dirtforever.net.")
     return parser
 
 
@@ -570,6 +573,7 @@ def main() -> int:
         upstream_ip=args.upstream_ip,
         proxy_methods=proxy_methods,
         api_url=args.api_url,
+        api_token=getattr(args, 'api_token', None),
     )
     servers = []
 
