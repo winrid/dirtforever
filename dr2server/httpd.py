@@ -15,6 +15,7 @@ from typing import Any, Dict, Optional, Set
 from urllib.parse import parse_qs, urlparse
 
 from .account_store import AccountStore
+from .api_client import DirtForeverClient
 from .dispatcher import RpcDispatcher
 from .egonet import decode_stream, encode_stream
 
@@ -80,9 +81,14 @@ class App:
         capture_root: Path,
         upstream_ip: Optional[str] = None,
         proxy_methods: Optional[Set[str]] = None,
+        api_url: Optional[str] = None,
     ) -> None:
         self.account_store = AccountStore(data_root / "accounts")
-        self.dispatcher = RpcDispatcher(self.account_store)
+        api_client: Optional[DirtForeverClient] = None
+        if api_url:
+            api_client = DirtForeverClient(base_url=api_url)
+            print(f"[API] Connected to dirtforever API at {api_url}")
+        self.dispatcher = RpcDispatcher(self.account_store, api_client=api_client)
         self.capture_root = capture_root
         self.capture_root.mkdir(parents=True, exist_ok=True)
         self.upstream_ip = upstream_ip
@@ -522,6 +528,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="EgoNet method to proxy upstream (can be repeated)")
     parser.add_argument("--proxy-all", action="store_true",
                         help="Proxy ALL EgoNet methods upstream (overrides --proxy-method)")
+    parser.add_argument("--api-url", default=None,
+                        help="Base URL for the dirtforever.net web API "
+                             "(e.g. https://dirtforever.net). "
+                             "When omitted, the server uses local fallback data.")
     return parser
 
 
@@ -559,6 +569,7 @@ def main() -> int:
         capture_root=Path(args.capture_dir),
         upstream_ip=args.upstream_ip,
         proxy_methods=proxy_methods,
+        api_url=args.api_url,
     )
     servers = []
 

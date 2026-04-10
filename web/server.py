@@ -15,7 +15,7 @@ from functools import wraps
 
 from flask import (
     Flask, render_template, request, redirect,
-    url_for, session, flash, abort,
+    url_for, session, flash, abort, jsonify,
 )
 from flask_wtf.csrf import CSRFProtect
 
@@ -1200,6 +1200,177 @@ def profile(username):
 @app.errorhandler(404)
 def not_found(e):
     return render_template('base.html', error='Page not found'), 404
+
+
+# ── Game API ─────────────────────────────────────────────
+# Called by the local game server (dr2server) to sync data.
+# No CSRF tokens — the game server is a trusted backend process.
+
+
+def _api_error(msg, status=400):
+    return jsonify({'ok': False, 'error': msg}), status
+
+
+@app.route('/api/game/clubs')
+@csrf.exempt
+def api_game_clubs():
+    """Return all clubs and their active events for the game server."""
+    clubs = get_all_clubs()
+    events = [e for e in get_all_events() if e.get('active')]
+    return jsonify({'ok': True, 'clubs': clubs, 'events': events})
+
+
+@app.route('/api/game/stage-complete', methods=['POST'])
+@csrf.exempt
+def api_game_stage_complete():
+    """Accept a completed stage submission from the game server."""
+    data = request.get_json(silent=True) or {}
+    event_id = data.get('event_id', '').strip()
+    username = data.get('username', '').strip()
+    if not event_id or not username:
+        return _api_error('event_id and username are required')
+
+    try:
+        _validate_id(event_id)
+        _validate_id(username)
+    except Exception:
+        return _api_error('invalid event_id or username')
+
+    event = get_event(event_id)
+    if not event:
+        return _api_error('event not found', 404)
+
+    stage_index = int(data.get('stage_index', 0))
+    time_ms = int(data.get('time_ms', 0))
+    vehicle_id = data.get('vehicle_id')
+    penalties_ms = int(data.get('penalties_ms', 0))
+
+    results = get_results(event_id)
+    entries = results.get('entries', [])
+
+    existing = next((e for e in entries if e['username'] == username), None)
+    stages = event.get('stages', [])
+
+    if existing is None:
+        # New entry — pad all previous stages with 0 so indices stay consistent
+        pad = [{'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None}
+               for _ in range(stage_index)]
+        existing = {
+            'username': username,
+            'car': str(vehicle_id) if vehicle_id is not None else '',
+            'stages': pad,
+            'total_time_ms': 0,
+            'vehicle_id': vehicle_id,
+        }
+        entries.append(existing)
+
+    stage_entry = {
+        'time_ms': time_ms,
+        'penalties_ms': penalties_ms,
+        'submitted_at': datetime.now().isoformat(),
+    }
+
+    # Extend or replace at the right index
+    while len(existing['stages']) <= stage_index:
+        existing['stages'].append({'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None})
+    existing['stages'][stage_index] = stage_entry
+
+    # Recalculate total from all stages that have a real time
+    existing['total_time_ms'] = sum(
+        s['time_ms'] + s.get('penalties_ms', 0)
+        for s in existing['stages']
+        if s.get('time_ms', 0) > 0
+    )
+    if vehicle_id is not None:
+        existing['vehicle_id'] = vehicle_id
+
+    entries.sort(key=lambda e: e['total_time_ms'])
+    results['entries'] = entries
+    save_results(event_id, results)
+
+    position = next(
+        (i + 1 for i, e in enumerate(entries) if e['username'] == username), 0
+    )
+    return jsonify({'ok': True, 'position': position, 'total_entries': len(entries)})
+
+
+@app.route('/api/game/leaderboard/<event_id>')
+@csrf.exempt
+def api_game_leaderboard(event_id):
+    """Return leaderboard entries for an event."""
+    try:
+        _validate_id(event_id)
+    except Exception:
+        return _api_error('invalid event_id')
+
+    results = get_results(event_id)
+    entries = results.get('entries', [])
+    out = []
+    for i, e in enumerate(entries):
+        out.append({
+            'rank': i + 1,
+            'username': e['username'],
+            'car': e.get('car', ''),
+            'vehicle_id': e.get('vehicle_id'),
+            'total_time_ms': e['total_time_ms'],
+            'stages': e.get('stages', []),
+        })
+    return jsonify({'ok': True, 'entries': out})
+
+
+@app.route('/api/game/events/<event_id>')
+@csrf.exempt
+def api_game_event(event_id):
+    """Return event details with stages."""
+    try:
+        _validate_id(event_id)
+    except Exception:
+        return _api_error('invalid event_id')
+
+    event = get_event(event_id)
+    if not event:
+        return _api_error('event not found', 404)
+    return jsonify({'ok': True, 'event': event})
+
+
+@app.route('/api/game/auth', methods=['POST'])
+@csrf.exempt
+def api_game_auth():
+    """Validate a game session / link a Steam account to a web account."""
+    data = request.get_json(silent=True) or {}
+    steam_name = data.get('steam_name', '').strip()
+    account_id = data.get('account_id')
+
+    if not steam_name:
+        return _api_error('steam_name is required')
+
+    # Look for a user whose display_name or username matches the Steam name
+    users = get_all_users()
+    user = next(
+        (u for u in users
+         if u.get('display_name', '').lower() == steam_name.lower()
+         or u.get('username', '').lower() == steam_name.lower()),
+        None,
+    )
+
+    if user:
+        # Optionally persist the account_id link
+        if account_id is not None and user.get('steam_account_id') != account_id:
+            user['steam_account_id'] = account_id
+            save_user(user)
+        return jsonify({
+            'ok': True,
+            'linked': True,
+            'username': user['username'],
+            'display_name': user['display_name'],
+        })
+
+    # No match — return ok but unlinked so the game server can still proceed
+    return jsonify({
+        'ok': True,
+        'linked': False,
+        'steam_name': steam_name,
+    })
 
 
 # ── Main ─────────────────────────────────────────────────
