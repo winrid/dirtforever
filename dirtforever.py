@@ -18,6 +18,16 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+def _read_version() -> str:
+    """Read version from VERSION file (bundled or local)."""
+    for base in [Path(getattr(sys, "_MEIPASS", "")), Path(__file__).parent]:
+        vf = base / "VERSION"
+        if vf.is_file():
+            return vf.read_text().strip()
+    return "dev"
+
+VERSION = _read_version()
+
 # ---------------------------------------------------------------------------
 # Resource-path helpers (PyInstaller bundle detection)
 # ---------------------------------------------------------------------------
@@ -254,7 +264,7 @@ def run_gui():
 
     # --- Window setup ---
     root = tk.Tk()
-    root.title("DirtForever")
+    root.title(f"DirtForever v{VERSION}")
     root.resizable(False, False)
     root.configure(bg=BG)
 
@@ -264,12 +274,51 @@ def run_gui():
     y = (root.winfo_screenheight() - h) // 2
     root.geometry(f"{w}x{h}+{x}+{y}")
 
+    # --- Update check (non-blocking) ---
+    GOLD = "#F59E0B"
+    update_bar = tk.Frame(root, bg=GOLD)
+    update_label = tk.Label(update_bar, text="", font=("Segoe UI", 9, "bold"),
+                            fg="#111", bg=GOLD, cursor="hand2")
+    update_label.pack(padx=10, pady=4)
+
+    def _check_for_updates():
+        import urllib.request
+        try:
+            req = urllib.request.Request(
+                "https://api.github.com/repos/winrid/dirtforever/releases/latest",
+                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "DirtForever"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            remote_tag = data.get("tag_name", "").lstrip("v")
+            dl_url = ""
+            for asset in data.get("assets", []):
+                if asset.get("name", "").endswith(".exe"):
+                    dl_url = asset.get("browser_download_url", "")
+                    break
+            if not remote_tag or not dl_url:
+                return
+            # Simple version compare (works for semver with same segment count)
+            remote_parts = [int(x) for x in remote_tag.split(".")]
+            local_parts = [int(x) for x in VERSION.split(".") if x.isdigit()]
+            if remote_parts > local_parts:
+                def show():
+                    update_label.configure(
+                        text=f"Update available: v{remote_tag}  —  click to download")
+                    update_label.bind("<Button-1>", lambda e: webbrowser.open(dl_url))
+                    update_bar.pack(fill="x", padx=20, pady=(5, 0), before=header)
+                root.after(0, show)
+        except Exception:
+            pass  # Silent fail — update check is best-effort
+
+    threading.Thread(target=_check_for_updates, daemon=True).start()
+
     # --- Header ---
     header = tk.Frame(root, bg=BG)
     header.pack(fill="x", padx=20, pady=(20, 5))
     tk.Label(header, text="DIRTFOREVER", font=("Segoe UI", 18, "bold"),
              fg=ACCENT, bg=BG).pack(side="left")
-    tk.Label(header, text="DiRT Rally 2.0 Community Server", font=("Segoe UI", 9),
+    tk.Label(header, text="Community Rally Server", font=("Segoe UI", 9),
              fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(6, 0))
 
     # --- Token config ---
