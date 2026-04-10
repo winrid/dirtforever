@@ -6,35 +6,15 @@ A community replacement for the defunct RaceNet/EgoNet backend. Run a small loca
 
 ## Quick Start
 
-### Prerequisites
-
-- Windows 10/11
-- Python 3.9+ ([python.org](https://www.python.org/downloads/))
-- `cryptography` package: `pip install cryptography`
-- DiRT Rally 2.0 installed via Steam
-
-### Setup (one time)
+### Setup
 
 1. Create an account at [dirtforever.net](https://dirtforever.net/register)
-2. Log in and go to your [Dashboard](https://dirtforever.net/dashboard) — click **Generate Game Token** and copy it
-3. Open **PowerShell as Administrator** and run:
+2. Log in, go to Dashboard, click **Generate Game Token**
+3. Download [DirtForever.exe](https://github.com/winrid/dirtforever/releases/latest)
+4. Run DirtForever.exe — it will set up everything and ask for your token
+5. Launch DiRT Rally 2.0 via Steam
 
-```powershell
-cd path\to\dr2server
-powershell -ExecutionPolicy Bypass -File scripts\install.ps1
-```
-
-The installer will:
-- Generate and trust a local TLS certificate
-- Redirect Codemasters hostnames to your machine
-- Ask you to paste your game token
-- Create a **DirtForever Server** desktop shortcut
-
-### Playing
-
-1. Double-click the **DirtForever Server** shortcut (or run `python server.py --ssl-cert runtime\certs\dr2server-cert.pem --ssl-key runtime\certs\dr2server-key.pem`)
-2. Launch DiRT Rally 2.0 via Steam
-3. Play — clubs, events, and leaderboards are served by dirtforever.net
+To play in future sessions, just run DirtForever.exe before launching the game.
 
 ### What Works
 
