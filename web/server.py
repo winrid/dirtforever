@@ -275,7 +275,7 @@ def save_results(eid, data):
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if 'username' not in session:
+        if 'username' not in session or not current_user():
             flash('Please sign in to continue.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
