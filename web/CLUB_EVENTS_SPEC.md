@@ -59,19 +59,25 @@ The **stage names don't matter** for the game — the game server picks actual t
 
 Use these exact strings for the `location` field:
 
-| Location | Stages available | Surface |
-|---|---|---|
-| Monte Carlo | 2 | Tarmac |
-| Wales | 5 | Gravel |
-| Argentina | 3 | Gravel |
-| New England | 10 | Gravel |
-| Poland | 4 | Gravel |
-| New Zealand | 8 | Gravel/Tarmac |
-| Australia | 6 | Gravel |
-| Spain | 3 | Tarmac |
-| Montalegre | 2 | Rallycross |
+| Location | LocationId | Stages available | Surface |
+|---|---|---|---|
+| Sweden | 2 | 4 | Snow/Ice |
+| Wales | 3 | 7 | Gravel |
+| Argentina | 5 | 4 | Gravel |
+| New England | 10 | 1 | Gravel |
+| Poland | 13 | 4 | Tarmac/Gravel |
+| Germany | 14 | 4 | Tarmac |
+| New Zealand | 16 | 12 | Gravel/Tarmac |
+| France | 17 | 12 | Tarmac |
+| Yas Marina | 19 | 1 | Rallycross |
+| Montalegre | 20 | 1 | Rallycross |
+| Australia | 31 | 11 | Gravel |
+| Scotland | 34 | 12 | Gravel |
+| Spain | 36 | 12 | Tarmac |
+| Finland | 37 | 12 | Gravel |
+| Greece | 46 | 4 | Tarmac |
 
-Locations with no mapped tracks yet (won't appear in-game): Sweden, Scotland, Finland, Greece.
+Locations with no confirmed track IDs (won't appear in-game): Monte Carlo.
 
 ## Available Vehicle Classes
 

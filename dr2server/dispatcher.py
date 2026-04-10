@@ -624,14 +624,76 @@ class RpcDispatcher:
             "Inventory": {
                 "SoftCurrency": soft_currency,
                 "HardCurrency": hard_currency,
-                "GarageSlots": garage_slots,
-                "Vehicles": [],
+                "GarageSlots": 100,
+                "Vehicles": self._all_vehicles(),
                 "Upgrades": [],
                 "Entitlements": [],
                 "Liveries": [],
                 "SeasonFlags": UInt32(15),
             },
         }
+
+    @staticmethod
+    def _all_vehicles() -> list:
+        """Generate a full garage with every known vehicle, undamaged and ready."""
+        # All vehicle IDs from the upstream inventory capture
+        vehicle_ids = [
+            382, 395, 396, 399, 400, 401, 468, 469, 470, 471,
+            478, 480, 482, 483, 484, 485, 490, 502, 504, 511,
+            513, 527, 529, 530, 531, 532, 533, 534, 535, 536,
+            537, 538, 541, 543, 547, 548, 550, 554, 555, 556,
+            557, 558, 559, 560, 561, 562, 563, 564, 565, 566,
+            567, 569, 570, 571, 572, 573, 574, 575, 576, 577,
+            578, 579, 580, 581, 582, 585, 586, 587, 588, 589,
+            590, 593, 597, 600,
+        ]
+        vehicles = []
+        for idx, vid in enumerate(vehicle_ids):
+            vehicles.append({
+                "VehicleId": UInt32(vid),
+                "LiveryId": UInt32(0),
+                "TuningId": UInt32(0),
+                "UpgAvailable": 127,
+                "UpgEnabled": 127,
+                "TuningReady": 15,
+                "TuningPurchased": 63,
+                "IsNew": False,
+                "IsRepairFree": True,
+                "IsSellable": False,
+                "Damage": {
+                    "QuickRepairs": 0, "Bodywork": 0.0, "Brakes": 0.0,
+                    "Gearbox": 0.0, "Differential": 0.0, "Wheels": 0.0,
+                    "Engine": 0.0, "Radiator": 0.0, "Turbo": 0.0,
+                    "Exhaust": 0.0, "Dampers": 0.0, "Clutch": 0.0,
+                    "Springs": 0.0, "Lights": 0.0,
+                },
+                "CompDamage": {
+                    "WheelsWear": UInt32(0), "Turbo": UInt32(0),
+                    "Springs": UInt32(0), "Radiator": 0.0,
+                    "Lights": 0.0, "Gearbox": UInt32(0),
+                    "WheelsImpact": UInt32(0), "Exhaust": 0.0,
+                    "DiffImpact": UInt32(0), "DiffWear": UInt32(0),
+                    "Dampers": UInt32(0), "Clutch": 0.0,
+                    "Brakes": UInt32(0), "Bodywork": UInt32(0),
+                    "Engine": 0.0, "QuickRepairs": 0,
+                },
+                "SellPrice": 0,
+                "ResearchTarget": UInt32(0),
+                "ResearchPercent": 1.0,
+                "IsLocked": False,
+                "LockChallengeId": 0,
+                "LockEntity": Int64(0),
+                "LockReason": 0,
+                "LockExpiry": Timestamp(0),
+                "LockLocation": UInt32(0),
+                "DistanceDriven": 0,
+                "Podiums": 0,
+                "EventsEntered": 0,
+                "EventsFinished": 0,
+                "Terminals": 0,
+                "Id": Int64(idx + 1),
+            })
+        return vehicles
 
     @staticmethod
     def _store(params: Dict[str, Any]) -> Dict[str, Any]:
