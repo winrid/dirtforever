@@ -50,13 +50,10 @@ SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
 
-if not app.debug:
-    gunicorn_logger = logging.getLogger('gunicorn.error')
-    if gunicorn_logger.handlers:
-        app.logger.handlers = gunicorn_logger.handlers
-        app.logger.setLevel(gunicorn_logger.level)
-    else:
-        app.logger.setLevel(logging.DEBUG)
+_handler = logging.StreamHandler()
+_handler.setFormatter(logging.Formatter('[%(asctime)s] %(levelname)s: %(message)s'))
+app.logger.addHandler(_handler)
+app.logger.setLevel(logging.INFO)
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.path.join(BASE, 'data')
