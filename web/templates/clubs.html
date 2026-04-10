@@ -16,6 +16,15 @@
 </section>
 
 <div class="container">
+    <form method="get" action="/clubs" class="search-form reveal">
+        <input type="text" name="q" class="form-input search-input" placeholder="Search clubs..."
+               value="{{ query }}" autocomplete="off">
+        <button type="submit" class="btn btn-ghost btn-sm">Search</button>
+        {% if query %}
+        <a href="/clubs" class="btn btn-ghost btn-sm">Clear</a>
+        {% endif %}
+    </form>
+
     {% if current_user %}
     <div id="createClub" class="card create-club-card hidden reveal">
         <div class="card-header">
@@ -47,7 +56,6 @@
     <div class="clubs-grid">
         {% for club in clubs %}
         <a href="/clubs/{{ club.id }}" class="club-card reveal" style="animation-delay:{{ loop.index0 * 0.06 }}s">
-            <div class="club-card-accent"></div>
             <div class="club-card-body">
                 <h3 class="club-card-name">{{ club.name }}</h3>
                 <p class="club-card-desc text-muted">{{ club.description }}</p>

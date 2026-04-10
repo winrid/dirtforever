@@ -746,7 +746,11 @@ def leaderboards():
 @app.route('/clubs')
 def clubs():
     all_clubs = get_all_clubs()
-    return render_template('clubs.html', clubs=all_clubs)
+    query = request.args.get('q', '').strip()
+    if query:
+        q = query.lower()
+        all_clubs = [c for c in all_clubs if q in c['name'].lower() or q in c.get('description', '').lower()]
+    return render_template('clubs.html', clubs=all_clubs, query=query)
 
 
 @app.route('/clubs', methods=['POST'])
