@@ -20,6 +20,24 @@
             <a href="/register" class="btn btn-primary">Start Racing</a>
             <a href="/login" class="btn btn-ghost">Sign In</a>
             {% endif %}
+            <button class="btn btn-donate" id="donateOpen">Donate</button>
+        </div>
+
+        <div class="donate-overlay" id="donateOverlay">
+            <div class="donate-panel">
+                <button class="donate-close" id="donateClose" aria-label="Close">&times;</button>
+                <div class="donate-icon">&#9883;</div>
+                <h3 class="donate-heading">Support DirtForever</h3>
+                <p class="donate-text">Help keep the servers running. Send any amount via PayPal to:</p>
+                <div class="donate-email-wrap">
+                    <button class="btn btn-primary btn-sm donate-reveal" id="donateReveal"
+                        data-a="d2lucmlk" data-b="K3BheXBhbA==" data-c="QGdtYWlsLmNvbQ==">
+                        Click to Show Email
+                    </button>
+                    <span class="donate-email mono" id="donateEmail"></span>
+                </div>
+                <p class="donate-thanks">Thank you for supporting the community.</p>
+            </div>
         </div>
     </div>
     <div class="hero-fade"></div>

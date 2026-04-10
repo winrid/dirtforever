@@ -88,6 +88,42 @@
         });
     }
 
+    /* ── Donate panel ──────────────────────────────── */
+
+    function setupDonate() {
+        var overlay = document.getElementById('donateOverlay');
+        if (!overlay) return;
+        var openBtn = document.getElementById('donateOpen');
+        var closeBtn = document.getElementById('donateClose');
+        var revealBtn = document.getElementById('donateReveal');
+        var emailEl = document.getElementById('donateEmail');
+
+        function open() { overlay.classList.add('open'); }
+        function close() { overlay.classList.remove('open'); }
+
+        if (openBtn) openBtn.addEventListener('click', open);
+        if (closeBtn) closeBtn.addEventListener('click', close);
+
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) close();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') close();
+        });
+
+        if (revealBtn && emailEl) {
+            revealBtn.addEventListener('click', function () {
+                var a = atob(revealBtn.getAttribute('data-a'));
+                var b = atob(revealBtn.getAttribute('data-b'));
+                var c = atob(revealBtn.getAttribute('data-c'));
+                emailEl.textContent = a + b + c;
+                emailEl.classList.add('visible');
+                revealBtn.style.display = 'none';
+            });
+        }
+    }
+
     /* ── Init ───────────────────────────────────────── */
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -95,5 +131,6 @@
         createDust();
         setupNav();
         setupFlash();
+        setupDonate();
     });
 })();
