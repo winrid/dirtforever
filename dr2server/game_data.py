@@ -174,6 +174,39 @@ class Track(IntEnum):
     PANT_MAWR        = 515
     PANT_MAWR_REV    = 516
 
+    # Sweden (Location.SWEDEN = 2)
+    HAMRA                 = 467
+    HAMRA_REV             = 469
+    ALGSJON               = 472
+    ALGSJON_REV           = 490
+
+    # Yas Marina Rallycross (Location.YAS_MARINA = 19)
+    YAS_MARINA_FULL       = 659
+    YAS_MARINA_SHORT      = 661
+    YAS_MARINA_CLUB       = 663
+
+    # Greece (Location.GREECE = 46)
+    FOURKETA_KOURVA       = 597
+    FOURKETA_KOURVA_REV   = 599
+    ANODOU_FARMAKAS       = 600
+    ANODOU_FARMAKAS_REV   = 601
+    KATHODO_LEONTIOU      = 602
+    KATHODO_LEONTIOU_REV  = 603
+
+    # Scotland (Location.SCOTLAND = 34)
+    NEWHOUSE_BRIDGE        = 617
+    NEWHOUSE_BRIDGE_REV    = 618
+    SOUTH_MORNINGSIDE      = 620
+    SOUTH_MORNINGSIDE_REV  = 622
+
+    # Finland (Location.FINLAND = 37)
+    KAKARISTO              = 624
+    KAKARISTO_REV          = 628
+    NOORMARKKU             = 629
+    NOORMARKKU_REV         = 630
+    JYRKYSJARVI            = 631
+    JYRKYSJARVI_REV        = 632
+
     # --- metadata accessors -------------------------------------------------
 
     @property
@@ -257,6 +290,34 @@ _TRACK_META: Dict[Track, dict] = {
     Track.GEUFRON_FOREST_REV:{"display_name": "Geufron Forest (Reverse)",      "location": Location.WALES, "length_km": 5.0},
     Track.PANT_MAWR:         {"display_name": "Pant Mawr",                     "location": Location.WALES, "length_km": 5.0},
     Track.PANT_MAWR_REV:     {"display_name": "Pant Mawr (Reverse)",           "location": Location.WALES, "length_km": 5.0},
+    # Sweden
+    Track.HAMRA:                 {"display_name": "Hamra",                        "location": Location.SWEDEN, "length_km": 7.0},
+    Track.HAMRA_REV:             {"display_name": "Hamra (Reverse)",              "location": Location.SWEDEN, "length_km": 7.0},
+    Track.ALGSJON:               {"display_name": "Algsjon",                      "location": Location.SWEDEN, "length_km": 7.0},
+    Track.ALGSJON_REV:           {"display_name": "Algsjon (Reverse)",            "location": Location.SWEDEN, "length_km": 7.0},
+    # Yas Marina Rallycross
+    Track.YAS_MARINA_FULL:       {"display_name": "Yas Marina Full",              "location": Location.YAS_MARINA, "length_km": 1.2, "discipline": "rallycross"},
+    Track.YAS_MARINA_SHORT:      {"display_name": "Yas Marina Short",             "location": Location.YAS_MARINA, "length_km": 0.9, "discipline": "rallycross"},
+    Track.YAS_MARINA_CLUB:       {"display_name": "Yas Marina Club",              "location": Location.YAS_MARINA, "length_km": 0.8, "discipline": "rallycross"},
+    # Greece
+    Track.FOURKETA_KOURVA:       {"display_name": "Fourketa Kourva",              "location": Location.GREECE, "length_km": 10.4},
+    Track.FOURKETA_KOURVA_REV:   {"display_name": "Fourketa Kourva (Reverse)",    "location": Location.GREECE, "length_km": 10.4},
+    Track.ANODOU_FARMAKAS:       {"display_name": "Anodou Farmakas",              "location": Location.GREECE, "length_km": 9.5},
+    Track.ANODOU_FARMAKAS_REV:   {"display_name": "Anodou Farmakas (Reverse)",    "location": Location.GREECE, "length_km": 9.5},
+    Track.KATHODO_LEONTIOU:      {"display_name": "Kathodo Leontiou",             "location": Location.GREECE, "length_km": 7.0},
+    Track.KATHODO_LEONTIOU_REV:  {"display_name": "Kathodo Leontiou (Reverse)",   "location": Location.GREECE, "length_km": 7.0},
+    # Scotland
+    Track.NEWHOUSE_BRIDGE:       {"display_name": "Newhouse Bridge",              "location": Location.SCOTLAND, "length_km": 12.9},
+    Track.NEWHOUSE_BRIDGE_REV:   {"display_name": "Newhouse Bridge (Reverse)",    "location": Location.SCOTLAND, "length_km": 12.9},
+    Track.SOUTH_MORNINGSIDE:     {"display_name": "South Morningside",            "location": Location.SCOTLAND, "length_km": 12.5},
+    Track.SOUTH_MORNINGSIDE_REV: {"display_name": "South Morningside (Reverse)",  "location": Location.SCOTLAND, "length_km": 12.5},
+    # Finland
+    Track.KAKARISTO:             {"display_name": "Kakaristo",                    "location": Location.FINLAND, "length_km": 8.0},
+    Track.KAKARISTO_REV:         {"display_name": "Kakaristo (Reverse)",          "location": Location.FINLAND, "length_km": 8.0},
+    Track.NOORMARKKU:            {"display_name": "Noormarkku",                   "location": Location.FINLAND, "length_km": 7.0},
+    Track.NOORMARKKU_REV:        {"display_name": "Noormarkku (Reverse)",         "location": Location.FINLAND, "length_km": 7.0},
+    Track.JYRKYSJARVI:           {"display_name": "Jyrkysjarvi",                  "location": Location.FINLAND, "length_km": 14.0},
+    Track.JYRKYSJARVI_REV:       {"display_name": "Jyrkysjarvi (Reverse)",        "location": Location.FINLAND, "length_km": 14.0},
 }
 
 
