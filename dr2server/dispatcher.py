@@ -629,7 +629,7 @@ class RpcDispatcher:
                 "Upgrades": [],
                 "Entitlements": [],
                 "Liveries": [],
-                "SeasonFlags": UInt32(0),
+                "SeasonFlags": UInt32(15),
             },
         }
 
