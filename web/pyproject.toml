@@ -1,0 +1,16 @@
+[project]
+name = "dirtforever-web"
+version = "0.1.0"
+description = "DirtForever web frontend"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.1.0",
+    "gunicorn>=23.0.0",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []

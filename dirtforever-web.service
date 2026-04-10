@@ -1,0 +1,14 @@
+[Unit]
+Description=dirtforever web
+After=network.target
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=winrid
+WorkingDirectory=/home/winrid/dirtforever-web/web
+ExecStart=/home/winrid/dirtforever-web/run.sh
+
+[Install]
+WantedBy=multi-user.target
