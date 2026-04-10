@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 import sys
@@ -10,9 +12,11 @@ import secrets
 import smtplib
 import uuid
 import random
+from collections.abc import Callable
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
+from typing import Any
 
 logging.basicConfig(
     stream=sys.stderr,
@@ -27,10 +31,11 @@ from flask import (
     Flask, render_template, request, redirect,
     url_for, session, flash, abort, jsonify,
 )
+from werkzeug.wrappers import Response
 from flask_wtf.csrf import CSRFProtect
 
 
-def _load_dotenv(path):
+def _load_dotenv(path: str) -> None:
     if not os.path.exists(path):
         return
     with open(path) as f:
@@ -76,7 +81,7 @@ for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR):
 _SAFE_ID_RE = re.compile(r'^[a-zA-Z0-9_-]+$')
 
 
-def _validate_id(value):
+def _validate_id(value: str) -> str:
     if not value or not _SAFE_ID_RE.match(value):
         abort(400)
     return value
@@ -84,7 +89,7 @@ def _validate_id(value):
 
 # ── File helpers ─────────────────────────────────────────
 
-def _load(path):
+def _load(path: str) -> Any:
     with open(path) as f:
         fcntl.flock(f, fcntl.LOCK_SH)
         try:
@@ -93,7 +98,7 @@ def _load(path):
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def _save(path, data):
+def _save(path: str, data: Any) -> None:
     with open(path, 'w') as f:
         fcntl.flock(f, fcntl.LOCK_EX)
         try:
@@ -102,8 +107,8 @@ def _save(path, data):
             fcntl.flock(f, fcntl.LOCK_UN)
 
 
-def _list_json(directory):
-    out = []
+def _list_json(directory: str) -> list[Any]:
+    out: list[Any] = []
     if os.path.isdir(directory):
         for fn in sorted(os.listdir(directory)):
             if fn.endswith('.json'):
@@ -113,23 +118,24 @@ def _list_json(directory):
 
 # ── User ops ─────────────────────────────────────────────
 
-def get_user(username):
+def get_user(username: str) -> dict[str, Any] | None:
     _validate_id(username)
     p = os.path.join(USERS_DIR, f'{username}.json')
     return _load(p) if os.path.exists(p) else None
 
 
-def save_user(u):
+def save_user(u: dict[str, Any]) -> None:
     _validate_id(u['username'])
     _save(os.path.join(USERS_DIR, f"{u['username']}.json"), u)
 
 
-def get_all_users():
+def get_all_users() -> list[Any]:
     return _list_json(USERS_DIR)
 
 
-def create_user(username, email, password, display_name=None, country='', bio='',
-                email_verified=False):
+def create_user(username: str, email: str, password: str, display_name: str | None = None,
+                country: str = '', bio: str = '',
+                email_verified: bool = False) -> dict[str, Any]:
     salt = secrets.token_bytes(16)
     dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
     verify_token = secrets.token_urlsafe(32) if not email_verified else None
@@ -150,7 +156,7 @@ def create_user(username, email, password, display_name=None, country='', bio=''
     return u
 
 
-def check_password(password, user):
+def check_password(password: str, user: dict[str, Any]) -> bool:
     salt = bytes.fromhex(user['salt'])
     dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 120_000)
     return hmac.compare_digest(dk.hex(), user['password_hash'])
@@ -158,7 +164,7 @@ def check_password(password, user):
 
 # ── Email ───────────────────────────────────────────────
 
-def _send_email(to, subject, body):
+def _send_email(to: str, subject: str, body: str) -> bool:
     log.info('Sending email to=%s subject=%r host=%s port=%s',
                     to, subject, SMTP_HOST or '(not set)', SMTP_PORT)
     if not SMTP_HOST:
@@ -188,7 +194,7 @@ def _send_email(to, subject, body):
         return False
 
 
-def send_verification_email(user):
+def send_verification_email(user: dict[str, Any]) -> bool:
     log.info('Sending verification email to user=%s email=%s',
                     user['username'], user['email'])
     link = f'{SITE_URL}/verify/{user["verify_token"]}'
@@ -202,7 +208,7 @@ def send_verification_email(user):
     return _send_email(user['email'], 'Verify your DirtForever account', body)
 
 
-def send_reset_email(user):
+def send_reset_email(user: dict[str, Any]) -> bool:
     log.info('Sending password reset email to user=%s email=%s',
                     user['username'], user['email'])
     link = f'{SITE_URL}/reset/{user["reset_token"]}'
@@ -219,62 +225,62 @@ def send_reset_email(user):
 
 # ── Club ops ─────────────────────────────────────────────
 
-def get_club(cid):
+def get_club(cid: str) -> dict[str, Any] | None:
     _validate_id(cid)
     p = os.path.join(CLUBS_DIR, f'{cid}.json')
     return _load(p) if os.path.exists(p) else None
 
 
-def save_club(c):
+def save_club(c: dict[str, Any]) -> None:
     _validate_id(c['id'])
     _save(os.path.join(CLUBS_DIR, f"{c['id']}.json"), c)
 
 
-def get_all_clubs():
+def get_all_clubs() -> list[Any]:
     return _list_json(CLUBS_DIR)
 
 
 # ── Event ops ────────────────────────────────────────────
 
-def get_event(eid):
+def get_event(eid: str) -> dict[str, Any] | None:
     _validate_id(eid)
     p = os.path.join(EVENTS_DIR, f'{eid}.json')
     return _load(p) if os.path.exists(p) else None
 
 
-def save_event(e):
+def save_event(e: dict[str, Any]) -> None:
     _validate_id(e['id'])
     _save(os.path.join(EVENTS_DIR, f"{e['id']}.json"), e)
 
 
-def get_all_events():
+def get_all_events() -> list[Any]:
     return _list_json(EVENTS_DIR)
 
 
-def get_events_by_type(t):
+def get_events_by_type(t: str) -> list[Any]:
     return [e for e in get_all_events() if e.get('type') == t]
 
 
 # ── Result ops ───────────────────────────────────────────
 
-def get_results(eid):
+def get_results(eid: str) -> dict[str, Any]:
     _validate_id(eid)
     p = os.path.join(RESULTS_DIR, f'{eid}.json')
     if os.path.exists(p):
-        return _load(p)
+        return _load(p)  # type: ignore[no-any-return]
     return {'event_id': eid, 'entries': []}
 
 
-def save_results(eid, data):
+def save_results(eid: str, data: dict[str, Any]) -> None:
     _validate_id(eid)
     _save(os.path.join(RESULTS_DIR, f'{eid}.json'), data)
 
 
 # ── Auth decorator ───────────────────────────────────────
 
-def login_required(f):
+def login_required(f: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         if 'username' not in session or not current_user():
             flash('Please sign in to continue.', 'warning')
             return redirect(url_for('login'))
@@ -282,10 +288,10 @@ def login_required(f):
     return wrapper
 
 
-def verified_required(f):
+def verified_required(f: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(f)
     @login_required
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         user = current_user()
         if not user or not user.get('email_verified'):
             flash('Please verify your email address first.', 'warning')
@@ -294,7 +300,7 @@ def verified_required(f):
     return wrapper
 
 
-def current_user():
+def current_user() -> dict[str, Any] | None:
     if 'username' in session:
         user = get_user(session['username'])
         if not user:
@@ -306,12 +312,12 @@ def current_user():
 # ── Context & filters ────────────────────────────────────
 
 @app.context_processor
-def inject_globals():
+def inject_globals() -> dict[str, Any]:
     return dict(current_user=current_user())
 
 
 @app.template_filter('rally_time')
-def rally_time_filter(ms):
+def rally_time_filter(ms: int | None) -> str:
     if ms is None:
         return '--:--.---'
     ms = int(ms)
@@ -322,7 +328,7 @@ def rally_time_filter(ms):
 
 
 @app.template_filter('time_diff')
-def time_diff_filter(ms):
+def time_diff_filter(ms: int | None) -> str:
     if ms is None or ms == 0:
         return ''
     sign = '+' if ms > 0 else '-'
@@ -335,7 +341,7 @@ def time_diff_filter(ms):
 
 
 @app.template_filter('timeago')
-def timeago_filter(dt_str):
+def timeago_filter(dt_str: str) -> str:
     try:
         dt = datetime.fromisoformat(dt_str)
         diff = datetime.now() - dt
@@ -353,7 +359,7 @@ def timeago_filter(dt_str):
 
 
 @app.template_filter('countdown')
-def countdown_filter(dt_str):
+def countdown_filter(dt_str: str) -> str:
     try:
         dt = datetime.fromisoformat(dt_str)
         diff = dt - datetime.now()
@@ -479,7 +485,7 @@ CAR_CLASSES = {
 CONDITIONS = ['Clear', 'Overcast', 'Light Rain', 'Heavy Rain', 'Dusk', 'Night']
 
 
-def _seed_users():
+def _seed_users() -> list[dict[str, Any]]:
     profiles = [
         ('GravelKing',     'Finland',      'Scandinavian gravel specialist'),
         ('McRaeFan95',     'Scotland',     'If in doubt, flat out'),
@@ -509,7 +515,7 @@ def _seed_users():
     return users
 
 
-def _seed_clubs(users):
+def _seed_clubs(users: list[dict[str, Any]]) -> list[dict[str, Any]]:
     clubs_data = [
         {
             'id': 'club-scandinavian',
@@ -554,7 +560,7 @@ def _seed_clubs(users):
     return clubs_data
 
 
-def _gen_time(base_km, rng):
+def _gen_time(base_km: float, rng: random.Random) -> int:
     """Generate a plausible stage time in ms given stage length in km."""
     pace = rng.uniform(5.8, 7.5)  # minutes per km
     base_ms = int(base_km * pace * 60 * 1000)
@@ -562,12 +568,12 @@ def _gen_time(base_km, rng):
     return int(base_ms * (1 + variance))
 
 
-def _seed_events_and_results(users):
+def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
     rng = random.Random(42)
     now = datetime.now()
     usernames = [u['username'] for u in users]
 
-    events_spec = [
+    events_spec: list[dict[str, Any]] = [
         {
             'id': 'evt-daily-argentina',
             'name': 'Argentina Sprint',
@@ -707,7 +713,7 @@ def _seed_events_and_results(users):
         save_results(spec['id'], {'event_id': spec['id'], 'entries': entries})
 
 
-def seed_data():
+def seed_data() -> None:
     if os.listdir(USERS_DIR):
         return
     users = _seed_users()
@@ -718,7 +724,7 @@ def seed_data():
 # ── Routes: pages ────────────────────────────────────────
 
 @app.route('/')
-def home():
+def home() -> str:
     users  = get_all_users()
     clubs  = get_all_clubs()
     events = get_all_events()
@@ -755,14 +761,14 @@ def home():
 
 
 @app.route('/login', methods=['GET'])
-def login():
+def login() -> str | Response:
     if 'username' in session:
         return redirect(url_for('dashboard'))
     return render_template('login.html')
 
 
 @app.route('/login', methods=['POST'])
-def login_post():
+def login_post() -> Response:
     username = request.form.get('username', '').strip()
     password = request.form.get('password', '')
     user = get_user(username)
@@ -775,14 +781,14 @@ def login_post():
 
 
 @app.route('/register', methods=['GET'])
-def register():
+def register() -> str | Response:
     if 'username' in session:
         return redirect(url_for('dashboard'))
     return render_template('register.html')
 
 
 @app.route('/register', methods=['POST'])
-def register_post():
+def register_post() -> Response:
     if request.form.get('website', ''):
         return redirect(url_for('home'))
 
@@ -819,8 +825,9 @@ def register_post():
 
 @app.route('/verify/resend', methods=['POST'])
 @login_required
-def resend_verification():
+def resend_verification() -> Response:
     user = current_user()
+    assert user is not None
     if user.get('email_verified'):
         return redirect(url_for('dashboard'))
     if not user.get('verify_token'):
@@ -833,15 +840,16 @@ def resend_verification():
 
 @app.route('/verify/pending')
 @login_required
-def verify_prompt():
+def verify_prompt() -> str | Response:
     user = current_user()
+    assert user is not None
     if user.get('email_verified'):
         return redirect(url_for('dashboard'))
     return render_template('verify_email.html', user=user)
 
 
 @app.route('/verify/<token>')
-def verify_email(token):
+def verify_email(token: str) -> Response:
     if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
         abort(400)
     for u in get_all_users():
@@ -857,12 +865,12 @@ def verify_email(token):
 
 
 @app.route('/forgot', methods=['GET'])
-def forgot_password():
+def forgot_password() -> str:
     return render_template('forgot_password.html')
 
 
 @app.route('/forgot', methods=['POST'])
-def forgot_password_post():
+def forgot_password_post() -> Response:
     email = request.form.get('email', '').strip()
     log.info('Forgot password request for email=%s', email)
     if not email:
@@ -890,7 +898,7 @@ def forgot_password_post():
 
 
 @app.route('/reset/<token>', methods=['GET'])
-def reset_password(token):
+def reset_password(token: str) -> str | Response:
     if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
         abort(400)
     user = next((u for u in get_all_users()
@@ -906,7 +914,7 @@ def reset_password(token):
 
 
 @app.route('/reset/<token>', methods=['POST'])
-def reset_password_post(token):
+def reset_password_post(token: str) -> Response:
     if not token or not _SAFE_ID_RE.match(token.replace('-', '').replace('_', '')):
         abort(400)
     user = next((u for u in get_all_users()
@@ -942,7 +950,7 @@ def reset_password_post(token):
 
 
 @app.route('/logout', methods=['POST'])
-def logout():
+def logout() -> Response:
     session.pop('username', None)
     flash('Signed out.', 'info')
     return redirect(url_for('home'))
@@ -950,8 +958,9 @@ def logout():
 
 @app.route('/dashboard')
 @login_required
-def dashboard():
+def dashboard() -> str:
     user = current_user()
+    assert user is not None
     my_clubs = [get_club(cid) for cid in user.get('clubs', []) if get_club(cid)]
     events = get_all_events()
     active = [e for e in events if e.get('active')]
@@ -985,7 +994,7 @@ def dashboard():
 
 
 @app.route('/leaderboards')
-def leaderboards():
+def leaderboards() -> str | Response:
     events = get_all_events()
     event_id = request.args.get('event')
     stage_idx = request.args.get('stage', type=int)
@@ -1034,7 +1043,7 @@ def leaderboards():
 
 
 @app.route('/clubs')
-def clubs():
+def clubs() -> str:
     all_clubs = get_all_clubs()
     query = request.args.get('q', '').strip()
     if query:
@@ -1045,7 +1054,7 @@ def clubs():
 
 @app.route('/clubs', methods=['POST'])
 @verified_required
-def create_club():
+def create_club() -> Response:
     name = request.form.get('name', '').strip()
     desc = request.form.get('description', '').strip()
     if not name:
@@ -1056,6 +1065,7 @@ def create_club():
         return redirect(url_for('clubs'))
 
     user = current_user()
+    assert user is not None
     cid = f'club-{uuid.uuid4().hex[:8]}'
     club = {
         'id': cid,
@@ -1073,7 +1083,7 @@ def create_club():
 
 
 @app.route('/clubs/<club_id>')
-def club_detail(club_id):
+def club_detail(club_id: str) -> str:
     club = get_club(club_id)
     if not club:
         abort(404)
@@ -1084,11 +1094,12 @@ def club_detail(club_id):
 
 @app.route('/clubs/<club_id>/join', methods=['POST'])
 @verified_required
-def join_club(club_id):
+def join_club(club_id: str) -> Response:
     club = get_club(club_id)
     if not club:
         abort(404)
     user = current_user()
+    assert user is not None
     if user['username'] not in club['members']:
         club['members'].append(user['username'])
         save_club(club)
@@ -1100,11 +1111,12 @@ def join_club(club_id):
 
 @app.route('/clubs/<club_id>/leave', methods=['POST'])
 @verified_required
-def leave_club(club_id):
+def leave_club(club_id: str) -> Response:
     club = get_club(club_id)
     if not club:
         abort(404)
     user = current_user()
+    assert user is not None
     if user['username'] in club['members']:
         club['members'].remove(user['username'])
         save_club(club)
@@ -1116,18 +1128,18 @@ def leave_club(club_id):
 
 
 @app.route('/events')
-def events():
+def events() -> str:
     t = request.args.get('type', 'daily')
     all_events = get_all_events()
     filtered = [e for e in all_events if e.get('type') == t]
-    counts = {}
+    counts: dict[str, int] = {}
     for e in all_events:
         counts[e['type']] = counts.get(e['type'], 0) + 1
     return render_template('events.html', events=filtered, event_type=t, counts=counts)
 
 
 @app.route('/events/<event_id>')
-def event_detail(event_id):
+def event_detail(event_id: str) -> str:
     event = get_event(event_id)
     if not event:
         abort(404)
@@ -1140,12 +1152,13 @@ def event_detail(event_id):
 
 @app.route('/events/<event_id>/submit', methods=['POST'])
 @verified_required
-def submit_time(event_id):
+def submit_time(event_id: str) -> Response:
     event = get_event(event_id)
     if not event:
         abort(404)
 
     user = current_user()
+    assert user is not None
     results = get_results(event_id)
     entries = results.get('entries', [])
 
@@ -1200,7 +1213,7 @@ def submit_time(event_id):
 
 
 @app.route('/profile/<username>')
-def profile(username):
+def profile(username: str) -> str:
     user = get_user(username)
     if not user:
         abort(404)
@@ -1239,19 +1252,19 @@ def profile(username):
 
 
 @app.route('/install')
-def install():
+def install() -> str:
     return render_template('install.html')
 
 
 @app.route('/about')
-def about():
+def about() -> str:
     return render_template('about.html')
 
 
 # ── Error pages ──────────────────────────────────────────
 
 @app.errorhandler(404)
-def not_found(e):
+def not_found(e: Exception) -> tuple[str, int]:
     return render_template('base.html', error='Page not found'), 404
 
 
@@ -1260,7 +1273,7 @@ def not_found(e):
 # No CSRF tokens — the game server is a trusted backend process.
 
 
-def _api_error(msg, status=400):
+def _api_error(msg: str, status: int = 400) -> tuple[Response, int]:
     return jsonify({'ok': False, 'error': msg}), status
 
 
@@ -1268,20 +1281,20 @@ def _api_error(msg, status=400):
 
 from flask import g
 
-def _find_user_by_token(token):
+def _find_user_by_token(token: str | None) -> dict[str, Any] | None:
     """Look up the user who owns a game token."""
     if not token or not token.startswith('df_'):
         return None
     for u in get_all_users():
         if u.get('game_token') == token:
-            return u
+            return u  # type: ignore[no-any-return]
     return None
 
 
-def game_auth_required(f):
+def game_auth_required(f: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator: validate Bearer token, set g.game_user."""
     @wraps(f)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         auth = request.headers.get('Authorization', '')
         if not auth.startswith('Bearer '):
             return jsonify({'ok': False, 'error': 'Missing game token'}), 401
@@ -1296,8 +1309,9 @@ def game_auth_required(f):
 
 @app.route('/api/token/generate', methods=['POST'])
 @login_required
-def api_token_generate():
+def api_token_generate() -> Response:
     user = current_user()
+    assert user is not None
     token = 'df_' + secrets.token_hex(16)
     user['game_token'] = token
     save_user(user)
@@ -1307,8 +1321,9 @@ def api_token_generate():
 
 @app.route('/api/token/revoke', methods=['POST'])
 @login_required
-def api_token_revoke():
+def api_token_revoke() -> Response:
     user = current_user()
+    assert user is not None
     user.pop('game_token', None)
     save_user(user)
     flash('Game token revoked.', 'info')
@@ -1316,17 +1331,17 @@ def api_token_revoke():
 
 
 @app.route('/api/game/token-test')
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_token_test():
+def api_game_token_test() -> Response:
     """Verify a game token is valid. Returns the linked username."""
     return jsonify({'ok': True, 'username': g.game_user})
 
 
 @app.route('/api/game/clubs')
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_clubs():
+def api_game_clubs() -> Response:
     """Return all clubs and their active events for the game server."""
     clubs = get_all_clubs()
     events = [e for e in get_all_events() if e.get('active')]
@@ -1334,9 +1349,9 @@ def api_game_clubs():
 
 
 @app.route('/api/game/profile')
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_profile():
+def api_game_profile() -> Response | tuple[Response, int]:
     """Return the authenticated user's game profile for the game server."""
     username = g.game_user
     user = get_user(username)
@@ -1369,9 +1384,9 @@ def api_game_profile():
 
 
 @app.route('/api/game/stage-complete', methods=['POST'])
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_stage_complete():
+def api_game_stage_complete() -> Response | tuple[Response, int]:
     """Accept a completed stage submission from the game server."""
     data = request.get_json(silent=True) or {}
     event_id = data.get('event_id', '').strip()
@@ -1443,9 +1458,9 @@ def api_game_stage_complete():
 
 
 @app.route('/api/game/leaderboard/<event_id>')
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_leaderboard(event_id):
+def api_game_leaderboard(event_id: str) -> Response | tuple[Response, int]:
     """Return leaderboard entries for an event."""
     try:
         _validate_id(event_id)
@@ -1468,9 +1483,9 @@ def api_game_leaderboard(event_id):
 
 
 @app.route('/api/game/events/<event_id>')
-@csrf.exempt
+@csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
-def api_game_event(event_id):
+def api_game_event(event_id: str) -> Response | tuple[Response, int]:
     """Return event details with stages."""
     try:
         _validate_id(event_id)
@@ -1484,8 +1499,8 @@ def api_game_event(event_id):
 
 
 @app.route('/api/game/auth', methods=['POST'])
-@csrf.exempt
-def api_game_auth():
+@csrf.exempt  # type: ignore[untyped-decorator]
+def api_game_auth() -> Response | tuple[Response, int]:
     """Validate a game session / link a Steam account to a web account."""
     data = request.get_json(silent=True) or {}
     steam_name = data.get('steam_name', '').strip()
