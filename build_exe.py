@@ -71,8 +71,9 @@ def build() -> None:
         sys.executable, "-m", "PyInstaller",
         "--onefile",
         "--name", "DirtForever",
-        # Request administrator privileges at startup (needed for hosts/cert).
-        "--uac-admin",
+        # No --uac-admin: the app elevates only when needed (hosts/cert),
+        # not on every launch. This avoids the UAC prompt just to see the GUI.
+        "--windowed",  # No console window (GUI app)
         # Clean build artefacts from previous runs.
         "--clean",
         "--distpath", str(ROOT / "dist"),

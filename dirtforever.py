@@ -1,51 +1,39 @@
-"""DirtForever — unified entry point for the DiRT Rally 2.0 community server.
+"""DirtForever — DiRT Rally 2.0 community server with GUI.
 
-Usage
------
-    dirtforever.exe          first run: setup wizard, then start server
-    dirtforever.exe          subsequent runs: start server directly
-    dirtforever.exe --setup  force re-run the setup wizard
-    dirtforever.exe --server start server only (skip setup check)
+A tkinter GUI with START / STOP buttons that handles cert generation,
+hosts file management, and the game server lifecycle.
 
 PyInstaller compiles this file into a single executable via build_exe.py.
 """
 from __future__ import annotations
 
-import argparse
 import ctypes
 import json
 import os
 import subprocess
 import sys
-import time
+import threading
 import webbrowser
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
 # ---------------------------------------------------------------------------
-# Resource-path helpers (transparent in dev, works inside PyInstaller bundle)
+# Resource-path helpers (PyInstaller bundle detection)
 # ---------------------------------------------------------------------------
 
 def _bundle_root() -> Path:
-    """Return the directory where bundled data files live.
-
-    When running from a PyInstaller onefile exe, sys._MEIPASS points to the
-    temporary extraction directory.  In a normal Python interpreter the file
-    lives next to this script.
-    """
     if hasattr(sys, "_MEIPASS"):
-        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+        return Path(sys._MEIPASS)
     return Path(__file__).parent
 
 
 def _data_dir() -> Path:
-    """Return the path to the bundled data/ directory."""
     return _bundle_root() / "data"
 
 
 # ---------------------------------------------------------------------------
-# Paths used at runtime (user-writable locations, NOT inside the bundle)
+# Paths
 # ---------------------------------------------------------------------------
 
 APPDATA = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
@@ -66,110 +54,84 @@ REDIRECT_DOMAINS = [
 
 HOSTS_BEGIN = "# BEGIN DIRTFOREVER"
 HOSTS_END = "# END DIRTFOREVER"
-
 SERVER_IP = "127.0.0.1"
-
 DASHBOARD_URL = "https://dirtforever.net/dashboard"
+API_URL = "https://dirtforever.net"
 
 
 # ---------------------------------------------------------------------------
-# Admin elevation
+# Admin helpers
 # ---------------------------------------------------------------------------
 
 def is_admin() -> bool:
-    """Return True when the process has Windows administrator privileges."""
     try:
         return bool(ctypes.windll.shell32.IsUserAnAdmin())
     except Exception:
         return False
 
 
-def relaunch_as_admin() -> None:
-    """Re-launch the current executable elevated via PowerShell and exit."""
+def run_as_admin(args: list[str]) -> int:
+    """Run a subprocess elevated via PowerShell. Returns exit code."""
     exe = sys.executable
-    args = " ".join(f'"{a}"' for a in sys.argv)
-    # Use PowerShell Start-Process with -Verb RunAs to trigger UAC prompt.
-    cmd = (
-        f'Start-Process -FilePath "{exe}" '
-        f'-ArgumentList {args!r} '
-        f'-Verb RunAs -Wait'
-    )
-    subprocess.run(["powershell", "-Command", cmd], check=False)
-    sys.exit(0)
+    quoted = " ".join(f'"{a}"' for a in args)
+    cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'{quoted}\' -Verb RunAs -Wait'
+    result = subprocess.run(["powershell", "-Command", cmd], capture_output=True)
+    return result.returncode
 
 
 # ---------------------------------------------------------------------------
-# TLS certificate generation (uses cryptography library, same as generate_dev_cert.py)
+# TLS certificate
 # ---------------------------------------------------------------------------
 
-def generate_cert(cert_path: Path, key_path: Path, hosts: list[str]) -> None:
-    """Generate a self-signed TLS certificate covering *hosts* and write PEM files."""
+def generate_cert() -> None:
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
     from cryptography.x509.oid import NameOID
 
-    cert_path.parent.mkdir(parents=True, exist_ok=True)
-
+    CERTS_DIR.mkdir(parents=True, exist_ok=True)
+    hosts = REDIRECT_DOMAINS + ["localhost"]
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name(
-        [
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
-            x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DirtForever"),
-            x509.NameAttribute(NameOID.COMMON_NAME, hosts[0]),
-        ]
-    )
+    subject = issuer = x509.Name([
+        x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+        x509.NameAttribute(NameOID.ORGANIZATION_NAME, "DirtForever"),
+        x509.NameAttribute(NameOID.COMMON_NAME, hosts[0]),
+    ])
     now = datetime.now(timezone.utc)
     cert = (
         x509.CertificateBuilder()
-        .subject_name(subject)
-        .issuer_name(issuer)
+        .subject_name(subject).issuer_name(issuer)
         .public_key(key.public_key())
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - timedelta(days=1))
         .not_valid_after(now + timedelta(days=3650))
-        .add_extension(
-            x509.SubjectAlternativeName([x509.DNSName(h) for h in hosts]),
-            critical=False,
-        )
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName(h) for h in hosts]), critical=False)
         .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
-
-    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
-    key_path.write_bytes(
-        key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-    )
-    print(f"[cert] Generated certificate: {cert_path}")
-    print(f"[cert] Generated private key:  {key_path}")
+    CERT_PATH.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    KEY_PATH.write_bytes(key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption(),
+    ))
 
 
-# ---------------------------------------------------------------------------
-# Certificate trust store
-# ---------------------------------------------------------------------------
+def cert_exists() -> bool:
+    return CERT_PATH.exists() and KEY_PATH.exists()
 
-def install_cert_trust(cert_path: Path) -> None:
-    """Install *cert_path* into the Windows Root trust store via certutil."""
-    print(f"[cert] Installing certificate into Windows Root store …")
+
+def install_cert_trust() -> bool:
+    """Install cert into Windows Root store. Returns True on success."""
     result = subprocess.run(
-        ["certutil", "-addstore", "Root", str(cert_path)],
-        capture_output=True,
-        text=True,
+        ["certutil", "-addstore", "Root", str(CERT_PATH)],
+        capture_output=True, text=True,
     )
-    if result.returncode != 0:
-        print(f"[cert] certutil failed (exit {result.returncode}):")
-        print(result.stdout)
-        print(result.stderr)
-        raise RuntimeError("Failed to install certificate into trust store.")
-    print("[cert] Certificate trusted.")
+    return result.returncode == 0
 
 
 # ---------------------------------------------------------------------------
-# Hosts file management
+# Hosts file
 # ---------------------------------------------------------------------------
 
 def _read_hosts() -> str:
@@ -179,234 +141,431 @@ def _read_hosts() -> str:
         return HOSTS_FILE.read_text(encoding="latin-1")
 
 
-def _strip_dirtforever_block(content: str) -> str:
-    """Remove the existing DirtForever hosts block if present."""
+def _strip_block(content: str) -> str:
     lines = content.splitlines(keepends=True)
-    out: list[str] = []
-    inside = False
+    out, inside = [], False
     for line in lines:
-        stripped = line.strip()
-        if stripped == HOSTS_BEGIN:
-            inside = True
-            continue
-        if stripped == HOSTS_END:
-            inside = False
-            continue
+        s = line.strip()
+        if s == HOSTS_BEGIN:
+            inside = True; continue
+        if s == HOSTS_END:
+            inside = False; continue
         if not inside:
             out.append(line)
     return "".join(out)
 
 
-def setup_hosts(ip: str = SERVER_IP) -> None:
-    """Add redirect entries for all Codemasters domains."""
-    print(f"[hosts] Updating {HOSTS_FILE} …")
-    existing = _read_hosts()
-    cleaned = _strip_dirtforever_block(existing).rstrip("\r\n")
-
-    block_lines = [HOSTS_BEGIN]
-    for domain in REDIRECT_DOMAINS:
-        block_lines.append(f"{ip}\t{domain}")
-    block_lines.append(HOSTS_END)
-    block = "\r\n".join(block_lines)
-
-    new_content = (cleaned + "\r\n\r\n" + block + "\r\n") if cleaned else (block + "\r\n")
-    HOSTS_FILE.write_bytes(new_content.encode("utf-8"))
-    print(f"[hosts] Redirected {len(REDIRECT_DOMAINS)} domains to {ip}.")
-
-
 def hosts_configured() -> bool:
-    """Return True when at least one redirect domain points to SERVER_IP in the hosts file."""
     try:
         content = _read_hosts()
     except OSError:
         return False
-    return REDIRECT_DOMAINS[0] in content and HOSTS_BEGIN in content
+    return HOSTS_BEGIN in content and REDIRECT_DOMAINS[0] in content
+
+
+def add_hosts() -> None:
+    existing = _read_hosts()
+    cleaned = _strip_block(existing).rstrip("\r\n")
+    block = [HOSTS_BEGIN] + [f"{SERVER_IP}\t{d}" for d in REDIRECT_DOMAINS] + [HOSTS_END]
+    new = (cleaned + "\r\n\r\n" + "\r\n".join(block) + "\r\n") if cleaned else ("\r\n".join(block) + "\r\n")
+    HOSTS_FILE.write_bytes(new.encode("utf-8"))
+
+
+def remove_hosts() -> None:
+    existing = _read_hosts()
+    cleaned = _strip_block(existing)
+    HOSTS_FILE.write_bytes(cleaned.encode("utf-8"))
 
 
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
 
-def load_config() -> Optional[dict]:
-    """Load config from %APPDATA%/DirtForever/config.json, or None if missing."""
-    if not CONFIG_PATH.exists():
-        return None
-    try:
-        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
+def load_config() -> dict:
+    if CONFIG_PATH.exists():
+        try:
+            return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
 
 
 def save_config(config: dict) -> None:
-    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    DIRTFOREVER_DIR.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(config, indent=2), encoding="utf-8")
-    print(f"[config] Saved to {CONFIG_PATH}")
 
 
 # ---------------------------------------------------------------------------
-# Setup wizard
+# Admin helper script — runs elevated to do cert install + hosts changes
 # ---------------------------------------------------------------------------
 
-def run_setup() -> dict:
-    """Run the first-time setup wizard. Returns the saved config dict."""
-    print("=" * 60)
-    print("  DirtForever — First-Time Setup")
-    print("=" * 60)
-    print()
+def _admin_action(action: str) -> tuple[bool, str]:
+    """Run an admin action in an elevated subprocess. Returns (success, message)."""
+    result = subprocess.run(
+        [sys.executable, __file__, f"--admin-{action}"],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        return True, result.stdout.strip()
+    return False, result.stderr.strip() or result.stdout.strip() or "Unknown error"
 
-    # --- Admin check ---
-    if not is_admin():
-        print("[setup] Administrator privileges are required to update the")
-        print("        hosts file and install the TLS certificate.")
-        print("[setup] Re-launching with UAC elevation …")
-        relaunch_as_admin()
-        # If we're still here on Windows the relaunch should have happened;
-        # on non-Windows this is a no-op guard.
-        sys.exit(1)
 
-    # --- TLS certificate ---
-    if not CERT_PATH.exists() or not KEY_PATH.exists():
-        print("[setup] Generating TLS certificate …")
-        hosts = REDIRECT_DOMAINS + ["localhost"]
-        generate_cert(CERT_PATH, KEY_PATH, hosts)
+def _do_admin_start() -> int:
+    """Called in elevated subprocess: install cert + add hosts."""
+    if not cert_exists():
+        generate_cert()
+    install_cert_trust()
+    add_hosts()
+    print("OK")
+    return 0
+
+
+def _do_admin_stop() -> int:
+    """Called in elevated subprocess: remove hosts."""
+    remove_hosts()
+    print("OK")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# GUI
+# ---------------------------------------------------------------------------
+
+def run_gui():
+    import tkinter as tk
+    from tkinter import ttk, messagebox
+
+    config = load_config()
+    server_thread: Optional[threading.Thread] = None
+    server_running = threading.Event()
+    shutdown_flag = threading.Event()
+
+    # --- Window setup ---
+    root = tk.Tk()
+    root.title("DirtForever")
+    root.resizable(False, False)
+    root.configure(bg="#1a1a2e")
+
+    # Center on screen
+    w, h = 420, 380
+    x = (root.winfo_screenwidth() - w) // 2
+    y = (root.winfo_screenheight() - h) // 2
+    root.geometry(f"{w}x{h}+{x}+{y}")
+
+    # Colors
+    BG = "#1a1a2e"
+    BG_CARD = "#16213e"
+    ACCENT = "#e94560"
+    GREEN = "#4ecca3"
+    TEXT = "#eee"
+    MUTED = "#888"
+
+    # --- Header ---
+    header = tk.Frame(root, bg=BG)
+    header.pack(fill="x", padx=20, pady=(20, 5))
+    tk.Label(header, text="DIRTFOREVER", font=("Segoe UI", 18, "bold"),
+             fg=ACCENT, bg=BG).pack(side="left")
+    tk.Label(header, text="DiRT Rally 2.0 Community Server", font=("Segoe UI", 9),
+             fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(6, 0))
+
+    # --- Status ---
+    status_frame = tk.Frame(root, bg=BG_CARD, highlightbackground="#333", highlightthickness=1)
+    status_frame.pack(fill="x", padx=20, pady=10)
+
+    status_dot = tk.Label(status_frame, text="\u25cf", font=("Segoe UI", 14),
+                          fg=MUTED, bg=BG_CARD)
+    status_dot.pack(side="left", padx=(15, 5), pady=12)
+
+    status_label = tk.Label(status_frame, text="Stopped", font=("Segoe UI", 12, "bold"),
+                            fg=TEXT, bg=BG_CARD)
+    status_label.pack(side="left", pady=12)
+
+    status_detail = tk.Label(status_frame, text="", font=("Segoe UI", 9),
+                             fg=MUTED, bg=BG_CARD)
+    status_detail.pack(side="right", padx=15, pady=12)
+
+    # --- Log area ---
+    log_frame = tk.Frame(root, bg=BG)
+    log_frame.pack(fill="both", expand=True, padx=20, pady=(0, 5))
+
+    log_text = tk.Text(log_frame, height=6, bg="#0f0f23", fg="#ccc",
+                       font=("Consolas", 9), relief="flat", wrap="word",
+                       state="disabled", borderwidth=0)
+    log_text.pack(fill="both", expand=True)
+
+    def log(msg: str):
+        log_text.configure(state="normal")
+        log_text.insert("end", msg + "\n")
+        log_text.see("end")
+        log_text.configure(state="disabled")
+
+    # --- Buttons ---
+    btn_frame = tk.Frame(root, bg=BG)
+    btn_frame.pack(fill="x", padx=20, pady=(5, 10))
+
+    start_btn = tk.Button(
+        btn_frame, text="START DIRTFOREVER", font=("Segoe UI", 11, "bold"),
+        bg=GREEN, fg="#111", activebackground="#3ba88a", activeforeground="#111",
+        relief="flat", cursor="hand2", padx=20, pady=10,
+    )
+    start_btn.pack(fill="x", pady=(0, 5))
+
+    stop_btn = tk.Button(
+        btn_frame, text="STOP", font=("Segoe UI", 11, "bold"),
+        bg="#444", fg=TEXT, activebackground="#555", activeforeground=TEXT,
+        relief="flat", cursor="hand2", padx=20, pady=10,
+        state="disabled",
+    )
+    stop_btn.pack(fill="x")
+
+    # --- Footer links ---
+    footer = tk.Frame(root, bg=BG)
+    footer.pack(fill="x", padx=20, pady=(0, 15))
+
+    token_status = tk.Label(footer, text="", font=("Segoe UI", 8), fg=MUTED, bg=BG)
+    token_status.pack(side="left")
+
+    dash_link = tk.Label(footer, text="Dashboard", font=("Segoe UI", 8, "underline"),
+                         fg=ACCENT, bg=BG, cursor="hand2")
+    dash_link.pack(side="right")
+    dash_link.bind("<Button-1>", lambda e: webbrowser.open(DASHBOARD_URL))
+
+    # Update token status
+    if config.get("game_token"):
+        t = config["game_token"]
+        token_status.configure(text=f"Token: {t[:6]}...{t[-4:]}", fg=GREEN)
     else:
-        print(f"[setup] Certificate already exists: {CERT_PATH}")
+        token_status.configure(text="No token configured", fg=ACCENT)
 
-    # --- Trust store ---
-    print("[setup] Installing certificate into Windows trust store …")
-    install_cert_trust(CERT_PATH)
+    # --- Server control ---
+    def set_status(running: bool, detail: str = ""):
+        if running:
+            status_dot.configure(fg=GREEN)
+            status_label.configure(text="Running")
+            status_detail.configure(text=detail or "Launch DR2 to play")
+            start_btn.configure(state="disabled", bg="#555")
+            stop_btn.configure(state="normal", bg=ACCENT)
+        else:
+            status_dot.configure(fg=MUTED)
+            status_label.configure(text="Stopped")
+            status_detail.configure(text=detail)
+            start_btn.configure(state="normal", bg=GREEN)
+            stop_btn.configure(state="disabled", bg="#444")
 
-    # --- Hosts file ---
-    print("[setup] Configuring Windows hosts file …")
-    setup_hosts()
+    def server_worker():
+        """Run the game server in a background thread."""
+        try:
+            # Import and configure server
+            cert = config.get("cert_path", str(CERT_PATH))
+            key = config.get("key_path", str(KEY_PATH))
+            api_url = config.get("api_url", API_URL)
+            api_token = config.get("game_token")
+            data_root = str(_data_dir())
 
-    # --- Game token ---
-    print()
-    print("[setup] Opening dirtforever.net dashboard in your browser …")
-    print("        If the browser does not open, visit:")
-    print(f"        {DASHBOARD_URL}")
-    print()
-    try:
-        webbrowser.open(DASHBOARD_URL)
-    except Exception:
-        pass  # Non-fatal; user can open manually.
+            sys.argv = [sys.argv[0],
+                        "--ssl-cert", cert,
+                        "--ssl-key", key,
+                        "--data-dir", data_root]
+            if api_url:
+                sys.argv += ["--api-url", api_url]
+            if api_token:
+                sys.argv += ["--api-token", api_token]
 
-    token = ""
-    while not token.strip():
-        token = input("Paste your game token from dirtforever.net: ").strip()
-        if not token:
-            print("Token cannot be empty. Please try again.")
+            from dr2server.httpd import build_arg_parser, App, create_server
+            import ssl
+            import time
 
-    # --- Save config ---
-    config = {
-        "game_token": token,
-        "cert_path": str(CERT_PATH),
-        "key_path": str(KEY_PATH),
-        "api_url": "https://dirtforever.net",
-        "setup_complete": True,
-    }
-    save_config(config)
+            args = build_arg_parser().parse_args()
+            from dr2server.api_client import DirtForeverClient
+            api_client = None
+            if args.api_url:
+                api_client = DirtForeverClient(
+                    base_url=args.api_url,
+                    api_token=getattr(args, 'api_token', None),
+                )
 
-    print()
-    print("[setup] Setup complete!")
-    print("        You can now launch DiRT Rally 2.0 and enjoy community races.")
-    print()
-    return config
+            app = App(
+                data_root=Path(args.data_dir),
+                capture_root=Path(args.capture_dir),
+                api_url=args.api_url,
+            )
+            if api_client:
+                app.dispatcher.api_client = api_client
 
+            servers = []
+            http_server = create_server(args.host, args.port, app)
+            servers.append(http_server)
 
-# ---------------------------------------------------------------------------
-# Server startup
-# ---------------------------------------------------------------------------
+            if args.ssl_cert and args.ssl_key:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+                ssl_context.load_cert_chain(certfile=args.ssl_cert, keyfile=args.ssl_key)
+                https_server = create_server(args.host, args.https_port, app, ssl_context=ssl_context)
+                servers.append(https_server)
 
-def start_server(config: dict) -> int:
-    """Start the game server using the given config."""
-    import sys as _sys
+            for s in servers:
+                threading.Thread(target=s.serve_forever, daemon=True).start()
 
-    cert = config.get("cert_path", str(CERT_PATH))
-    key = config.get("key_path", str(KEY_PATH))
-    api_url = config.get("api_url")
+            server_running.set()
+            root.after(0, lambda: set_status(True))
+            root.after(0, lambda: log("Server listening on HTTPS :443 and HTTP :8080"))
 
-    # Inject the bundled data directory so the server finds upstream templates.
-    data_root = _data_dir()
+            # Wait until shutdown is requested
+            while not shutdown_flag.is_set():
+                shutdown_flag.wait(timeout=1.0)
 
-    # Build argv for httpd.main() so the arg parser picks up our values.
-    extra_args = [
-        "--ssl-cert", cert,
-        "--ssl-key", key,
-        "--data-dir", str(data_root),
-    ]
-    if api_url:
-        extra_args += ["--api-url", api_url]
+            for s in servers:
+                s.shutdown()
+                s.server_close()
 
-    # Temporarily override sys.argv so httpd.build_arg_parser() gets our values.
-    original_argv = _sys.argv[:]
-    _sys.argv = [_sys.argv[0]] + extra_args
+        except Exception as exc:
+            root.after(0, lambda: log(f"Server error: {exc}"))
+        finally:
+            server_running.clear()
+            root.after(0, lambda: set_status(False))
 
-    try:
-        from dr2server.httpd import main as httpd_main
+    def on_start():
+        nonlocal config, server_thread
+        config = load_config()
+        start_btn.configure(state="disabled")
+        log("Starting DirtForever...")
 
-        print()
-        print("DirtForever server running.")
-        print("Launch DiRT Rally 2.0 to play.")
-        print("Press Ctrl+C to stop the server.")
-        print()
+        def setup_and_start():
+            nonlocal config
+            try:
+                # Generate cert if missing
+                if not cert_exists():
+                    root.after(0, lambda: log("Generating TLS certificate..."))
+                    generate_cert()
+                    config["cert_path"] = str(CERT_PATH)
+                    config["key_path"] = str(KEY_PATH)
+                    save_config(config)
 
-        return httpd_main()
-    finally:
-        _sys.argv = original_argv
+                # Check if admin actions needed (cert trust + hosts)
+                needs_admin = not hosts_configured()
+                # Always try to ensure cert is trusted and hosts are set
+                if needs_admin or not hosts_configured():
+                    root.after(0, lambda: log("Setting up hosts & cert trust (admin required)..."))
+                    # Write a helper script and run it elevated
+                    helper = DIRTFOREVER_DIR / "_admin_start.py"
+                    helper.write_text(
+                        f"import subprocess, sys\n"
+                        f"r = subprocess.run(['certutil', '-addstore', 'Root', r'{CERT_PATH}'], capture_output=True)\n"
+                        f"print('cert:', 'ok' if r.returncode == 0 else 'fail')\n"
+                        f"# Add hosts\n"
+                        f"hosts = r'{HOSTS_FILE}'\n"
+                        f"try:\n"
+                        f"    content = open(hosts, encoding='utf-8').read()\n"
+                        f"except UnicodeDecodeError:\n"
+                        f"    content = open(hosts, encoding='latin-1').read()\n"
+                        f"# Strip old block\n"
+                        f"lines, out, inside = content.splitlines(True), [], False\n"
+                        f"for l in lines:\n"
+                        f"    s = l.strip()\n"
+                        f"    if s == '{HOSTS_BEGIN}': inside = True; continue\n"
+                        f"    if s == '{HOSTS_END}': inside = False; continue\n"
+                        f"    if not inside: out.append(l)\n"
+                        f"cleaned = ''.join(out).rstrip('\\r\\n')\n"
+                        f"block = '\\r\\n'.join(['{HOSTS_BEGIN}'] + "
+                        f"['{SERVER_IP}\\t' + d for d in {REDIRECT_DOMAINS!r}] + "
+                        f"['{HOSTS_END}'])\n"
+                        f"new = (cleaned + '\\r\\n\\r\\n' + block + '\\r\\n') if cleaned else (block + '\\r\\n')\n"
+                        f"open(hosts, 'wb').write(new.encode('utf-8'))\n"
+                        f"print('hosts: ok')\n",
+                        encoding="utf-8",
+                    )
+                    # Run elevated
+                    exe = sys.executable
+                    ps_cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'"{helper}"\' -Verb RunAs -Wait'
+                    subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True)
+                    helper.unlink(missing_ok=True)
+
+                    if hosts_configured():
+                        root.after(0, lambda: log("Hosts configured, cert trusted."))
+                    else:
+                        root.after(0, lambda: log("WARNING: Could not configure hosts. Run as admin?"))
+
+                # Check for token
+                if not config.get("game_token"):
+                    root.after(0, lambda: log("No game token. Get one at dirtforever.net/dashboard"))
+                    webbrowser.open(DASHBOARD_URL)
+                    # We'll still start the server - it works without token (local mode)
+
+                # Start server
+                shutdown_flag.clear()
+                server_thread = threading.Thread(target=server_worker, daemon=True)
+                server_thread.start()
+
+            except Exception as exc:
+                root.after(0, lambda: log(f"Setup error: {exc}"))
+                root.after(0, lambda: set_status(False))
+
+        threading.Thread(target=setup_and_start, daemon=True).start()
+
+    def on_stop():
+        stop_btn.configure(state="disabled")
+        log("Stopping server...")
+        shutdown_flag.set()
+
+        def cleanup():
+            # Wait for server to stop
+            if server_thread:
+                server_thread.join(timeout=5)
+
+            # Remove hosts (needs admin)
+            root.after(0, lambda: log("Removing hosts entries (admin required)..."))
+            helper = DIRTFOREVER_DIR / "_admin_stop.py"
+            helper.write_text(
+                f"hosts = r'{HOSTS_FILE}'\n"
+                f"try:\n"
+                f"    content = open(hosts, encoding='utf-8').read()\n"
+                f"except UnicodeDecodeError:\n"
+                f"    content = open(hosts, encoding='latin-1').read()\n"
+                f"lines, out, inside = content.splitlines(True), [], False\n"
+                f"for l in lines:\n"
+                f"    s = l.strip()\n"
+                f"    if s == '{HOSTS_BEGIN}': inside = True; continue\n"
+                f"    if s == '{HOSTS_END}': inside = False; continue\n"
+                f"    if not inside: out.append(l)\n"
+                f"open(hosts, 'wb').write(''.join(out).encode('utf-8'))\n"
+                f"print('ok')\n",
+                encoding="utf-8",
+            )
+            exe = sys.executable
+            ps_cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'"{helper}"\' -Verb RunAs -Wait'
+            subprocess.run(["powershell", "-Command", ps_cmd], capture_output=True)
+            helper.unlink(missing_ok=True)
+
+            root.after(0, lambda: log("Stopped. Game will use RaceNet servers now."))
+            root.after(0, lambda: set_status(False, "Hosts restored"))
+
+        threading.Thread(target=cleanup, daemon=True).start()
+
+    start_btn.configure(command=on_start)
+    stop_btn.configure(command=on_stop)
+
+    def on_close():
+        if server_running.is_set():
+            if messagebox.askyesno("DirtForever", "Server is running. Stop it and exit?"):
+                shutdown_flag.set()
+                if server_thread:
+                    server_thread.join(timeout=3)
+                root.destroy()
+        else:
+            root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_close)
+    root.mainloop()
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="DirtForever — DiRT Rally 2.0 community server",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            "First run performs one-time setup (cert, hosts, token).\n"
-            "Subsequent runs start the server immediately."
-        ),
-    )
-    parser.add_argument(
-        "--setup",
-        action="store_true",
-        help="Force re-run the setup wizard even if already configured.",
-    )
-    parser.add_argument(
-        "--server",
-        action="store_true",
-        help="Skip setup checks and start the server directly.",
-    )
-    return parser.parse_args()
-
-
-def main() -> int:
-    args = parse_args()
-
-    if args.server:
-        # Explicit server-only mode: load config or bail.
-        config = load_config()
-        if config is None:
-            print("[error] No config found. Run without --server first to complete setup.")
-            return 1
-        return start_server(config)
-
-    config = load_config()
-    needs_setup = args.setup or config is None or not config.get("setup_complete")
-
-    if needs_setup:
-        config = run_setup()
-    else:
-        # Sanity-check that the environment is still correctly configured.
-        if not CERT_PATH.exists():
-            print("[warn] Certificate missing — run with --setup to regenerate.")
-        if not hosts_configured():
-            print("[warn] Hosts file entries missing — run with --setup to re-add them.")
-
-    return start_server(config)
-
-
 if __name__ == "__main__":
-    raise SystemExit(main())
+    # Handle admin helper subprocess calls
+    if len(sys.argv) == 2 and sys.argv[1].endswith(".py"):
+        # Being called as: python dirtforever.py _admin_start.py
+        # This shouldn't happen with current design, but guard against it
+        pass
+
+    run_gui()
