@@ -1,5 +1,9 @@
 #!/bin/bash
 
+set -a
+source /home/winrid/dirtforever-web/.env
+set +a
+
 cd /home/winrid/dirtforever-web/web
 
 .venv/bin/python -m gunicorn \
