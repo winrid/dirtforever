@@ -2031,7 +2031,7 @@ def _tt_path(key: str) -> str:
 def _load_tt(key: str) -> list[Any]:
     p = _tt_path(key)
     if os.path.exists(p):
-        return _load(p)  # type: ignore[return-value]
+        return _load(p)  # type: ignore[no-any-return]
     return []
 
 
