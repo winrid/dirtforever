@@ -331,7 +331,8 @@ class CompDamage:
 
 def _val(v: Any) -> Any:
     """Unwrap EgoNet type wrappers to plain Python values."""
-    if isinstance(v, (UInt32, UInt8, Int64, Timestamp)):
+    from .egonet import UInt16
+    if isinstance(v, (UInt32, UInt16, UInt8, Int64, Timestamp)):
         return v.value
     return v
 

@@ -37,6 +37,23 @@ def _stable_int_id(string_id: str, base: int = 100000, offset: int = 0) -> int:
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "upstream_templates"
 
 
+# Vehicle ID -> default LiveryId, from the upstream inventory template.
+# The game requires LiveryId to belong to the VehicleId, otherwise Progress
+# entries load the wrong car.
+_LIVERY_FOR_VEHICLE: Dict[int, int] = {
+    382: 2906, 395: 3511, 396: 2923, 399: 2921, 400: 2918, 401: 2912,
+    468: 2929, 469: 3473, 470: 2927, 471: 2919, 478: 2915, 480: 2917,
+    482: 3437, 483: 2904, 484: 2905, 485: 2689, 490: 2705, 511: 2951,
+    513: 3079, 529: 2892, 532: 2897, 534: 2899, 535: 3050, 536: 2910,
+    537: 2914, 538: 2926, 541: 2938, 547: 2949, 548: 2950, 550: 2953,
+    555: 3359, 556: 3360, 558: 3362, 559: 3363, 561: 3365, 563: 3367,
+    565: 3369, 570: 3374, 572: 3475, 573: 3484, 574: 3485, 575: 3494,
+    576: 3513, 577: 3654, 578: 3690, 579: 3719, 580: 3711, 581: 3713,
+    582: 3722, 585: 3765, 586: 3767, 587: 3770, 588: 3763, 589: 3772,
+    590: 3764, 593: 3774, 597: 3779,
+}
+
+
 def _load_template(method: str) -> Optional[bytes]:
     """Load a captured upstream binary response template for the given method."""
     safe_name = method.replace(".", "_") + ".bin"
@@ -526,6 +543,14 @@ class RpcDispatcher:
             if not completed_stages:
                 continue
 
+            # If the user has completed ALL stages of the event, don't emit
+            # a Progress entry — the event is finished. Emitting one would
+            # make the game show "Resume Event" with an invalid StageIndex.
+            total_stages_in_event = len(evt.get("stages", []))
+            if total_stages_in_event and len(completed_stages) >= total_stages_in_event:
+                print(f"[PROGRESS] {evt_id}: all {total_stages_in_event} stages done, skipping")
+                continue
+
             total_ms = ep.get("total_time_ms", 0)
 
             # Compute percentile from stored rank (percentile computation
@@ -540,9 +565,12 @@ class RpcDispatcher:
             if not isinstance(vehicle_id, int):
                 vehicle_id = 0
 
-            # Use upstream-observed defaults where we don't have real data
-            # (LiveryId=0 and TyreCompound=2 may be invalid for the game)
-            livery_id = last_stage.get("livery_id", 0) or 2904
+            # Use upstream-observed defaults where we don't have real data.
+            # LiveryId must belong to the vehicle — use the inventory mapping
+            # so we don't end up with a livery from a different car.
+            livery_id = last_stage.get("livery_id", 0)
+            if not livery_id:
+                livery_id = _LIVERY_FOR_VEHICLE.get(vehicle_id, 0)
             nationality_id = last_stage.get("nationality_id", 0) or 0
             meters_driven = last_stage.get("meters_driven", 0) or 0
             has_repaired = bool(last_stage.get("has_repaired", False))
@@ -1049,7 +1077,8 @@ class RpcDispatcher:
                 dmg_dict = dataclasses.asdict(req.comp_damage)
                 # has_repaired: true if any quick_repairs used or comp_damage
                 # indicates repair was applied (RecovToService flag)
-                has_repaired = req.recov_to_service or req.comp_damage.quick_repairs > 0
+                _qr = getattr(req.comp_damage.quick_repairs, "value", req.comp_damage.quick_repairs)
+                has_repaired = req.recov_to_service or _qr > 0
                 # Username comes from the authenticated token on the web side
                 try:
                     ok = self.api_client.submit_stage(
