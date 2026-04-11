@@ -316,11 +316,13 @@ class RpcDispatcher:
                         leaderboard_id=lb_base,
                     ))
 
-                # Requirements: vehicle class if known, else open (Type=1, Value=100)
-                if vclass_id is not None:
+                # Requirements: vehicle class if confirmed, else open class.
+                # Only IDs verified by in-game testing. Invalid IDs crash the game.
+                _CONFIRMED_CLASSES = {72, 78, 86, 92, 93, 96, 97, 98, 100}
+                if vclass_id is not None and vclass_id in _CONFIRMED_CLASSES:
                     requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
                 else:
-                    requirements = [{"Type": 1, "Value": UInt32(100)}]
+                    requirements = []
 
                 num_entrants = len(wevt.get("entries", [])) if "entries" in wevt else 0
 
