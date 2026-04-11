@@ -7,7 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 
 from .account_store import AccountStore
 from .api_client import DirtForeverClient
-from .egonet import Int64, Timestamp, UInt32, UInt8
+from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
 from .game_data import Location, Track
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
@@ -440,7 +440,6 @@ class RpcDispatcher:
         if not challenges_egonet:
             return None
 
-        # Build Progress array from the user's saved results on each event
         progress_egonet = self._build_user_progress(web_events)
 
         return {
@@ -481,36 +480,27 @@ class RpcDispatcher:
         # key: event_id -> total entry count
         lb_totals: Dict[str, int] = {}
 
-        _empty_damage = {
-            "QuickRepairs": 0, "Bodywork": UInt32(0), "Brakes": UInt32(0),
-            "Clutch": 0.0, "Dampers": UInt32(0), "DiffWear": UInt32(0),
-            "DiffImpact": UInt32(0), "Engine": 0.0, "Exhaust": 0.0,
-            "Gearbox": UInt32(0), "Lights": 0.0, "Radiator": 0.0,
-            "Springs": UInt32(0), "Turbo": UInt32(0),
-            "WheelsWear": UInt32(0), "WheelsImpact": UInt32(0),
-        }
-
+        # VehicleDamage field order MUST match upstream exactly — the game
+        # parses this as an ordered struct.
         def _damage_from_dict(d: Dict[str, Any]) -> Dict[str, Any]:
-            """Convert a stored comp_damage dict to EgoNet VehicleDamage format."""
-            if not d:
-                return _empty_damage
+            d = d or {}
             return {
-                "QuickRepairs": int(d.get("quick_repairs", 0)),
-                "Bodywork": UInt32(int(d.get("bodywork", 0))),
-                "Brakes": UInt32(int(d.get("brakes", 0))),
-                "Clutch": float(d.get("clutch", 0.0)),
-                "Dampers": UInt32(int(d.get("dampers", 0))),
-                "DiffWear": UInt32(int(d.get("diff_wear", 0))),
-                "DiffImpact": UInt32(int(d.get("diff_impact", 0))),
-                "Engine": float(d.get("engine", 0.0)),
-                "Exhaust": float(d.get("exhaust", 0.0)),
-                "Gearbox": UInt32(int(d.get("gearbox", 0))),
-                "Lights": float(d.get("lights", 0.0)),
-                "Radiator": float(d.get("radiator", 0.0)),
-                "Springs": UInt32(int(d.get("springs", 0))),
-                "Turbo": UInt32(int(d.get("turbo", 0))),
-                "WheelsWear": UInt32(int(d.get("wheels_wear", 0))),
+                "WheelsWear":   UInt32(int(d.get("wheels_wear", 0))),
+                "Turbo":        UInt32(int(d.get("turbo", 0))),
+                "Springs":      UInt32(int(d.get("springs", 0))),
+                "Radiator":     float(d.get("radiator", 0.0)),
+                "Lights":       float(d.get("lights", 0.0)),
+                "Gearbox":      UInt32(int(d.get("gearbox", 0))),
                 "WheelsImpact": UInt32(int(d.get("wheels_impact", 0))),
+                "Exhaust":      float(d.get("exhaust", 0.0)),
+                "DiffImpact":   UInt32(int(d.get("diff_impact", 0))),
+                "DiffWear":     UInt32(int(d.get("diff_wear", 0))),
+                "Dampers":      UInt32(int(d.get("dampers", 0))),
+                "Clutch":       float(d.get("clutch", 0.0)),
+                "Brakes":       UInt32(int(d.get("brakes", 0))),
+                "Bodywork":     UInt32(int(d.get("bodywork", 0))),
+                "Engine":       float(d.get("engine", 0.0)),
+                "QuickRepairs": UInt16(int(d.get("quick_repairs", 0))),
             }
 
         progress: list = []
@@ -538,22 +528,9 @@ class RpcDispatcher:
 
             total_ms = ep.get("total_time_ms", 0)
 
-            # Compute percentile using leaderboard size
-            if evt_id not in lb_totals:
-                try:
-                    lb_entries = self.api_client.get_leaderboard(evt_id) or []
-                    lb_totals[evt_id] = len(lb_entries)
-                    # Find our rank in the leaderboard for percentile
-                    my_rank = next(
-                        (i + 1 for i, e in enumerate(lb_entries)
-                         if e.get("username") == self.api_client.test_token()),
-                        0,
-                    )
-                except Exception:
-                    lb_totals[evt_id] = 0
-                    my_rank = 0
-            total_entries = lb_totals.get(evt_id, 0)
-            percentile = int((my_rank / total_entries * 100) if total_entries > 0 else 0)
+            # Compute percentile from stored rank (percentile computation
+            # is best-effort; leave at 0 until we track per-user rank)
+            percentile = 0
 
             # Use the last completed stage's data for the Progress entry
             last_stage = completed_stages[-1]
@@ -563,21 +540,27 @@ class RpcDispatcher:
             if not isinstance(vehicle_id, int):
                 vehicle_id = 0
 
-            livery_id = last_stage.get("livery_id", 0) or 0
+            # Use upstream-observed defaults where we don't have real data
+            # (LiveryId=0 and TyreCompound=2 may be invalid for the game)
+            livery_id = last_stage.get("livery_id", 0) or 2904
             nationality_id = last_stage.get("nationality_id", 0) or 0
             meters_driven = last_stage.get("meters_driven", 0) or 0
             has_repaired = bool(last_stage.get("has_repaired", False))
             repair_penalty_ms = int(last_stage.get("repair_penalty_ms", 0) or 0)
-            tyre_compound = int(last_stage.get("tyre_compound", 2) or 2)
-            tyres_remaining = int(last_stage.get("tyres_remaining", 3) or 3)
+            tyre_compound = int(last_stage.get("tyre_compound", 0) or 7)
+            tyres_remaining = int(last_stage.get("tyres_remaining", 0) or 2)
             damage = _damage_from_dict(last_stage.get("vehicle_damage") or {})
 
-            # Decode tuning setup from base64 back to bytes
+            # Decode tuning setup from base64 back to bytes; use default
+            # valid blob when empty (game crashes on empty/malformed blobs)
             tuning_b64 = last_stage.get("tuning_setup_b64", "") or ""
             try:
                 tuning_bytes = base64.b64decode(tuning_b64) if tuning_b64 else b""
             except Exception:
                 tuning_bytes = b""
+            if not tuning_bytes:
+                from .tuning import TuningBlob
+                tuning_bytes = TuningBlob.default_bytes()
 
             progress.append({
                 "ChallengeID": chal_id,
@@ -585,7 +568,7 @@ class RpcDispatcher:
                 "StageIndex": next_stage_idx,
                 "State": 1,
                 "StageTimeMs": UInt32(0),
-                "VehicleInstId": Int64(1),
+                "VehicleInstId": Int64(0),
                 "VehicleId": UInt32(vehicle_id),
                 "LiveryId": UInt32(livery_id),
                 "MetersDriven": meters_driven,
@@ -597,7 +580,7 @@ class RpcDispatcher:
                 "TyreCompound": UInt32(tyre_compound),
                 "TyresRemaining": UInt32(tyres_remaining),
                 "TuningSetup": tuning_bytes,
-                "AttemptsLeft": 3,
+                "AttemptsLeft": 1,  # must match Challenge.AttemptsAllowed
             })
 
         return progress
@@ -686,31 +669,22 @@ class RpcDispatcher:
             except Exception as exc:
                 print(f"[CLUB_LB] get_leaderboard({event_id}) failed: {exc}")
 
-        # Convert to EgoNet format — entries must match upstream structure exactly
+        # Convert to EgoNet format — ChampionshipLeaderboard entries use a
+        # different structure than time-trial entries: Points instead of time.
         egonet_entries = []
         for i, e in enumerate(entries[start_rank:start_rank + limit]):
-            total_ms = e.get("total_time_ms", 0)
-            vehicle_id = e.get("vehicle_id", 0)
-            if not isinstance(vehicle_id, int):
-                vehicle_id = 0
             egonet_entries.append({
                 "Presence": {
                     "Name": e.get("username", "Unknown"),
-                    "IsCrossPlatform": False,
-                    "NetworkId": Int64(0),
+                    "IsCrossPlatform": True,
+                    "NetworkId": 0,
                     "EgoNetId": Int64(0),
                     "AccountRef": Int64(0),
                 },
-                "PersonalBest": Int64(total_ms),
-                "CumulativeBest": Int64(total_ms),
-                "TimeDiff": Int64(0),
+                "Points": e.get("points", 0),
                 "Rank": start_rank + i + 1,
-                "VehicleId": UInt32(vehicle_id),
-                "IsFounder": False,
                 "IsVIP": False,
-                "Nationality": UInt32(0),
-                "GhostAvailable": False,
-                "LiveryId": UInt32(0),
+                "Nationality": UInt32(e.get("nationality_id", 0)),
             })
 
         print(f"[CLUB_LB] club_id={club_id} event={event_id} returning {len(egonet_entries)} entries")
