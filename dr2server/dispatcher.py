@@ -52,6 +52,9 @@ class RpcDispatcher:
     ) -> None:
         self.account_store = account_store
         self.api_client = api_client
+        # Maps numeric challenge_id -> web event_id string, populated when
+        # clubs are fetched from the API.
+        self._challenge_event_map: Dict[int, str] = {}
         self._handlers: Dict[str, Handler] = {
             "Login.GetCurrentVersion": self._get_current_version,
             "Login.Login": self._login,
@@ -280,6 +283,8 @@ class RpcDispatcher:
             for evt_idx, wevt in enumerate(club_events):
                 chal_id = _stable_int_id(wevt.get("id", f"{club_str_id}-{evt_idx}"),
                                          base=200000, offset=evt_idx)
+                # Remember the mapping so StageComplete can reverse it
+                self._challenge_event_map[chal_id] = wevt.get("id", "")
                 loc_name: str = wevt.get("location", "")
                 location_id = self.api_client.resolve_location_id(loc_name)
                 if location_id is None:
@@ -360,6 +365,7 @@ class RpcDispatcher:
         for evt_idx, wevt in enumerate(events_by_club.get("__global__", [])):
             chal_id = _stable_int_id(wevt.get("id", f"global-{evt_idx}"),
                                      base=300000, offset=evt_idx)
+            self._challenge_event_map[chal_id] = wevt.get("id", "")
             loc_name = wevt.get("location", "")
             location_id = self.api_client.resolve_location_id(loc_name)
             if location_id is None:
@@ -495,10 +501,20 @@ class RpcDispatcher:
 
     def _leaderboard(self, params: Dict[str, Any]) -> Dict[str, Any]:
         if self.api_client is not None:
-            # LeaderboardId from params — map back to a string event_id if possible
+            # LeaderboardId from params — unwrap the EgoNet type wrapper
             lb_id = params.get("LeaderboardId") or params.get("leaderboard_id")
+            lb_id = getattr(lb_id, "value", lb_id)
             if lb_id is not None:
-                event_id = str(lb_id)
+                # LeaderboardId is derived from challenge_id as chal_id*10 or chal_id+800000
+                # Try to reverse-map it to a web event_id
+                chal_id = None
+                if lb_id >= 800000:
+                    chal_id = lb_id - 800000  # old scheme
+                if chal_id not in self._challenge_event_map:
+                    # Try the chal_id*10 scheme (stage leaderboards)
+                    if lb_id % 10 == 0 or (lb_id // 10) in self._challenge_event_map:
+                        chal_id = lb_id // 10
+                event_id = self._challenge_event_map.get(chal_id or 0, str(lb_id))
                 try:
                     entries = self.api_client.get_leaderboard(event_id)
                 except Exception as exc:
@@ -731,24 +747,30 @@ class RpcDispatcher:
               f"distance={req.meters_driven}m status={req.race_status} "
               f"wheel={req.using_wheel} assists={req.using_assists}")
 
-        if self.api_client is not None and req.race_status == 0:
-            # Only submit clean (non-retired) runs.
-            # We need a string event_id and a username — for now we derive the
-            # event_id from the challenge_id and use a placeholder username
-            # until auth integration is wired up end-to-end.
-            event_id = str(req.challenge_id)
-            username = getattr(self, "_current_username", "unknown")
-            time_ms = int(req.stage_time * 1000)
-            try:
-                self.api_client.submit_stage(
-                    event_id=event_id,
-                    username=username,
-                    stage_index=req.stage_index,
-                    time_ms=time_ms,
-                    vehicle_id=req.vehicle_id if req.vehicle_id else None,
-                )
-            except Exception as exc:
-                print(f"[STAGE] api_client.submit_stage() raised: {exc}")
+        if self.api_client is not None:
+            # Look up the original web event_id from the numeric challenge_id
+            event_id = self._challenge_event_map.get(req.challenge_id)
+            if not event_id:
+                print(f"[STAGE] Unknown challenge_id={req.challenge_id}, "
+                      f"cannot submit (map has {len(self._challenge_event_map)} entries)")
+            elif req.race_status != 0:
+                print(f"[STAGE] Not submitting (race_status={req.race_status}, not finished)")
+            else:
+                time_ms = int(req.stage_time * 1000)
+                # Username comes from the authenticated token on the web side
+                try:
+                    ok = self.api_client.submit_stage(
+                        event_id=event_id,
+                        username="",  # server uses g.game_user from token
+                        stage_index=req.stage_index,
+                        time_ms=time_ms,
+                        vehicle_id=req.vehicle_id if req.vehicle_id else None,
+                    )
+                    if ok:
+                        print(f"[STAGE] Submitted to API: event={event_id} "
+                              f"stage={req.stage_index} time_ms={time_ms}")
+                except Exception as exc:
+                    print(f"[STAGE] api_client.submit_stage() raised: {exc}")
 
         return {"ok": True, "Accepted": True}
 
