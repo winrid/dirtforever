@@ -201,7 +201,10 @@ class Track(IntEnum):
     # Montalegre Rallycross (Location.MONTALEGRE = 20) — 1 ID
     MONTALEGRE_STAGE_1    = 538
 
-    # Australia (Location.AUSTRALIA = 31) — 11 IDs, generic names
+    # Australia (Location.AUSTRALIA = 16) — 10 IDs, generic names, UNVERIFIED.
+    # 580 was previously labeled AUSTRALIA_STAGE_5 here but in-game testing
+    # showed it is actually Spain / Descenso por carretera — see Spain block
+    # below. The rest of this block remains speculative.
     AUSTRALIA_STAGE_1     = 566
     AUSTRALIA_STAGE_2     = 574
     AUSTRALIA_STAGE_2_REV = 575
@@ -209,7 +212,6 @@ class Track(IntEnum):
     AUSTRALIA_STAGE_3_REV = 577
     AUSTRALIA_STAGE_4     = 578
     AUSTRALIA_STAGE_4_REV = 579
-    AUSTRALIA_STAGE_5     = 580
     AUSTRALIA_STAGE_5_REV = 581
     AUSTRALIA_STAGE_6     = 582
     AUSTRALIA_STAGE_6_REV = 583
@@ -228,19 +230,22 @@ class Track(IntEnum):
     ROSEBANK_FARM         = 602
     ROSEBANK_FARM_REV     = 603
 
-    # Spain (Location.SPAIN = 36) — 12 IDs, named
-    CENTENERA             = 614
-    CENTENERA_REV         = 615
-    RIBADELLES            = 616
-    RIBADELLES_REV        = 617
-    DESCENSO_POR_CARRETERA     = 618
-    DESCENSO_POR_CARRETERA_REV = 619
+    # Spain (Location.SPAIN = 31) — verified stage IDs live in two ranges.
+    # DESCENSO_POR_CARRETERA at 580 is confirmed by in-game testing; the
+    # previous 618/619 assignment was wrong and has been removed. The
+    # remaining 614-625 names (Centenera, Ribadelles, Subida, Ascenso bosque,
+    # Camino rocoso) are still from community docs and unverified.
+    DESCENSO_POR_CARRETERA = 580
+    CENTENERA              = 614
+    CENTENERA_REV          = 615
+    RIBADELLES             = 616
+    RIBADELLES_REV         = 617
     SUBIDA_POR_CARRETERA       = 620
     SUBIDA_POR_CARRETERA_REV   = 621
-    ASCENSO_BOSQUE        = 622
-    ASCENSO_BOSQUE_REV    = 623
-    CAMINO_ROCOSO         = 624
-    CAMINO_ROCOSO_REV     = 625
+    ASCENSO_BOSQUE         = 622
+    ASCENSO_BOSQUE_REV     = 623
+    CAMINO_ROCOSO          = 624
+    CAMINO_ROCOSO_REV      = 625
 
     # Finland (Location.FINLAND = 37) — 12 IDs, named
     KAKARISTO             = 626
@@ -355,7 +360,7 @@ _TRACK_META: Dict[Track, dict] = {
     # Montalegre Rallycross — 1 ID
     Track.MONTALEGRE_STAGE_1:    {"display_name": "Montalegre",                 "location": Location.MONTALEGRE, "length_km": 1.0, "discipline": "rallycross"},
 
-    # Australia — 11 IDs, generic names
+    # Australia — 10 IDs, generic names, UNVERIFIED
     Track.AUSTRALIA_STAGE_1:     {"display_name": "Stage 1",                    "location": Location.AUSTRALIA,   "length_km": 7.0},
     Track.AUSTRALIA_STAGE_2:     {"display_name": "Stage 2",                    "location": Location.AUSTRALIA,   "length_km": 7.0},
     Track.AUSTRALIA_STAGE_2_REV: {"display_name": "Stage 2 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 7.0},
@@ -363,7 +368,6 @@ _TRACK_META: Dict[Track, dict] = {
     Track.AUSTRALIA_STAGE_3_REV: {"display_name": "Stage 3 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 7.0},
     Track.AUSTRALIA_STAGE_4:     {"display_name": "Stage 4",                    "location": Location.AUSTRALIA,   "length_km": 12.0},
     Track.AUSTRALIA_STAGE_4_REV: {"display_name": "Stage 4 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 12.0},
-    Track.AUSTRALIA_STAGE_5:     {"display_name": "Stage 5",                    "location": Location.AUSTRALIA,   "length_km": 5.0},
     Track.AUSTRALIA_STAGE_5_REV: {"display_name": "Stage 5 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 5.0},
     Track.AUSTRALIA_STAGE_6:     {"display_name": "Stage 6",                    "location": Location.AUSTRALIA,   "length_km": 5.0},
     Track.AUSTRALIA_STAGE_6_REV: {"display_name": "Stage 6 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 5.0},
@@ -382,19 +386,19 @@ _TRACK_META: Dict[Track, dict] = {
     Track.ROSEBANK_FARM:            {"display_name": "Rosebank Farm",               "location": Location.SCOTLAND,    "length_km": 7.0},
     Track.ROSEBANK_FARM_REV:        {"display_name": "Rosebank Farm (Reverse)",     "location": Location.SCOTLAND,    "length_km": 7.0},
 
-    # Spain — 12 IDs, named
+    # Spain — 11 IDs. Descenso (580) is verified in-game; the rest are from
+    # community docs and still unverified.
+    Track.DESCENSO_POR_CARRETERA:       {"display_name": "Descenso por carretera",          "location": Location.SPAIN,       "length_km": 7.0},
     Track.CENTENERA:                    {"display_name": "Centenera",                       "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CENTENERA_REV:                {"display_name": "Centenera (Reverse)",              "location": Location.SPAIN,       "length_km": 7.0},
+    Track.CENTENERA_REV:                {"display_name": "Centenera (Reverse)",             "location": Location.SPAIN,       "length_km": 7.0},
     Track.RIBADELLES:                   {"display_name": "Ribadelles",                      "location": Location.SPAIN,       "length_km": 14.0},
-    Track.RIBADELLES_REV:               {"display_name": "Ribadelles (Reverse)",             "location": Location.SPAIN,       "length_km": 14.0},
-    Track.DESCENSO_POR_CARRETERA:       {"display_name": "Descenso por carretera",           "location": Location.SPAIN,       "length_km": 7.0},
-    Track.DESCENSO_POR_CARRETERA_REV:   {"display_name": "Descenso por carretera (Reverse)", "location": Location.SPAIN,       "length_km": 7.0},
-    Track.SUBIDA_POR_CARRETERA:         {"display_name": "Subida por carretera",             "location": Location.SPAIN,       "length_km": 7.0},
-    Track.SUBIDA_POR_CARRETERA_REV:     {"display_name": "Subida por carretera (Reverse)",   "location": Location.SPAIN,       "length_km": 7.0},
+    Track.RIBADELLES_REV:               {"display_name": "Ribadelles (Reverse)",            "location": Location.SPAIN,       "length_km": 14.0},
+    Track.SUBIDA_POR_CARRETERA:         {"display_name": "Subida por carretera",            "location": Location.SPAIN,       "length_km": 7.0},
+    Track.SUBIDA_POR_CARRETERA_REV:     {"display_name": "Subida por carretera (Reverse)",  "location": Location.SPAIN,       "length_km": 7.0},
     Track.ASCENSO_BOSQUE:               {"display_name": "Ascenso bosque",                  "location": Location.SPAIN,       "length_km": 7.0},
-    Track.ASCENSO_BOSQUE_REV:           {"display_name": "Ascenso bosque (Reverse)",         "location": Location.SPAIN,       "length_km": 7.0},
+    Track.ASCENSO_BOSQUE_REV:           {"display_name": "Ascenso bosque (Reverse)",        "location": Location.SPAIN,       "length_km": 7.0},
     Track.CAMINO_ROCOSO:                {"display_name": "Camino rocoso",                   "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CAMINO_ROCOSO_REV:            {"display_name": "Camino rocoso (Reverse)",          "location": Location.SPAIN,       "length_km": 7.0},
+    Track.CAMINO_ROCOSO_REV:            {"display_name": "Camino rocoso (Reverse)",         "location": Location.SPAIN,       "length_km": 7.0},
 
     # Finland — 12 IDs, named
     Track.KAKARISTO:             {"display_name": "Kakaristo",                   "location": Location.FINLAND,     "length_km": 8.0},
@@ -492,7 +496,7 @@ class Vehicle(IntEnum):
     ALPINE_A110_1600S    = 480
     # Group B 4WD
     AUDI_SPORT_QUATTRO_S1_E2 = 513
-    MG_METRO_6R4             = 511
+    MG_METRO_6R4             = 401  # verified in-game 2026-04 (was 511, wrong)
     # Group A
     MITSUBISHI_LANCER_EVO6   = 529
     # R5
