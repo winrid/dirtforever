@@ -302,6 +302,16 @@ class RpcDispatcher:
             if not club_events:
                 continue  # skip clubs with no active events
 
+            # Emit the Club entry ONCE per club (outside the event loop)
+            clubs_egonet.append(
+                Club(
+                    id=club_int_id,
+                    name=club_name,
+                    creator_name=creator,
+                    amount_of_events=len(club_events),
+                ).to_egonet()
+            )
+
             for evt_idx, wevt in enumerate(club_events):
                 chal_id = _stable_int_id(wevt.get("id", f"{club_str_id}-{evt_idx}"),
                                          base=200000, offset=evt_idx)
@@ -353,15 +363,6 @@ class RpcDispatcher:
                     requirements = []
 
                 num_entrants = len(wevt.get("entries", [])) if "entries" in wevt else 0
-
-                clubs_egonet.append(
-                    Club(
-                        id=club_int_id,
-                        name=club_name,
-                        creator_name=creator,
-                        amount_of_events=len(club_events),
-                    ).to_egonet()
-                )
 
                 challenges_egonet.append(
                     Challenge(
@@ -543,13 +544,11 @@ class RpcDispatcher:
             if not completed_stages:
                 continue
 
-            # If the user has completed ALL stages of the event, don't emit
-            # a Progress entry — the event is finished. Emitting one would
-            # make the game show "Resume Event" with an invalid StageIndex.
             total_stages_in_event = len(evt.get("stages", []))
-            if total_stages_in_event and len(completed_stages) >= total_stages_in_event:
-                print(f"[PROGRESS] {evt_id}: all {total_stages_in_event} stages done, skipping")
-                continue
+            all_done = (
+                total_stages_in_event > 0
+                and len(completed_stages) >= total_stages_in_event
+            )
 
             total_ms = ep.get("total_time_ms", 0)
 
@@ -560,6 +559,14 @@ class RpcDispatcher:
             # Use the last completed stage's data for the Progress entry
             last_stage = completed_stages[-1]
             next_stage_idx = last_stage.get("stage_index", 0) + 1
+            # When all stages are done, cap StageIndex at the last completed
+            # stage and use State=2 (completed). Otherwise State=1 (in-progress).
+            if all_done:
+                stage_index_out = total_stages_in_event - 1
+                state_out = 2
+            else:
+                stage_index_out = next_stage_idx
+                state_out = 1
 
             vehicle_id = last_stage.get("vehicle_id") or 0
             if not isinstance(vehicle_id, int):
@@ -593,8 +600,8 @@ class RpcDispatcher:
             progress.append({
                 "ChallengeID": chal_id,
                 "EventIndex": 0,
-                "StageIndex": next_stage_idx,
-                "State": 1,
+                "StageIndex": stage_index_out,
+                "State": state_out,
                 "StageTimeMs": UInt32(0),
                 "VehicleInstId": Int64(0),
                 "VehicleId": UInt32(vehicle_id),

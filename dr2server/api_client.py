@@ -40,10 +40,14 @@ for _loc in Location:
     _LOCATION_BY_NAME[_loc.display_name.lower()] = int(_loc)
 # Extra aliases used in the web seed data
 _EXTRA_LOCATION_ALIASES: Dict[str, int] = {
-    "monaco":       int(Location.MONTE_CARLO),
-    "monte carlo":  int(Location.MONTE_CARLO),
-    "usa":          int(Location.NEW_ENGLAND),
-    "new england":  int(Location.NEW_ENGLAND),
+    "usa":           int(Location.NEW_ENGLAND),
+    "new england":   int(Location.NEW_ENGLAND),
+    "norway":        int(Location.HELL),
+    "portugal":      int(Location.MONTALEGRE),
+    "england":       int(Location.LYDDEN_HILL),
+    "france":        int(Location.LOHEAC),
+    "ribadelles":    int(Location.SPAIN),
+    "barcelona":     int(Location.BARCELONA),
 }
 _LOCATION_BY_NAME.update(_EXTRA_LOCATION_ALIASES)
 

@@ -54,23 +54,28 @@ class _LabelMixin(IntEnum):
 # ---------------------------------------------------------------------------
 
 class Location(IntEnum):
-    """Rally/rallycross location IDs (LocationId in the EgoNet protocol)."""
-    MONTE_CARLO  = 1
-    SWEDEN       = 2
-    WALES        = 3
-    ARGENTINA    = 5
-    NEW_ENGLAND  = 10
-    POLAND       = 13
-    GERMANY      = 14
-    NEW_ZEALAND  = 16
-    FRANCE       = 17
-    YAS_MARINA   = 19
-    MONTALEGRE   = 20
-    AUSTRALIA    = 31
-    SCOTLAND     = 34
-    SPAIN        = 36
-    FINLAND      = 37
-    GREECE       = 46
+    """Rally/rallycross location IDs (LocationId in the EgoNet protocol).
+
+    Verified by in-game testing — map names are from the stage loading screen.
+    """
+    GREECE          = 2   # Greece rally
+    WALES           = 3   # Wales rally
+    GERMANY         = 5   # Germany rally
+    LYDDEN_HILL     = 9   # Lydden Hill RX (England)
+    HELL            = 10  # Hell RX (Norway)
+    FINLAND         = 13  # Finland rally
+    SWEDEN          = 14  # Sweden rally
+    AUSTRALIA       = 16  # Australia rally
+    ARGENTINA       = 17  # Argentina rally
+    LOHEAC          = 18  # Loheac RX (France)
+    MONTALEGRE      = 19  # Montalegre RX (Portugal)
+    BARCELONA       = 20  # Barcelona RX (Spain)
+    SPAIN           = 31  # Spain rally (Ribadelles)
+    NEW_ZEALAND     = 34  # New Zealand rally
+    POLAND          = 36  # Poland rally
+    NEW_ENGLAND     = 37  # New England rally (USA)
+    SILVERSTONE     = 38  # Silverstone RX (England)
+    SCOTLAND        = 46  # Scotland rally
 
     # --- metadata accessors -------------------------------------------------
 
@@ -91,22 +96,24 @@ class Location(IntEnum):
 
 
 _LOCATION_META: Dict[Location, dict] = {
-    Location.MONTE_CARLO: {"display_name": "Monte Carlo",  "country": "Monaco",      "discipline": "rally"},
-    Location.SWEDEN:      {"display_name": "Sweden",       "country": "Sweden",      "discipline": "rally"},
-    Location.WALES:       {"display_name": "Wales",        "country": "UK",          "discipline": "rally"},
-    Location.ARGENTINA:   {"display_name": "Argentina",    "country": "Argentina",   "discipline": "rally"},
-    Location.NEW_ENGLAND: {"display_name": "New England",  "country": "USA",         "discipline": "rally"},
-    Location.POLAND:      {"display_name": "Poland",       "country": "Poland",      "discipline": "rally"},
-    Location.GERMANY:     {"display_name": "Germany",      "country": "Germany",     "discipline": "rally"},
-    Location.NEW_ZEALAND: {"display_name": "New Zealand",  "country": "New Zealand", "discipline": "rally"},
-    Location.FRANCE:      {"display_name": "France",       "country": "France",      "discipline": "rally"},
-    Location.YAS_MARINA:  {"display_name": "Yas Marina",   "country": "UAE",         "discipline": "rallycross"},
-    Location.MONTALEGRE:  {"display_name": "Montalegre",   "country": "Portugal",    "discipline": "rallycross"},
-    Location.AUSTRALIA:   {"display_name": "Australia",    "country": "Australia",   "discipline": "rally"},
-    Location.SCOTLAND:    {"display_name": "Scotland",     "country": "UK",          "discipline": "rally"},
-    Location.SPAIN:       {"display_name": "Spain",        "country": "Spain",       "discipline": "rally"},
-    Location.FINLAND:     {"display_name": "Finland",      "country": "Finland",     "discipline": "rally"},
-    Location.GREECE:      {"display_name": "Greece",       "country": "Greece",      "discipline": "rally"},
+    Location.GREECE:      {"display_name": "Greece",         "country": "Greece",      "discipline": "rally"},
+    Location.WALES:       {"display_name": "Wales",          "country": "UK",          "discipline": "rally"},
+    Location.GERMANY:     {"display_name": "Germany",        "country": "Germany",     "discipline": "rally"},
+    Location.LYDDEN_HILL: {"display_name": "Lydden Hill",    "country": "England",     "discipline": "rallycross"},
+    Location.HELL:        {"display_name": "Hell",           "country": "Norway",      "discipline": "rallycross"},
+    Location.FINLAND:     {"display_name": "Finland",        "country": "Finland",     "discipline": "rally"},
+    Location.SWEDEN:      {"display_name": "Sweden",         "country": "Sweden",      "discipline": "rally"},
+    Location.AUSTRALIA:   {"display_name": "Australia",      "country": "Australia",   "discipline": "rally"},
+    Location.ARGENTINA:   {"display_name": "Argentina",      "country": "Argentina",   "discipline": "rally"},
+    Location.LOHEAC:      {"display_name": "Loheac",         "country": "France",      "discipline": "rallycross"},
+    Location.MONTALEGRE:  {"display_name": "Montalegre",     "country": "Portugal",    "discipline": "rallycross"},
+    Location.BARCELONA:   {"display_name": "Barcelona",      "country": "Spain",       "discipline": "rallycross"},
+    Location.SPAIN:       {"display_name": "Spain",          "country": "Spain",       "discipline": "rally"},
+    Location.NEW_ZEALAND: {"display_name": "New Zealand",    "country": "New Zealand", "discipline": "rally"},
+    Location.POLAND:      {"display_name": "Poland",         "country": "Poland",      "discipline": "rally"},
+    Location.NEW_ENGLAND: {"display_name": "New England",    "country": "USA",         "discipline": "rally"},
+    Location.SILVERSTONE: {"display_name": "Silverstone",    "country": "England",     "discipline": "rallycross"},
+    Location.SCOTLAND:    {"display_name": "Scotland",       "country": "UK",          "discipline": "rally"},
 }
 
 
@@ -174,7 +181,7 @@ class Track(IntEnum):
     TARINAKI              = 592
     TARINAKI_REV          = 593
 
-    # France (Location.FRANCE = 17) — 12 IDs, generic names
+    # France (Location.ARGENTINA = 17) — 12 IDs, generic names
     FRANCE_STAGE_1        = 572
     FRANCE_STAGE_1_REV    = 573
     FRANCE_STAGE_2        = 604
@@ -188,7 +195,7 @@ class Track(IntEnum):
     FRANCE_STAGE_6        = 612
     FRANCE_STAGE_6_REV    = 613
 
-    # Yas Marina Rallycross (Location.YAS_MARINA = 19) — 1 ID
+    # Yas Marina Rallycross (Location.MONTALEGRE = 19) — 1 ID
     YAS_MARINA_STAGE_1    = 537
 
     # Montalegre Rallycross (Location.MONTALEGRE = 20) — 1 ID
@@ -329,21 +336,21 @@ _TRACK_META: Dict[Track, dict] = {
     Track.TARINAKI_REV:          {"display_name": "Tarinaki (Reverse)",         "location": Location.NEW_ZEALAND, "length_km": 7.0},
 
     # France — 12 IDs, generic names
-    Track.FRANCE_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_1_REV:    {"display_name": "Stage 1 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_2_REV:    {"display_name": "Stage 2 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_3:        {"display_name": "Stage 3",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_3_REV:    {"display_name": "Stage 3 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_4:        {"display_name": "Stage 4",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_4_REV:    {"display_name": "Stage 4 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_5:        {"display_name": "Stage 5",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_5_REV:    {"display_name": "Stage 5 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_6:        {"display_name": "Stage 6",                    "location": Location.FRANCE,      "length_km": 7.0},
-    Track.FRANCE_STAGE_6_REV:    {"display_name": "Stage 6 (Reverse)",          "location": Location.FRANCE,      "length_km": 7.0},
+    Track.FRANCE_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_1_REV:    {"display_name": "Stage 1 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_2_REV:    {"display_name": "Stage 2 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_3:        {"display_name": "Stage 3",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_3_REV:    {"display_name": "Stage 3 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_4:        {"display_name": "Stage 4",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_4_REV:    {"display_name": "Stage 4 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_5:        {"display_name": "Stage 5",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_5_REV:    {"display_name": "Stage 5 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_6:        {"display_name": "Stage 6",                    "location": Location.ARGENTINA,      "length_km": 7.0},
+    Track.FRANCE_STAGE_6_REV:    {"display_name": "Stage 6 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
 
     # Yas Marina Rallycross — 1 ID
-    Track.YAS_MARINA_STAGE_1:    {"display_name": "Yas Marina",                 "location": Location.YAS_MARINA,  "length_km": 1.2, "discipline": "rallycross"},
+    Track.YAS_MARINA_STAGE_1:    {"display_name": "Yas Marina",                 "location": Location.MONTALEGRE,  "length_km": 1.2, "discipline": "rallycross"},
 
     # Montalegre Rallycross — 1 ID
     Track.MONTALEGRE_STAGE_1:    {"display_name": "Montalegre",                 "location": Location.MONTALEGRE, "length_km": 1.0, "discipline": "rallycross"},
