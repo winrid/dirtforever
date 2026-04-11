@@ -34,6 +34,17 @@ from flask import (
 from werkzeug.wrappers import Response
 from flask_wtf.csrf import CSRFProtect
 
+# Make the sibling dr2server package importable so we can reuse its
+# LocationId / TrackModelId / VehicleClassId tables instead of duplicating
+# them here. The package is stdlib-only, so this adds no runtime deps.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from dr2server.game_data import (  # noqa: E402
+    LOCATIONS as GAME_LOCATIONS,
+    TRACKS as GAME_TRACKS,
+    VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
+    VEHICLES as GAME_VEHICLES,
+)
+
 
 def _load_dotenv(path: str) -> None:
     if not os.path.exists(path):
@@ -1097,51 +1108,185 @@ def dashboard() -> str:
 
 @app.route('/leaderboards')
 def leaderboards() -> str | Response:
-    events = get_all_events()
-    event_id = request.args.get('event')
-    stage_idx = request.args.get('stage', type=int)
+    tab = request.args.get('tab', 'events')
+    if tab not in ('events', 'tt'):
+        tab = 'events'
 
-    selected_event = None
-    entries = []
-    leader_time = None
+    ctx: dict[str, Any] = {'tab': tab}
 
-    if event_id:
-        selected_event = get_event(event_id)
-        if selected_event:
-            res = get_results(event_id)
-            raw = res.get('entries', [])
-            if stage_idx is not None and selected_event.get('stages'):
-                filtered = []
-                for e in raw:
-                    if stage_idx < len(e.get('stages', [])):
-                        st = e['stages'][stage_idx]
-                        filtered.append({
+    if tab == 'events':
+        events = get_all_events()
+        event_id = request.args.get('event')
+        stage_idx = request.args.get('stage', type=int)
+
+        selected_event = None
+        entries: list[dict[str, Any]] = []
+        leader_time = None
+
+        if event_id:
+            selected_event = get_event(event_id)
+            if selected_event:
+                res = get_results(event_id)
+                raw = res.get('entries', [])
+                if stage_idx is not None and selected_event.get('stages'):
+                    filtered = []
+                    for e in raw:
+                        if stage_idx < len(e.get('stages', [])):
+                            st = e['stages'][stage_idx]
+                            filtered.append({
+                                'username': e['username'],
+                                'car': e['car'],
+                                'time_ms': st['time_ms'] + st['penalties_ms'],
+                                'penalties_ms': st['penalties_ms'],
+                            })
+                    filtered.sort(key=lambda x: x['time_ms'])
+                    entries = filtered
+                else:
+                    entries = [
+                        {
                             'username': e['username'],
                             'car': e['car'],
-                            'time_ms': st['time_ms'] + st['penalties_ms'],
-                            'penalties_ms': st['penalties_ms'],
-                        })
-                filtered.sort(key=lambda x: x['time_ms'])
-                entries = filtered
-            else:
-                entries = [
-                    {
-                        'username': e['username'],
-                        'car': e['car'],
-                        'time_ms': e['total_time_ms'],
-                        'penalties_ms': sum(s.get('penalties_ms', 0) for s in e.get('stages', [])),
-                    }
-                    for e in raw
-                ]
-            if entries:
-                leader_time = entries[0]['time_ms']
-    elif events:
-        return redirect(url_for('leaderboards', event=events[0]['id']))
+                            'time_ms': e['total_time_ms'],
+                            'penalties_ms': sum(s.get('penalties_ms', 0) for s in e.get('stages', [])),
+                        }
+                        for e in raw
+                    ]
+                if entries:
+                    leader_time = entries[0]['time_ms']
+        elif events:
+            return redirect(url_for('leaderboards', tab='events', event=events[0]['id']))
 
-    return render_template(
-        'leaderboards.html', events=events, selected_event=selected_event,
-        entries=entries, leader_time=leader_time, stage_idx=stage_idx,
-    )
+        ctx.update(
+            events=events,
+            selected_event=selected_event,
+            entries=entries,
+            leader_time=leader_time,
+            stage_idx=stage_idx,
+        )
+
+    else:
+        # ── Time Trial tab ──────────────────────────────
+        boards = _list_tt_boards()
+
+        # Collect all tracks that have at least one board, decorated with
+        # human-readable names from the game_data tables.
+        track_ids = sorted({b['track'] for b in boards})
+        tt_tracks: list[dict[str, Any]] = []
+        for tid in track_ids:
+            meta = GAME_TRACKS.get(tid)
+            if meta:
+                loc_meta = GAME_LOCATIONS.get(meta['location_id'])
+                loc_name = loc_meta['display_name'] if loc_meta else f'Location {meta["location_id"]}'
+                tt_tracks.append({
+                    'track_id': tid,
+                    'name': meta['name'],
+                    'location': loc_name,
+                    'location_id': meta['location_id'],
+                    'length_km': meta.get('length_km', 0.0),
+                })
+            else:
+                tt_tracks.append({
+                    'track_id': tid,
+                    'name': f'Track {tid}',
+                    'location': 'Unknown',
+                    'location_id': 0,
+                    'length_km': 0.0,
+                })
+        tt_tracks.sort(key=lambda t: (t['location'], t['name']))
+
+        # Select a track — from query param or first available.
+        selected_track_id = request.args.get('track', type=int)
+        if selected_track_id is None or not any(t['track_id'] == selected_track_id for t in tt_tracks):
+            selected_track_id = tt_tracks[0]['track_id'] if tt_tracks else None
+
+        # Classes that have boards for this track.
+        track_boards = [b for b in boards if b['track'] == selected_track_id]
+        vclass_options: list[dict[str, Any]] = []
+        seen_vc: set[int] = set()
+        for b in track_boards:
+            if b['vclass'] in seen_vc:
+                continue
+            seen_vc.add(b['vclass'])
+            total = sum(x['count'] for x in track_boards if x['vclass'] == b['vclass'])
+            vclass_options.append({
+                'id': b['vclass'],
+                'label': GAME_VEHICLE_CLASSES.get(b['vclass'], f'Class {b["vclass"]}'),
+                'count': total,
+            })
+        vclass_options.sort(key=lambda v: v['label'])
+
+        selected_vclass = request.args.get('vclass', type=int)
+        if selected_vclass is None or not any(v['id'] == selected_vclass for v in vclass_options):
+            selected_vclass = vclass_options[0]['id'] if vclass_options else None
+
+        # Variants (conditions, category) that exist for this (track, class).
+        variant_boards = [b for b in track_boards if b['vclass'] == selected_vclass]
+
+        selected_cond = request.args.get('cond', type=int)
+        selected_cat = request.args.get('cat', type=int)
+        selected_variant = next(
+            (b for b in variant_boards
+             if b['conditions'] == selected_cond and b['category'] == selected_cat),
+            None,
+        )
+        if selected_variant is None and variant_boards:
+            selected_variant = variant_boards[0]
+            selected_cond = selected_variant['conditions']
+            selected_cat = selected_variant['category']
+
+        # Only expose a variant picker when there's more than one.
+        variant_options: list[dict[str, Any]] = []
+        if len(variant_boards) > 1:
+            for b in variant_boards:
+                variant_options.append({
+                    'conditions': b['conditions'],
+                    'category': b['category'],
+                    'label': f'Conditions #{b["conditions"]}',
+                    'count': b['count'],
+                    'active': (b['conditions'] == selected_cond and b['category'] == selected_cat),
+                })
+
+        # Load entries for the selected board.
+        tt_entries: list[dict[str, Any]] = []
+        tt_leader_time: int | None = None
+        if selected_variant is not None and selected_vclass is not None and selected_track_id is not None:
+            key = _tt_key(
+                str(selected_vclass), str(selected_track_id),
+                str(selected_cond), str(selected_cat),
+            )
+            raw = _load_tt(key)
+            for i, e in enumerate(raw):
+                vid = e.get('vehicle_id', 0)
+                vmeta = GAME_VEHICLES.get(vid)
+                tt_entries.append({
+                    'rank': i + 1,
+                    'username': e['username'],
+                    'time_ms': e['stage_time_ms'],
+                    'vehicle_name': vmeta['name'] if vmeta else f'Vehicle {vid}',
+                    'using_wheel': e.get('using_wheel', False),
+                    'using_assists': e.get('using_assists', False),
+                    'submitted_at': e.get('submitted_at', ''),
+                })
+            if tt_entries:
+                tt_leader_time = tt_entries[0]['time_ms']
+
+        selected_track = next(
+            (t for t in tt_tracks if t['track_id'] == selected_track_id), None,
+        )
+
+        ctx.update(
+            tt_tracks=tt_tracks,
+            tt_selected_track=selected_track,
+            tt_vclass_options=vclass_options,
+            tt_selected_vclass=selected_vclass,
+            tt_variant_options=variant_options,
+            tt_selected_cond=selected_cond,
+            tt_selected_cat=selected_cat,
+            tt_entries=tt_entries,
+            tt_leader_time=tt_leader_time,
+        )
+
+    return render_template('leaderboards.html', **ctx)
 
 
 @app.route('/clubs')
@@ -1892,6 +2037,38 @@ def _load_tt(key: str) -> list[Any]:
 
 def _save_tt(key: str, entries: list[Any]) -> None:
     _save(_tt_path(key), entries)
+
+
+def _list_tt_boards() -> list[dict[str, Any]]:
+    """Scan TIME_TRIALS_DIR and return one record per leaderboard file.
+
+    Each record: vclass, track, conditions, category, count.
+    Files whose names don't match the `{vclass}_{track}_{cond}_{cat}.json`
+    shape are skipped.
+    """
+    boards: list[dict[str, Any]] = []
+    if not os.path.isdir(TIME_TRIALS_DIR):
+        return boards
+    for fn in sorted(os.listdir(TIME_TRIALS_DIR)):
+        if not fn.endswith('.json'):
+            continue
+        stem = fn[:-5]
+        parts = stem.split('_')
+        if len(parts) != 4:
+            continue
+        try:
+            vclass, track, conditions, category = (int(p) for p in parts)
+        except ValueError:
+            continue
+        entries = _load_tt(stem)
+        boards.append({
+            'vclass': vclass,
+            'track': track,
+            'conditions': conditions,
+            'category': category,
+            'count': len(entries),
+        })
+    return boards
 
 
 # ── Time Trial API endpoints ──────────────────────────────

@@ -9,18 +9,42 @@
 </section>
 
 <div class="container">
+
+    <div class="lb-mode-switch reveal">
+        <a class="lb-mode {% if tab == 'events' %}active{% endif %}" href="/leaderboards?tab=events">
+            <span class="lb-mode-num">01</span>
+            <div class="lb-mode-body">
+                <span class="lb-mode-title">Event Boards</span>
+                <span class="lb-mode-desc">Official &amp; club rallies &middot; multi-stage</span>
+            </div>
+        </a>
+        <a class="lb-mode {% if tab == 'tt' %}active{% endif %}" href="/leaderboards?tab=tt">
+            <span class="lb-mode-num">02</span>
+            <div class="lb-mode-body">
+                <span class="lb-mode-title">Time Trials</span>
+                <span class="lb-mode-desc">Stage &middot; class &middot; chase the clock</span>
+            </div>
+        </a>
+    </div>
+
+    {% if tab == 'events' %}
+    {# ── Event leaderboards ──────────────────────────── #}
     <div class="leaderboard-layout">
         <aside class="leaderboard-sidebar">
             <h3 class="sidebar-title">Events</h3>
+            {% if events %}
             <div class="sidebar-list">
                 {% for evt in events %}
-                <a href="/leaderboards?event={{ evt.id }}"
+                <a href="/leaderboards?tab=events&event={{ evt.id }}"
                    class="sidebar-item {% if selected_event and selected_event.id == evt.id %}active{% endif %}">
                     <span class="event-badge badge-{{ evt.type }} badge-xs">{{ evt.type[:1] | upper }}</span>
                     <span class="sidebar-item-name">{{ evt.name }}</span>
                 </a>
                 {% endfor %}
             </div>
+            {% else %}
+            <p class="sidebar-empty text-muted">No events yet.</p>
+            {% endif %}
         </aside>
 
         <div class="leaderboard-main">
@@ -35,10 +59,10 @@
 
             {% if selected_event.stages | length > 1 %}
             <div class="stage-tabs reveal" style="animation-delay:.05s">
-                <a href="/leaderboards?event={{ selected_event.id }}"
+                <a href="/leaderboards?tab=events&event={{ selected_event.id }}"
                    class="stage-tab {% if stage_idx is none %}active{% endif %}">Overall</a>
                 {% for stage in selected_event.stages %}
-                <a href="/leaderboards?event={{ selected_event.id }}&stage={{ loop.index0 }}"
+                <a href="/leaderboards?tab=events&event={{ selected_event.id }}&stage={{ loop.index0 }}"
                    class="stage-tab {% if stage_idx == loop.index0 %}active{% endif %}">
                     S{{ loop.index }}: {{ stage.name }}
                 </a>
@@ -90,5 +114,127 @@
             {% endif %}
         </div>
     </div>
+
+    {% else %}
+    {# ── Time Trial leaderboards ─────────────────────── #}
+    <div class="leaderboard-layout">
+        <aside class="leaderboard-sidebar">
+            <h3 class="sidebar-title">Stages</h3>
+            {% if tt_tracks %}
+            <div class="sidebar-list tt-sidebar-list">
+                {% set loc_ns = namespace(cur='') %}
+                {% for tr in tt_tracks %}
+                    {% if tr.location != loc_ns.cur %}
+                        {% set loc_ns.cur = tr.location %}
+                        <div class="tt-loc-header">{{ tr.location }}</div>
+                    {% endif %}
+                    <a href="/leaderboards?tab=tt&track={{ tr.track_id }}"
+                       class="sidebar-item tt-sidebar-item {% if tt_selected_track and tt_selected_track.track_id == tr.track_id %}active{% endif %}">
+                        <span class="sidebar-item-name">{{ tr.name }}</span>
+                        <span class="tt-sidebar-km mono">{{ "%.1f"|format(tr.length_km) }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="sidebar-empty text-muted">No time trial boards yet.</p>
+            {% endif %}
+        </aside>
+
+        <div class="leaderboard-main">
+            {% if tt_selected_track %}
+            <div class="tt-stage-marker reveal">
+                <div class="tt-stage-meta">
+                    <span class="tt-stage-country">{{ tt_selected_track.location | upper }}</span>
+                    <span class="tt-stage-divider"></span>
+                    <span class="tt-stage-length mono">{{ "%.1f"|format(tt_selected_track.length_km) }} KM</span>
+                </div>
+                <h2 class="tt-stage-name">{{ tt_selected_track.name }}</h2>
+            </div>
+
+            {% if tt_vclass_options %}
+            <div class="tt-filter-bar reveal" style="animation-delay:.05s">
+                <span class="tt-filter-label">Class</span>
+                <div class="tt-chips">
+                    {% for vc in tt_vclass_options %}
+                    <a href="/leaderboards?tab=tt&track={{ tt_selected_track.track_id }}&vclass={{ vc.id }}"
+                       class="tt-chip {% if tt_selected_vclass == vc.id %}active{% endif %}">
+                        <span class="tt-chip-label">{{ vc.label }}</span>
+                        <span class="tt-chip-count">{{ vc.count }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if tt_variant_options %}
+            <div class="tt-filter-bar reveal" style="animation-delay:.08s">
+                <span class="tt-filter-label">Variant</span>
+                <div class="tt-chips">
+                    {% for v in tt_variant_options %}
+                    <a href="/leaderboards?tab=tt&track={{ tt_selected_track.track_id }}&vclass={{ tt_selected_vclass }}&cond={{ v.conditions }}&cat={{ v.category }}"
+                       class="tt-chip tt-chip-sm {% if v.active %}active{% endif %}">
+                        {{ v.label }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if tt_entries %}
+            <div class="lb-table reveal" style="animation-delay:.1s">
+                <div class="lb-row lb-row-header">
+                    <span class="lb-col lb-pos">Pos</span>
+                    <span class="lb-col lb-driver">Driver</span>
+                    <span class="lb-col lb-car">Car</span>
+                    <span class="lb-col lb-time">Time</span>
+                    <span class="lb-col lb-diff">Diff</span>
+                    <span class="lb-col lb-setup">Setup</span>
+                </div>
+                {% for e in tt_entries %}
+                <div class="lb-row {% if current_user and e.username == current_user.username %}lb-row-me{% endif %}"
+                     style="animation-delay:{{ 0.1 + loop.index0 * 0.03 }}s">
+                    <span class="lb-col lb-pos">
+                        <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
+                    </span>
+                    <span class="lb-col lb-driver">
+                        <span class="lb-flag">{{ e.username | user_flag }}</span>
+                        <a href="/profile/{{ e.username }}">{{ e.username }}</a>
+                    </span>
+                    <span class="lb-col lb-car text-muted">{{ e.vehicle_name }}</span>
+                    <span class="lb-col lb-time mono">{{ e.time_ms | rally_time }}</span>
+                    <span class="lb-col lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
+                        {% if loop.index == 1 %}
+                        &mdash;
+                        {% else %}
+                        {{ (e.time_ms - tt_leader_time) | time_diff }}
+                        {% endif %}
+                    </span>
+                    <span class="lb-col lb-setup">
+                        <span class="setup-badge {% if e.using_wheel %}setup-wheel{% else %}setup-pad{% endif %}"
+                              title="{{ 'Wheel' if e.using_wheel else 'Gamepad' }}">
+                            {{ 'WHL' if e.using_wheel else 'PAD' }}
+                        </span>
+                        {% if e.using_assists %}
+                        <span class="setup-badge setup-assist" title="Assists on">A+</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state-box reveal">
+                <p class="text-muted">No times submitted yet for this board. Set the first one in-game.</p>
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="empty-state-box reveal">
+                <p class="text-muted">No time trial leaderboards have been submitted yet. Finish a Time Trial in Dirt Rally 2.0 while signed in to populate this page.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}

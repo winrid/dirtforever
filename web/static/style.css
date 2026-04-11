@@ -1147,6 +1147,226 @@ button { cursor: pointer; font-family: inherit; }
 .pos-3 { background: rgba(217,119,6,0.15); color: var(--bronze); }
 
 
+/* ─── Leaderboards — mode switcher ──────────────────── */
+
+.lb-mode-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 2rem;
+}
+
+.lb-mode {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.1rem 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    transition: background .2s, border-color .2s, color .2s, box-shadow .2s, transform .2s;
+    position: relative;
+    overflow: hidden;
+}
+.lb-mode:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border);
+    color: var(--text);
+    transform: translateY(-1px);
+}
+.lb-mode.active {
+    background:
+        linear-gradient(135deg, rgba(232,114,12,0.18) 0%, rgba(232,114,12,0.04) 70%),
+        var(--bg-card);
+    border-color: var(--accent);
+    color: var(--text);
+    box-shadow: 0 10px 32px rgba(232,114,12,0.10);
+}
+
+.lb-mode-num {
+    font-family: var(--font-display);
+    font-size: 2.6rem;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    line-height: .85;
+    flex-shrink: 0;
+    transition: color .2s;
+}
+.lb-mode:hover .lb-mode-num { color: var(--text-muted); }
+.lb-mode.active .lb-mode-num { color: var(--accent-bright); }
+
+.lb-mode-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.lb-mode-title {
+    font-family: var(--font-display);
+    font-size: 1.35rem;
+    letter-spacing: 1.5px;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.lb-mode-desc {
+    font-family: var(--font-ui);
+    font-size: .75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+}
+
+
+/* ─── Leaderboards — time trial view ─────────────────── */
+
+.tt-loc-header {
+    font-family: var(--font-display);
+    font-size: .95rem;
+    letter-spacing: 2px;
+    color: var(--accent-bright);
+    padding: .9rem .75rem .35rem;
+    margin-top: .35rem;
+    text-transform: uppercase;
+}
+.tt-sidebar-list > .tt-loc-header:first-child { margin-top: 0; padding-top: .2rem; }
+
+.tt-sidebar-item {
+    justify-content: space-between;
+}
+.tt-sidebar-km {
+    font-size: .72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    padding-left: .5rem;
+}
+.sidebar-item.active .tt-sidebar-km { color: var(--accent-bright); }
+
+.sidebar-empty {
+    padding: .5rem .75rem;
+    font-size: .85rem;
+}
+
+.tt-stage-marker {
+    padding: .5rem 0 1rem;
+    margin-bottom: .75rem;
+}
+.tt-stage-meta {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    font-family: var(--font-ui);
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: 1.8px;
+    text-transform: uppercase;
+    margin-bottom: .35rem;
+}
+.tt-stage-country { color: var(--accent-bright); }
+.tt-stage-divider {
+    flex: 0 0 48px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), transparent);
+}
+.tt-stage-length { color: var(--text-muted); }
+.tt-stage-name {
+    font-family: var(--font-display);
+    font-size: 2.5rem;
+    letter-spacing: 1.5px;
+    line-height: 1;
+    color: var(--text);
+}
+
+.tt-filter-bar {
+    display: flex;
+    align-items: flex-start;
+    gap: .9rem;
+    margin-bottom: .85rem;
+    flex-wrap: wrap;
+}
+.tt-filter-label {
+    font-family: var(--font-ui);
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.8px;
+    color: var(--text-muted);
+    width: 3.5rem;
+    padding-top: .55rem;
+    flex-shrink: 0;
+}
+.tt-chips {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    flex: 1;
+}
+.tt-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .45rem .85rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    transition: all .15s;
+    white-space: nowrap;
+}
+.tt-chip:hover {
+    color: var(--text);
+    background: var(--bg-elevated);
+    border-color: var(--border);
+}
+.tt-chip.active {
+    color: var(--accent-bright);
+    background: var(--accent-dim);
+    border-color: var(--accent);
+}
+.tt-chip-count {
+    font-family: var(--font-mono);
+    font-size: .7rem;
+    font-weight: 500;
+    padding: .1rem .4rem;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    color: var(--text-muted);
+}
+.tt-chip.active .tt-chip-count {
+    background: var(--accent);
+    color: var(--bg-deep);
+}
+.tt-chip-sm { padding: .35rem .7rem; font-size: .75rem; }
+
+.lb-setup {
+    width: 120px;
+    display: flex;
+    gap: 5px;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+.setup-badge {
+    font-family: var(--font-ui);
+    font-size: .66rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    padding: .2rem .45rem;
+    border-radius: 3px;
+    text-transform: uppercase;
+    line-height: 1.2;
+}
+.setup-pad    { background: rgba(168, 85, 247, 0.18); color: var(--purple); }
+.setup-wheel  { background: rgba(34, 197, 94, 0.18);  color: var(--green); }
+.setup-assist { background: rgba(245, 158, 11, 0.20); color: var(--gold); }
+
+
 /* ─── Clubs grid ────────────────────────────────────── */
 
 .clubs-grid {
@@ -1780,6 +2000,8 @@ button { cursor: pointer; font-family: inherit; }
     .leaderboard-sidebar { position: static; }
     .sidebar-list { flex-direction: row; overflow-x: auto; gap: 4px; padding-bottom: .5rem; }
     .sidebar-item { white-space: nowrap; }
+    .tt-loc-header { display: none; }
+    .lb-mode-switch { grid-template-columns: 1fr; }
 
     .club-detail-grid,
     .event-detail-layout,
@@ -1834,6 +2056,10 @@ button { cursor: pointer; font-family: inherit; }
     .lb-row { font-size: .85rem; padding: .5rem .75rem; }
     .lb-car { display: none; }
     .lb-stage-time { display: none; }
+    .lb-setup { width: auto; }
+    .tt-stage-name { font-size: 1.8rem; }
+    .lb-mode-num { font-size: 2rem; }
+    .lb-mode-title { font-size: 1.1rem; }
 
     .auth-card { padding: 1.75rem; }
 
