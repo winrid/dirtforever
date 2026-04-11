@@ -34,6 +34,15 @@
                 <input type="password" id="confirm" name="confirm" class="form-input" required
                        autocomplete="new-password" placeholder="Repeat your password">
             </div>
+            <div class="form-group">
+                <label for="country" class="form-label">Nationality</label>
+                <select id="country" name="country" class="form-input form-select">
+                    <option value="">-- Select country (optional) --</option>
+                    {% for name, flag in countries.items() %}
+                    <option value="{{ name }}">{{ flag }} &nbsp; {{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
             <button type="submit" class="btn btn-primary btn-full">Create Account</button>
         </form>
         <div class="auth-footer">

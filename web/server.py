@@ -377,6 +377,23 @@ def countdown_filter(dt_str: str) -> str:
         return dt_str
 
 
+@app.template_filter('country_flag')
+def country_flag_filter(country: str) -> str:
+    if not country:
+        return ''
+    return COUNTRIES.get(country, '')
+
+
+@app.template_filter('user_flag')
+def user_flag_filter(username: str) -> str:
+    if not username:
+        return ''
+    user = get_user(username)
+    if not user:
+        return ''
+    return COUNTRIES.get(user.get('country', ''), '')
+
+
 # ── Seed data ────────────────────────────────────────────
 
 STAGES = {
@@ -483,6 +500,71 @@ CAR_CLASSES = {
 }
 
 CONDITIONS = ['Clear', 'Overcast', 'Light Rain', 'Heavy Rain', 'Dusk', 'Night']
+
+COUNTRIES: dict[str, str] = {
+    'Argentina':      '\U0001F1E6\U0001F1F7',
+    'Australia':      '\U0001F1E6\U0001F1FA',
+    'Austria':        '\U0001F1E6\U0001F1F9',
+    'Belgium':        '\U0001F1E7\U0001F1EA',
+    'Brazil':         '\U0001F1E7\U0001F1F7',
+    'Bulgaria':       '\U0001F1E7\U0001F1EC',
+    'Canada':         '\U0001F1E8\U0001F1E6',
+    'Chile':          '\U0001F1E8\U0001F1F1',
+    'China':          '\U0001F1E8\U0001F1F3',
+    'Colombia':       '\U0001F1E8\U0001F1F4',
+    'Croatia':        '\U0001F1ED\U0001F1F7',
+    'Czech Republic': '\U0001F1E8\U0001F1FF',
+    'Denmark':        '\U0001F1E9\U0001F1F0',
+    'England':        '\U0001F3F4\U000E0067\U000E0062\U000E0065\U000E006E\U000E0067\U000E007F',
+    'Estonia':        '\U0001F1EA\U0001F1EA',
+    'Finland':        '\U0001F1EB\U0001F1EE',
+    'France':         '\U0001F1EB\U0001F1F7',
+    'Germany':        '\U0001F1E9\U0001F1EA',
+    'Greece':         '\U0001F1EC\U0001F1F7',
+    'Hungary':        '\U0001F1ED\U0001F1FA',
+    'Iceland':        '\U0001F1EE\U0001F1F8',
+    'India':          '\U0001F1EE\U0001F1F3',
+    'Indonesia':      '\U0001F1EE\U0001F1E9',
+    'Ireland':        '\U0001F1EE\U0001F1EA',
+    'Israel':         '\U0001F1EE\U0001F1F1',
+    'Italy':          '\U0001F1EE\U0001F1F9',
+    'Japan':          '\U0001F1EF\U0001F1F5',
+    'Kenya':          '\U0001F1F0\U0001F1EA',
+    'Latvia':         '\U0001F1F1\U0001F1FB',
+    'Lithuania':      '\U0001F1F1\U0001F1F9',
+    'Luxembourg':     '\U0001F1F1\U0001F1FA',
+    'Malaysia':       '\U0001F1F2\U0001F1FE',
+    'Mexico':         '\U0001F1F2\U0001F1FD',
+    'Monaco':         '\U0001F1F2\U0001F1E8',
+    'Netherlands':    '\U0001F1F3\U0001F1F1',
+    'New Zealand':    '\U0001F1F3\U0001F1FF',
+    'Northern Ireland': '\U0001F1EC\U0001F1E7',
+    'Norway':         '\U0001F1F3\U0001F1F4',
+    'Peru':           '\U0001F1F5\U0001F1EA',
+    'Philippines':    '\U0001F1F5\U0001F1ED',
+    'Poland':         '\U0001F1F5\U0001F1F1',
+    'Portugal':       '\U0001F1F5\U0001F1F9',
+    'Romania':        '\U0001F1F7\U0001F1F4',
+    'Russia':         '\U0001F1F7\U0001F1FA',
+    'Scotland':       '\U0001F3F4\U000E0067\U000E0062\U000E0073\U000E0063\U000E0074\U000E007F',
+    'Serbia':         '\U0001F1F7\U0001F1F8',
+    'Singapore':      '\U0001F1F8\U0001F1EC',
+    'Slovakia':       '\U0001F1F8\U0001F1F0',
+    'Slovenia':       '\U0001F1F8\U0001F1EE',
+    'South Africa':   '\U0001F1FF\U0001F1E6',
+    'South Korea':    '\U0001F1F0\U0001F1F7',
+    'Spain':          '\U0001F1EA\U0001F1F8',
+    'Sweden':         '\U0001F1F8\U0001F1EA',
+    'Switzerland':    '\U0001F1E8\U0001F1ED',
+    'Thailand':       '\U0001F1F9\U0001F1ED',
+    'Turkey':         '\U0001F1F9\U0001F1F7',
+    'Ukraine':        '\U0001F1FA\U0001F1E6',
+    'United Kingdom': '\U0001F1EC\U0001F1E7',
+    'United States':  '\U0001F1FA\U0001F1F8',
+    'Uruguay':        '\U0001F1FA\U0001F1FE',
+    'Vietnam':        '\U0001F1FB\U0001F1F3',
+    'Wales':          '\U0001F3F4\U000E0067\U000E0062\U000E0077\U000E006C\U000E0073\U000E007F',
+}
 
 LOCATION_SURFACE = {
     'Monaco': 'Tarmac',
@@ -795,7 +877,7 @@ def login_post() -> Response:
 def register() -> str | Response:
     if 'username' in session:
         return redirect(url_for('dashboard'))
-    return render_template('register.html')
+    return render_template('register.html', countries=COUNTRIES)
 
 
 @app.route('/register', methods=['POST'])
@@ -807,6 +889,7 @@ def register_post() -> Response:
     email    = request.form.get('email', '').strip()
     password = request.form.get('password', '')
     confirm  = request.form.get('confirm', '')
+    country  = request.form.get('country', '').strip()
 
     if not username or not email or not password:
         flash('All fields are required.', 'error')
@@ -826,8 +909,11 @@ def register_post() -> Response:
     if get_user(username):
         flash('Username already taken.', 'error')
         return redirect(url_for('register'))
+    if country and country not in COUNTRIES:
+        flash('Invalid country selection.', 'error')
+        return redirect(url_for('register'))
 
-    user = create_user(username, email, password)
+    user = create_user(username, email, password, country=country)
     send_verification_email(user)
     session['username'] = username
     flash('Account created! Check your email to verify your address.', 'success')
@@ -1336,6 +1422,45 @@ def profile(username: str) -> str:
         'profile.html', profile_user=user, user_clubs=user_clubs,
         results=results_list, stats=stats,
     )
+
+
+@app.route('/account', methods=['GET'])
+@login_required
+def account() -> str:
+    user = current_user()
+    assert user is not None
+    return render_template('account.html', user=user, countries=COUNTRIES)
+
+
+@app.route('/account', methods=['POST'])
+@login_required
+def account_post() -> Response:
+    user = current_user()
+    assert user is not None
+
+    display_name = request.form.get('display_name', '').strip()
+    country      = request.form.get('country', '').strip()
+    bio          = request.form.get('bio', '').strip()
+
+    if display_name:
+        if len(display_name) > 40:
+            flash('Display name must be under 40 characters.', 'error')
+            return redirect(url_for('account'))
+        user['display_name'] = display_name
+
+    if country and country not in COUNTRIES:
+        flash('Invalid country selection.', 'error')
+        return redirect(url_for('account'))
+    user['country'] = country
+
+    if len(bio) > 280:
+        flash('Bio must be under 280 characters.', 'error')
+        return redirect(url_for('account'))
+    user['bio'] = bio
+
+    save_user(user)
+    flash('Account updated.', 'success')
+    return redirect(url_for('account'))
 
 
 @app.route('/install')

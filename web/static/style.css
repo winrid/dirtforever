@@ -1121,9 +1121,10 @@ button { cursor: pointer; font-family: inherit; }
 
 .lb-col { flex-shrink: 0; }
 .lb-pos { width: 3.5rem; text-align: center; }
-.lb-driver { flex: 1; min-width: 120px; }
+.lb-driver { flex: 1; min-width: 120px; display: flex; align-items: center; gap: .5rem; }
 .lb-driver a { color: var(--text); font-family: var(--font-ui); font-weight: 500; }
 .lb-driver a:hover { color: var(--accent-bright); }
+.lb-flag { font-size: 1.05rem; line-height: 1; flex-shrink: 0; }
 .lb-car { flex: 1; min-width: 140px; font-size: .85rem; }
 .lb-time { width: 110px; text-align: right; font-weight: 500; }
 .lb-diff { width: 100px; text-align: right; font-size: .85rem; }

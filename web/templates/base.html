@@ -24,8 +24,9 @@
                 <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">About / FAQ</a>
                 {% if current_user %}
                 <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/account" class="nav-link {% if request.path == '/account' %}active{% endif %}">Account</a>
                 <div class="nav-user">
-                    <a href="/profile/{{ current_user.username }}" class="nav-link nav-username">{{ current_user.display_name }}</a>
+                    <a href="/profile/{{ current_user.username }}" class="nav-link nav-username">{{ current_user.country | country_flag }} {{ current_user.display_name }}</a>
                     <form action="/logout" method="post" class="nav-logout-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="nav-link btn-link">Sign Out</button>

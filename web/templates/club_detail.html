@@ -129,7 +129,7 @@
                     {% for member in members %}
                     <a href="/profile/{{ member.username }}" class="member-row">
                         <span class="member-name">{{ member.display_name }}</span>
-                        <span class="member-country text-muted">{{ member.country }}</span>
+                        <span class="member-country text-muted">{{ member.country | country_flag }} {{ member.country }}</span>
                         {% if member.username == club.created_by %}
                         <span class="member-badge">Owner</span>
                         {% endif %}

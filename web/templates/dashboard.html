@@ -7,7 +7,7 @@
         <div class="page-header-content">
             <div>
                 <h1 class="page-title">Welcome back, <span class="accent">{{ user.display_name }}</span></h1>
-                <p class="page-subtitle text-muted">{{ user.country }}{% if user.bio %} &mdash; {{ user.bio }}{% endif %}</p>
+                <p class="page-subtitle text-muted">{% if user.country %}{{ user.country | country_flag }} {{ user.country }}{% endif %}{% if user.bio %} &mdash; {{ user.bio }}{% endif %}</p>
             </div>
             <a href="/profile/{{ user.username }}" class="btn btn-ghost btn-sm">View Profile</a>
         </div>

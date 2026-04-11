@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Account - DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <h1 class="page-title"><span class="accent">//</span> Account Settings</h1>
+        <p class="page-subtitle text-muted">Update your profile information.</p>
+    </div>
+</section>
+
+<div class="container">
+    <div class="auth-card reveal" style="max-width: 560px; margin: 0 auto;">
+        <form method="post" action="/account" class="auth-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-group">
+                <label class="form-label">Username</label>
+                <input type="text" class="form-input" value="{{ user.username }}" disabled>
+                <span class="form-hint">Username cannot be changed.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="display_name" class="form-label">Display Name</label>
+                <input type="text" id="display_name" name="display_name" class="form-input"
+                       value="{{ user.display_name }}" maxlength="40" placeholder="How other drivers see you">
+            </div>
+
+            <div class="form-group">
+                <label for="country" class="form-label">Nationality</label>
+                <select id="country" name="country" class="form-input form-select">
+                    <option value="">-- Not specified --</option>
+                    {% for name, flag in countries.items() %}
+                    <option value="{{ name }}" {% if user.country == name %}selected{% endif %}>
+                        {{ flag }} &nbsp; {{ name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                {% if user.country %}
+                <span class="form-hint">Current: {{ user.country | country_flag }} {{ user.country }}</span>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="bio" class="form-label">Bio</label>
+                <textarea id="bio" name="bio" class="form-input" rows="3" maxlength="280"
+                          placeholder="Tell other drivers about yourself">{{ user.bio }}</textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -75,6 +75,7 @@
                             <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
                         </span>
                         <span class="lb-col lb-driver">
+                            <span class="lb-flag">{{ entry.username | user_flag }}</span>
                             <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
                         </span>
                         <span class="lb-col lb-car text-muted">{{ entry.car }}</span>

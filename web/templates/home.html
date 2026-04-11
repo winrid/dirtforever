@@ -120,7 +120,7 @@
             <div class="activity-item reveal" style="animation-delay:{{ loop.index0 * 0.06 }}s">
                 <div class="activity-pos pos-{{ r.position }}">P{{ r.position }}</div>
                 <div class="activity-info">
-                    <a href="/profile/{{ r.username }}" class="activity-username">{{ r.username }}</a>
+                    <a href="/profile/{{ r.username }}" class="activity-username">{{ r.username | user_flag }} {{ r.username }}</a>
                     <span class="activity-detail">
                         completed
                         <a href="/events/{{ r.event_id }}" class="activity-event">{{ r.event_name }}</a>

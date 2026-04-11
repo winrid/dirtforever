@@ -10,7 +10,7 @@
                 <div>
                     <h1 class="page-title">{{ profile_user.display_name }}</h1>
                     <p class="page-subtitle text-muted">
-                        {% if profile_user.country %}{{ profile_user.country }}{% endif %}
+                        {% if profile_user.country %}{{ profile_user.country | country_flag }} {{ profile_user.country }}{% endif %}
                         {% if profile_user.bio %} &mdash; {{ profile_user.bio }}{% endif %}
                     </p>
                     <p class="profile-joined text-muted">Joined {{ profile_user.created_at | timeago }}</p>
