@@ -582,42 +582,94 @@ _DISCIPLINE_LABELS: Dict[Discipline, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Weather presets
+# Stage conditions — decoded from the game catalogue's four enum dimensions.
+#
+# The game's stage-data struct exposes four separate fields alongside the
+# composite StageConditions id:
+#
+#   StageConditions (composite index, see decode_stage_conditions below)
+#   WeatherPresetId (index into WeatherBucket)
+#   TimeOfDayId     (index into TimeOfDayBucket)
+#   SurfaceCondId   (index into SurfaceType)
+#
+# The individual dimension enums below come from the game catalogue strings:
+#   GAME__CATALOGUE__SECTION__SURFACE_TYPE__{gravel,tarmac,snow,ice}
+#   GAME__CATALOGUE__SECTION__PRECIPITATION_TYPE__{NoPrecipitation,Rain,Snow}
+# and from frontend/configs/environment_image_mapping.xml, which collapses
+# the raw time-of-day / weather variants into six buckets each.
+#
+# The specific integer IDs for these enums are server-assigned and not known
+# yet — the member values below are ordinal placeholders that will be pinned
+# during the manual-testing pass.  Upstream club captures always have
+# (WeatherPresetId, TimeOfDayId, SurfaceCondId) = (1, 4, 1), i.e. clear /
+# midday / gravel — confirmed by user saying ConditionsId=1 shows
+# "Daytime / Clear / Dry Surface".
 # ---------------------------------------------------------------------------
 
-class WeatherPreset(IntEnum):
-    """WeatherPresetId values for stage definitions."""
-    CLEAR_OVERCAST = 1
-    HEAVY_CLOUD    = 2
-    LIGHT_RAIN     = 3
-    HEAVY_RAIN     = 4
+
+class SurfaceType(IntEnum):
+    """Terrain surface type (SurfaceCondId in stage data).
+
+    Catalogue: GAME__CATALOGUE__SECTION__SURFACE_TYPE__*
+    """
+    GRAVEL = 1  # confirmed: upstream club data always uses 1
+    TARMAC = 2  # unconfirmed ordinal
+    SNOW   = 3  # unconfirmed ordinal
+    ICE    = 4  # unconfirmed ordinal
 
     @property
     def label(self) -> str:
-        return _WEATHER_LABELS[self]
+        return _SURFACE_TYPE_LABELS[self]
 
     def __str__(self) -> str:
         return self.label
 
 
-_WEATHER_LABELS: Dict[WeatherPreset, str] = {
-    WeatherPreset.CLEAR_OVERCAST: "Clear / Overcast",
-    WeatherPreset.HEAVY_CLOUD:    "Heavy Cloud",
-    WeatherPreset.LIGHT_RAIN:     "Light Rain",
-    WeatherPreset.HEAVY_RAIN:     "Heavy Rain",
+_SURFACE_TYPE_LABELS: Dict[SurfaceType, str] = {
+    SurfaceType.GRAVEL: "Gravel",
+    SurfaceType.TARMAC: "Tarmac",
+    SurfaceType.SNOW:   "Snow",
+    SurfaceType.ICE:    "Ice",
 }
 
 
-# ---------------------------------------------------------------------------
-# Time of day
-# ---------------------------------------------------------------------------
+class PrecipitationType(IntEnum):
+    """Precipitation state for a stage.
 
-class TimeOfDay(IntEnum):
-    """TimeOfDayId values for stage definitions."""
-    DAYTIME   = 1
-    DUSK_DAWN = 2
-    NIGHT     = 3
-    MIDDAY    = 4
+    Catalogue: GAME__CATALOGUE__SECTION__PRECIPITATION_TYPE__*
+    """
+    NONE = 1  # unconfirmed ordinal
+    RAIN = 2
+    SNOW = 3
+
+    @property
+    def label(self) -> str:
+        return _PRECIPITATION_LABELS[self]
+
+    def __str__(self) -> str:
+        return self.label
+
+
+_PRECIPITATION_LABELS: Dict[PrecipitationType, str] = {
+    PrecipitationType.NONE: "None",
+    PrecipitationType.RAIN: "Rain",
+    PrecipitationType.SNOW: "Snow",
+}
+
+
+class TimeOfDayBucket(IntEnum):
+    """TimeOfDayId after environment_image_mapping.xml collapses variants.
+
+    Raw variants in lighting filenames: civildawn, dawn, earlymorning, morning,
+    midday, earlyafternoon, lateafternoon, sunset, twilight, night.  These map
+    down to the six buckets below.
+    """
+    DAWN     = 1  # unconfirmed
+    MORNING  = 2
+    MIDDAY   = 4  # confirmed from upstream: TimeOfDayId=4 in all captured stages
+    SUNSET   = 5
+    TWILIGHT = 6
+    NIGHT    = 7
 
     @property
     def label(self) -> str:
@@ -627,37 +679,152 @@ class TimeOfDay(IntEnum):
         return self.label
 
 
-_TIME_OF_DAY_LABELS: Dict[TimeOfDay, str] = {
-    TimeOfDay.DAYTIME:   "Daytime",
-    TimeOfDay.DUSK_DAWN: "Dusk / Dawn",
-    TimeOfDay.NIGHT:     "Night",
-    TimeOfDay.MIDDAY:    "Midday",
+_TIME_OF_DAY_LABELS: Dict[TimeOfDayBucket, str] = {
+    TimeOfDayBucket.DAWN:     "Dawn",
+    TimeOfDayBucket.MORNING:  "Morning",
+    TimeOfDayBucket.MIDDAY:   "Midday",
+    TimeOfDayBucket.SUNSET:   "Sunset",
+    TimeOfDayBucket.TWILIGHT: "Twilight",
+    TimeOfDayBucket.NIGHT:    "Night",
 }
 
+# Back-compat alias for code still importing the old name.
+TimeOfDay = TimeOfDayBucket
 
-# ---------------------------------------------------------------------------
-# Surface conditions
-# ---------------------------------------------------------------------------
 
-class SurfaceCondition(IntEnum):
-    """SurfaceCondId / StageConditions values for stage definitions."""
-    DRY  = 1
-    WET  = 16
-    DAMP = 38
+class WeatherBucket(IntEnum):
+    """WeatherPresetId after environment_image_mapping.xml collapses variants.
+
+    Raw variants: clear, cloud_overcast, cloud_partly_cloudy, cloudy, fog,
+    fog_mist, fog_patches, rain_*, snow_*.  Mapped to six buckets below.
+    """
+    CLEAR    = 1  # confirmed from upstream: WeatherPresetId=1 in all captured stages
+    OVERCAST = 2  # unconfirmed
+    CLOUDY   = 3
+    MIST     = 4
+    RAIN     = 5
+    SNOW     = 6
 
     @property
     def label(self) -> str:
-        return _SURFACE_LABELS[self]
+        return _WEATHER_LABELS[self]
 
     def __str__(self) -> str:
         return self.label
 
 
-_SURFACE_LABELS: Dict[SurfaceCondition, str] = {
-    SurfaceCondition.DRY:  "Dry",
-    SurfaceCondition.WET:  "Wet",
-    SurfaceCondition.DAMP: "Damp",
+_WEATHER_LABELS: Dict[WeatherBucket, str] = {
+    WeatherBucket.CLEAR:    "Clear",
+    WeatherBucket.OVERCAST: "Overcast",
+    WeatherBucket.CLOUDY:   "Cloudy",
+    WeatherBucket.MIST:     "Mist",
+    WeatherBucket.RAIN:     "Rain",
+    WeatherBucket.SNOW:     "Snow",
 }
+
+# Back-compat alias.
+WeatherPreset = WeatherBucket
+
+
+# ---------------------------------------------------------------------------
+# StageConditions composite-ID decoder
+# ---------------------------------------------------------------------------
+# Hypothesis from the reverse-engineering notes:
+#   high nibble = surface state (0 = dry, 1 = damp, 2 = wet/flooded)
+#   low nibble  = (TimeOfDay × Weather) preset index within that surface state
+#
+# Observed values from upstream club captures (decomposed):
+#   1  = (0,1)   9  = (0,9)    20 = (1,4)   40 = (2,8)
+#   3  = (0,3)   11 = (0,11)   26 = (1,10)  42 = (2,10)
+#   4  = (0,4)   16 = (1,0)    35 = (2,3)   47 = (2,15)
+#   5  = (0,5)   17 = (1,1)    38 = (2,6)
+#
+# So the observed high-nibble set is {0,1,2} and the observed low-nibble set
+# spans 0..15.  This is a working hypothesis only — low-nibble labels still
+# need to be pinned via in-game capture.
+
+
+class StageSurfaceState(IntEnum):
+    """High nibble of StageConditions — wetness state of the surface."""
+    DRY          = 0
+    DAMP         = 1
+    WET          = 2
+    # 3 may exist for ice/snowpack but has not been observed in captures.
+
+    @property
+    def label(self) -> str:
+        return {
+            StageSurfaceState.DRY:  "Dry",
+            StageSurfaceState.DAMP: "Damp",
+            StageSurfaceState.WET:  "Wet",
+        }[self]
+
+    def __str__(self) -> str:
+        return self.label
+
+
+def decode_stage_conditions(value: int) -> Dict[str, Any]:
+    """Decompose a composite StageConditions integer into its parts.
+
+    Returns a dict with:
+        surface_state:      StageSurfaceState or None if unknown
+        surface_state_int:  raw high nibble (always valid)
+        preset_index:       raw low nibble (time-of-day × weather index)
+        label:              human-readable string, best-effort
+    """
+    high = (value >> 4) & 0xF
+    low = value & 0xF
+    try:
+        state: Optional[StageSurfaceState] = StageSurfaceState(high)
+        state_label = state.label
+    except ValueError:
+        state = None
+        state_label = f"Surface#{high}"
+    return {
+        "surface_state":     state,
+        "surface_state_int": high,
+        "preset_index":      low,
+        "label":              f"{state_label} / Preset #{low}",
+    }
+
+
+# StageConditions integer values observed in the wild (upstream club data +
+# time-trial captures).  Every one of these must be resolvable by the web
+# leaderboard page, even if we only know the surface-state half of the label.
+OBSERVED_STAGE_CONDITIONS: List[int] = [
+    1, 3, 4, 5, 9, 11, 16, 17, 20, 26, 35, 38, 39, 40, 42, 47,
+]
+
+
+# ---------------------------------------------------------------------------
+# TimeTrial Category — meaning unconfirmed, best hypothesis below.
+# ---------------------------------------------------------------------------
+# Observed values: 1 and 2.  Best hypothesis from the dr2_unknowns notes:
+#   1 = single-stage leaderboard
+#   2 = event / cumulative leaderboard (matches SortCumulative flag nearby)
+# Needs confirmation via a manual testing pass that posts a time and then
+# views both the per-stage and the event leaderboards.
+
+
+class TimeTrialCategory(IntEnum):
+    """Category integer from TimeTrial.GetLeaderboardId / PostTime.
+
+    Hypothesis — not yet confirmed:
+      1 = stage-time (per-stage) leaderboard
+      2 = cumulative / event leaderboard
+    """
+    STAGE = 1
+    EVENT = 2
+
+    @property
+    def label(self) -> str:
+        return {
+            TimeTrialCategory.STAGE: "Stage",
+            TimeTrialCategory.EVENT: "Event",
+        }[self]
+
+    def __str__(self) -> str:
+        return self.label
 
 
 # ---------------------------------------------------------------------------
@@ -723,11 +890,13 @@ VEHICLES: Dict[int, dict] = {
 
 DISCIPLINES: Dict[int, str] = {int(d): d.label for d in Discipline}
 
-WEATHER_PRESETS: Dict[int, str] = {int(w): w.label for w in WeatherPreset}
+WEATHER_PRESETS: Dict[int, str] = {int(w): w.label for w in WeatherBucket}
 
-TIME_OF_DAY: Dict[int, str] = {int(t): t.label for t in TimeOfDay}
+TIME_OF_DAY: Dict[int, str] = {int(t): t.label for t in TimeOfDayBucket}
 
-SURFACE_CONDITIONS: Dict[int, str] = {int(s): s.label for s in SurfaceCondition}
+SURFACE_TYPES: Dict[int, str] = {int(s): s.label for s in SurfaceType}
+
+PRECIPITATION_TYPES: Dict[int, str] = {int(p): p.label for p in PrecipitationType}
 
 RACE_STATUS: Dict[int, str] = {int(r): r.label for r in RaceStatus}
 
