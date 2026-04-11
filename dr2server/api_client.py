@@ -38,16 +38,44 @@ log = logging.getLogger(__name__)
 _LOCATION_BY_NAME: Dict[str, int] = {}
 for _loc in Location:
     _LOCATION_BY_NAME[_loc.display_name.lower()] = int(_loc)
-# Extra aliases used in the web seed data
+# Extra aliases used in the web seed data.  The display_name loop above
+# already handles canonical names like "Monte Carlo", "Höljes", "Twin Peaks",
+# etc.  This dict adds common ASCII fallbacks and country-name aliases for
+# the locations where they're distinct from the display name.
 _EXTRA_LOCATION_ALIASES: Dict[str, int] = {
-    "usa":           int(Location.NEW_ENGLAND),
-    "new england":   int(Location.NEW_ENGLAND),
-    "norway":        int(Location.HELL),
-    "portugal":      int(Location.MONTALEGRE),
-    "england":       int(Location.LYDDEN_HILL),
-    "france":        int(Location.LOHEAC),
-    "ribadelles":    int(Location.SPAIN),
-    "barcelona":     int(Location.BARCELONA),
+    # Rally locations — country-name aliases
+    "usa":            int(Location.NEW_ENGLAND),  # original USA rally
+    "new england":    int(Location.NEW_ENGLAND),
+    "ribadelles":     int(Location.SPAIN),
+    # Rallycross — country-name aliases (pre-existing)
+    "norway":         int(Location.HELL),
+    "portugal":       int(Location.MONTALEGRE),
+    "england":        int(Location.LYDDEN_HILL),
+    "france":         int(Location.LOHEAC),
+    "barcelona":      int(Location.BARCELONA),
+    # Monte Carlo (Monaco) — confirmed LocationId=4 via in-game probe
+    "monaco":         int(Location.MONTE_CARLO),
+    # Höljes RX — Sweden RX track
+    "holjes":         int(Location.HOLJES),
+    # Twin Peaks — Washington state, USA (freeplay location)
+    "washington":     int(Location.TWIN_PEAKS),
+    # Trois-Rivières RX — Canada
+    "trois-rivieres": int(Location.TROIS_RIVIERES),
+    "trois rivieres": int(Location.TROIS_RIVIERES),
+    "canada":         int(Location.TROIS_RIVIERES),
+    # Mettet RX — Belgium
+    "belgium":        int(Location.METTET),
+    # Estering RX — Germany (distinct from the Germany rally stage)
+    # NOTE: "germany" is ambiguous; prefer "Estering" explicitly.
+    # Bikernieki RX — Latvia (aka Riga)
+    "riga":           int(Location.BIKERNIEKI),
+    "latvia":         int(Location.BIKERNIEKI),
+    # Killarney RX — South Africa
+    "south africa":   int(Location.KILLARNEY),
+    # Yas Marina RX — UAE / Abu Dhabi
+    "uae":            int(Location.YAS_MARINA),
+    "abu dhabi":      int(Location.YAS_MARINA),
+    "united arab emirates": int(Location.YAS_MARINA),
 }
 _LOCATION_BY_NAME.update(_EXTRA_LOCATION_ALIASES)
 

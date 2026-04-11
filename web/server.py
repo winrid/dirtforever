@@ -475,6 +475,28 @@ STAGES = {
         ('Geufron Forest', 10.03), ('Pant Mawr', 5.72),
         ('Bidno Moorland', 4.87), ('Bronfelen', 5.10),
     ],
+    # --- Rallycross circuits ---------------------------------------------
+    # Each RX location has 1 "Full Circuit" route in-game. Stage distance
+    # 1.2 km is the approximate rallycross lap length.
+    'Barcelona': [('Full Circuit', 1.20)],
+    'Hell':      [('Full Circuit', 1.20)],
+    'Höljes':    [('Full Circuit', 1.20)],
+    'Loheac':    [('Full Circuit', 1.20)],
+    'Lydden Hill': [('Full Circuit', 1.20)],
+    'Mettet':    [('Full Circuit', 1.20)],
+    'Montalegre': [('Full Circuit', 1.20)],
+    'Estering':  [('Full Circuit', 1.20)],
+    'Bikernieki': [('Full Circuit', 1.20)],  # Riga, Latvia
+    'Killarney': [('Full Circuit', 1.20)],
+    'Silverstone': [('Full Circuit', 1.20)],
+    'Trois-Rivières': [('Full Circuit', 1.20)],
+    'Yas Marina': [('Full Circuit', 1.20)],
+    # --- Special freeplay ------------------------------------------------
+    'Twin Peaks': [
+        ('Twin Peaks Route 0', 6.50),
+        ('Twin Peaks Route 1', 6.50),
+        ('Twin Peaks Route 2', 6.50),
+    ],
 }
 
 CAR_CLASSES = {
@@ -575,6 +597,7 @@ COUNTRIES: dict[str, str] = {
     'Thailand':       '\U0001F1F9\U0001F1ED',
     'Turkey':         '\U0001F1F9\U0001F1F7',
     'Ukraine':        '\U0001F1FA\U0001F1E6',
+    'United Arab Emirates': '\U0001F1E6\U0001F1EA',
     'United Kingdom': '\U0001F1EC\U0001F1E7',
     'United States':  '\U0001F1FA\U0001F1F8',
     'Uruguay':        '\U0001F1FA\U0001F1FE',
@@ -585,6 +608,22 @@ COUNTRIES: dict[str, str] = {
 LOCATION_SURFACE = {
     'Monaco': 'Tarmac',
     'Spain': 'Tarmac',
+    # Rallycross circuits — mix of tarmac and gravel in-game.
+    'Barcelona':      'Tarmac/Gravel',
+    'Hell':           'Tarmac/Gravel',
+    'Höljes':         'Tarmac/Gravel',
+    'Loheac':         'Tarmac/Gravel',
+    'Lydden Hill':    'Tarmac/Gravel',
+    'Mettet':         'Tarmac/Gravel',
+    'Montalegre':     'Tarmac/Gravel',
+    'Estering':       'Tarmac/Gravel',
+    'Bikernieki':     'Tarmac/Gravel',
+    'Killarney':      'Tarmac/Gravel',
+    'Silverstone':    'Tarmac',
+    'Trois-Rivières': 'Tarmac/Gravel',
+    'Yas Marina':     'Tarmac',
+    # Twin Peaks — gravel forest roads.
+    'Twin Peaks':     'Gravel',
 }
 
 DURATION_OPTIONS = {
