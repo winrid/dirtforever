@@ -76,6 +76,11 @@ class RpcDispatcher:
         self._challenge_event_map: Dict[int, str] = {}
         # Maps numeric club_id -> web club_id string
         self._club_id_map: Dict[int, str] = {}
+        # Maps time-trial LeaderboardId -> (vclass, track, conditions, category) tuple
+        self._tt_lb_map: Dict[int, tuple] = {}
+        # The most recent GetLeaderboardId request — used by PostTime to
+        # recover the 4-tuple (VehicleClassId is absent in PostTime params).
+        self._last_tt_request: Optional[tuple] = None
         self._handlers: Dict[str, Handler] = {
             "Login.GetCurrentVersion": self._get_current_version,
             "Login.Login": self._login,
@@ -86,7 +91,7 @@ class RpcDispatcher:
             "RaceNet.GetTermsAndConditions": self._get_terms,
             "RaceNet.AcceptTerms": self._accept_terms,
             "RaceNet.CheckAccountLinked": self._account_linked,
-            "Clubs.GetClubs": self._clubs,
+            "Clubs.GetClubs": self._template_or_stub("Clubs.GetClubs", self._clubs),
             "Clubs.GetChampionshipLeaderboard": self._clubs_leaderboard,
             "Clubs.GetChampionshipFriendsLeaderboard": self._clubs_leaderboard,
             "Announcements.GetAnnouncements": self._announcements,
@@ -744,87 +749,230 @@ class RpcDispatcher:
         return {"ok": True, "strings": {key: key for key in keys}}
 
     def _leaderboard(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        if self.api_client is not None:
-            # LeaderboardId from params — unwrap the EgoNet type wrapper
-            lb_id = params.get("LeaderboardId") or params.get("leaderboard_id")
-            lb_id = getattr(lb_id, "value", lb_id)
-            if lb_id is not None:
-                # LeaderboardId is derived from challenge_id as chal_id+800000 (event-level)
-                # or chal_id*10+N (stage-level). Try both schemes.
-                event_id = None
-                chal_id = lb_id - 800000 if lb_id >= 800000 else None
-                if chal_id and chal_id in self._challenge_event_map:
-                    event_id = self._challenge_event_map[chal_id]
-                elif (lb_id // 10) in self._challenge_event_map:
-                    event_id = self._challenge_event_map[lb_id // 10]
+        if self.api_client is None:
+            return {"ok": True, "TotalEntries": 0, "Entries": [], "PlayerRank": 0}
 
-                # Fallback: game may have cached an old leaderboard_id. Use the
-                # first active event.
-                if not event_id:
-                    try:
-                        data = self.api_client.get_clubs()
-                        active_events = [e for e in data.get("events", []) if e.get("active")]
-                        if active_events:
-                            event_id = active_events[0].get("id", "")
-                            print(f"[LB] Fallback: lb_id={lb_id} -> event_id={event_id}")
-                    except Exception as exc:
-                        print(f"[LB] Fallback fetch failed: {exc}")
+        # LeaderboardId from params — unwrap the EgoNet type wrapper
+        lb_id = params.get("LeaderboardId") or params.get("leaderboard_id")
+        lb_id = getattr(lb_id, "value", lb_id)
+        if lb_id is None:
+            return {"ok": True, "TotalEntries": 0, "Entries": [], "PlayerRank": 0}
 
-                if not event_id:
-                    event_id = str(lb_id)  # last resort
-                try:
-                    entries = self.api_client.get_leaderboard(event_id)
-                except Exception as exc:
-                    print(f"[LB] api_client.get_leaderboard({event_id}) raised: {exc}")
-                    entries = []
+        # ── Time Trial leaderboard ──────────────────────────────────────────
+        if lb_id in self._tt_lb_map:
+            vclass, track, conditions, category = self._tt_lb_map[lb_id]
+            print(f"[LB] Time-trial lb_id={lb_id} -> "
+                  f"vclass={vclass} track={track} conditions={conditions} cat={category}")
+            try:
+                entries = self.api_client.get_time_trial_leaderboard(
+                    vclass, track, conditions, category
+                )
+            except Exception as exc:
+                print(f"[LB] get_time_trial_leaderboard raised: {exc}")
+                entries = []
 
-                egonet_entries = []
-                leader_ms = entries[0].get("total_time_ms", 0) if entries else 0
-                for i, e in enumerate(entries):
-                    total_ms = e.get("total_time_ms", 0)
-                    vehicle_id = e.get("vehicle_id", 0)
-                    if not isinstance(vehicle_id, int):
-                        vehicle_id = 0
-                    egonet_entries.append({
-                        "Presence": {
-                            "Name": e.get("username", "Unknown"),
-                            "IsCrossPlatform": False,
-                            "NetworkId": Int64(0),
-                            "EgoNetId": Int64(0),
-                            "AccountRef": Int64(0),
-                        },
-                        "PersonalBest": Int64(total_ms),
-                        "CumulativeBest": Int64(total_ms),
-                        "TimeDiff": Int64(total_ms - leader_ms),
-                        "Rank": e.get("rank", i + 1),
-                        "VehicleId": UInt32(vehicle_id),
-                        "IsFounder": False,
-                        "IsVIP": False,
-                        "Nationality": UInt32(0),
-                        "GhostAvailable": False,
-                        "LiveryId": UInt32(0),
-                    })
-                return {
-                    "ok": True,
-                    "TotalEntries": len(egonet_entries),
-                    "Entries": egonet_entries,
-                    "PlayerRank": 0,
-                }
+            egonet_entries = []
+            leader_ms = entries[0].get("stage_time_ms", 0) if entries else 0
+            for e in entries:
+                time_ms = e.get("stage_time_ms", 0)
+                vid     = int(e.get("vehicle_id", 0) or 0)
+                lid     = int(e.get("livery_id", 0) or 0)
+                nat     = int(e.get("nationality_id", 0) or 0)
+                rank    = int(e.get("rank", 0))
+                egonet_entries.append({
+                    "Presence": {
+                        "Name": e.get("username", "Unknown"),
+                        "IsCrossPlatform": False,
+                        "NetworkId": 0,
+                        "EgoNetId": Int64(0),
+                        "AccountRef": Int64(0),
+                    },
+                    "PersonalBest":   Int64(time_ms),
+                    "CumulativeBest": Int64(time_ms),
+                    "TimeDiff":       Int64(time_ms - leader_ms),
+                    "Rank":           rank,
+                    "VehicleId":      UInt32(vid),
+                    "IsFounder":      False,
+                    "IsVIP":          False,
+                    "Nationality":    UInt32(nat),
+                    "GhostAvailable": True,
+                    "LiveryId":       UInt32(lid),
+                })
+            return {
+                "ok": True,
+                "TotalEntries": len(egonet_entries),
+                "Entries": egonet_entries,
+                "PlayerRank": 0,
+            }
 
+        # ── Club / championship leaderboard ────────────────────────────────
+        # LeaderboardId is derived from challenge_id as chal_id+800000 (event-level)
+        # or chal_id*10+N (stage-level). Try both schemes.
+        event_id = None
+        chal_id = lb_id - 800000 if lb_id >= 800000 else None
+        if chal_id and chal_id in self._challenge_event_map:
+            event_id = self._challenge_event_map[chal_id]
+        elif (lb_id // 10) in self._challenge_event_map:
+            event_id = self._challenge_event_map[lb_id // 10]
+
+        # Fallback: game may have cached an old leaderboard_id. Use the
+        # first active event.
+        if not event_id:
+            try:
+                data = self.api_client.get_clubs()
+                active_events = [e for e in data.get("events", []) if e.get("active")]
+                if active_events:
+                    event_id = active_events[0].get("id", "")
+                    print(f"[LB] Fallback: lb_id={lb_id} -> event_id={event_id}")
+            except Exception as exc:
+                print(f"[LB] Fallback fetch failed: {exc}")
+
+        if not event_id:
+            event_id = str(lb_id)  # last resort
+        try:
+            entries = self.api_client.get_leaderboard(event_id)
+        except Exception as exc:
+            print(f"[LB] api_client.get_leaderboard({event_id}) raised: {exc}")
+            entries = []
+
+        egonet_entries = []
+        leader_ms = entries[0].get("total_time_ms", 0) if entries else 0
+        for i, e in enumerate(entries):
+            total_ms = e.get("total_time_ms", 0)
+            vehicle_id = e.get("vehicle_id", 0)
+            if not isinstance(vehicle_id, int):
+                vehicle_id = 0
+            egonet_entries.append({
+                "Presence": {
+                    "Name": e.get("username", "Unknown"),
+                    "IsCrossPlatform": False,
+                    "NetworkId": Int64(0),
+                    "EgoNetId": Int64(0),
+                    "AccountRef": Int64(0),
+                },
+                "PersonalBest":   Int64(total_ms),
+                "CumulativeBest": Int64(total_ms),
+                "TimeDiff":       Int64(total_ms - leader_ms),
+                "Rank":           e.get("rank", i + 1),
+                "VehicleId":      UInt32(vehicle_id),
+                "IsFounder":      False,
+                "IsVIP":          False,
+                "Nationality":    UInt32(0),
+                "GhostAvailable": False,
+                "LiveryId":       UInt32(0),
+            })
         return {
             "ok": True,
-            "TotalEntries": 0,
-            "Entries": [],
+            "TotalEntries": len(egonet_entries),
+            "Entries": egonet_entries,
             "PlayerRank": 0,
         }
 
-    @staticmethod
-    def _time_trial_id(params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"ok": True, "leaderboard_id": "community-time-trial"}
+    def _time_trial_id(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle TimeTrial.GetLeaderboardId.
 
-    @staticmethod
-    def _post_time(params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"ok": True, "Accepted": True, "EntryId": secrets.token_hex(8)}
+        Returns a stable numeric LeaderboardId for the (vclass, track,
+        conditions, category) 4-tuple.  When api_client is available, the ID
+        is fetched from the web server so it stays consistent across restarts.
+        Falls back to a local md5-based hash when no api_client is set.
+        """
+        def _extract(key: str) -> int:
+            v = params.get(key, 0)
+            return int(getattr(v, "value", v) or 0)
+
+        vclass     = _extract("VehicleClassId")
+        track      = _extract("TrackModelId")
+        conditions = _extract("ConditionsId")
+        category   = _extract("Category")
+
+        tt_tuple = (vclass, track, conditions, category)
+        self._last_tt_request = tt_tuple
+
+        if self.api_client is not None:
+            try:
+                lb_id = self.api_client.get_time_trial_leaderboard_id(
+                    vclass, track, conditions, category
+                )
+                if lb_id is not None:
+                    self._tt_lb_map[lb_id] = tt_tuple
+                    print(f"[TT] GetLeaderboardId vclass={vclass} track={track} "
+                          f"conditions={conditions} cat={category} -> lb_id={lb_id}")
+                    return {"ok": True, "ShouldPost": True, "LeaderboardId": Int64(lb_id)}
+            except Exception as exc:
+                print(f"[TT] get_time_trial_leaderboard_id raised: {exc}")
+
+        # Local fallback: deterministic hash in the 4_000_000 base range
+        lb_id = _stable_int_id(
+            f"tt-{vclass}-{track}-{conditions}-{category}", base=4_000_000
+        )
+        self._tt_lb_map[lb_id] = tt_tuple
+        print(f"[TT] GetLeaderboardId (local) vclass={vclass} track={track} "
+              f"conditions={conditions} cat={category} -> lb_id={lb_id}")
+        return {"ok": True, "ShouldPost": True, "LeaderboardId": Int64(lb_id)}
+
+    def _post_time(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle TimeTrial.PostTime.
+
+        Extracts stage time and related fields from the EgoNet params, then
+        submits them to the web API via api_client.  Always returns Accepted.
+        """
+        def _extract(key: str, default: Any = 0) -> Any:
+            v = params.get(key, default)
+            return getattr(v, "value", v)
+
+        vehicle_id    = int(_extract("VehicleId", 0) or 0)
+        livery_id     = int(_extract("LiveryId", 0) or 0)
+        track         = int(_extract("TrackModelId", 0) or 0)
+        nationality   = int(_extract("NationalityId", 0) or 0)
+        conditions    = int(_extract("ConditionsId", 0) or 0)
+        category      = int(_extract("Category", 0) or 0)
+        using_wheel   = bool(_extract("UsingWheel", False))
+        using_assists = bool(_extract("UsingAssists", False))
+        stage_time_f  = float(_extract("StageTime", 0.0) or 0.0)
+        stage_time_ms = int(stage_time_f * 1000)
+
+        # Ghost data is a raw bytes blob in the EgoNet params
+        import base64
+        ghost_raw = params.get("GhostData", b"")
+        if isinstance(ghost_raw, (bytes, bytearray)):
+            ghost_b64 = base64.b64encode(ghost_raw).decode("ascii")
+        else:
+            ghost_b64 = str(ghost_raw)
+
+        # VehicleClassId is not sent in PostTime — recover from the cached
+        # GetLeaderboardId call for this session.
+        if self._last_tt_request is not None:
+            vclass, _track, _conditions, _category = self._last_tt_request
+        else:
+            vclass = 0
+
+        entry_id = secrets.token_hex(8)
+
+        if self.api_client is not None and stage_time_ms > 0:
+            try:
+                ok = self.api_client.submit_time_trial(
+                    vehicle_class_id=vclass,
+                    track_model_id=track,
+                    conditions_id=conditions,
+                    category=category,
+                    vehicle_id=vehicle_id,
+                    livery_id=livery_id,
+                    stage_time_ms=stage_time_ms,
+                    nationality_id=nationality,
+                    using_wheel=using_wheel,
+                    using_assists=using_assists,
+                    ghost_data_b64=ghost_b64,
+                )
+                if ok:
+                    print(f"[TT] PostTime accepted: vclass={vclass} track={track} "
+                          f"time_ms={stage_time_ms} entry_id={entry_id}")
+                else:
+                    print(f"[TT] PostTime: submit_time_trial returned False "
+                          f"(vclass={vclass} track={track} time_ms={stage_time_ms})")
+            except Exception as exc:
+                print(f"[TT] submit_time_trial raised: {exc}")
+
+        return {"ok": True, "Accepted": True, "EntryId": entry_id}
 
     @staticmethod
     def _status(params: Dict[str, Any]) -> Dict[str, Any]:

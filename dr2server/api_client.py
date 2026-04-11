@@ -324,6 +324,97 @@ class DirtForeverClient:
             return None
         return result
 
+    def submit_time_trial(
+        self,
+        vehicle_class_id: int,
+        track_model_id: int,
+        conditions_id: int,
+        category: int,
+        vehicle_id: int,
+        livery_id: int,
+        stage_time_ms: int,
+        nationality_id: int,
+        using_wheel: bool,
+        using_assists: bool,
+        ghost_data_b64: str,
+    ) -> bool:
+        """Submit a time trial result to the web API.
+
+        Returns True on success, False on any error.
+        """
+        payload: Dict[str, Any] = {
+            "vehicle_class_id": vehicle_class_id,
+            "track_model_id": track_model_id,
+            "conditions_id": conditions_id,
+            "category": category,
+            "vehicle_id": vehicle_id,
+            "livery_id": livery_id,
+            "stage_time_ms": stage_time_ms,
+            "nationality_id": nationality_id,
+            "using_wheel": using_wheel,
+            "using_assists": using_assists,
+            "ghost_data_b64": ghost_data_b64,
+        }
+        result = self._post("/api/game/time-trial-submit", payload)
+        if result and result.get("ok"):
+            return True
+        log.warning(
+            "submit_time_trial: failed vclass=%d track=%d conditions=%d cat=%d",
+            vehicle_class_id, track_model_id, conditions_id, category,
+        )
+        return False
+
+    def get_time_trial_leaderboard(
+        self,
+        vclass: int,
+        track: int,
+        conditions: int,
+        category: int,
+    ) -> List[Dict[str, Any]]:
+        """Return time trial leaderboard entries for the given 4-tuple.
+
+        Returns an empty list on error.
+        """
+        path = (
+            f"/api/game/time-trial-leaderboard"
+            f"?vclass={vclass}&track={track}&conditions={conditions}&category={category}"
+        )
+        result = self._get(path)
+        if not result or not result.get("ok"):
+            log.warning(
+                "get_time_trial_leaderboard: empty or error response for "
+                "vclass=%d track=%d conditions=%d cat=%d",
+                vclass, track, conditions, category,
+            )
+            return []
+        return result.get("entries", [])
+
+    def get_time_trial_leaderboard_id(
+        self,
+        vclass: int,
+        track: int,
+        conditions: int,
+        category: int,
+    ) -> Optional[int]:
+        """Return a stable integer LeaderboardId for the given 4-tuple.
+
+        Returns None on error.
+        """
+        path = (
+            f"/api/game/time-trial-leaderboard-id"
+            f"?vclass={vclass}&track={track}&conditions={conditions}&category={category}"
+        )
+        result = self._get(path)
+        if not result or not result.get("ok"):
+            log.warning(
+                "get_time_trial_leaderboard_id: empty or error response for "
+                "vclass=%d track=%d conditions=%d cat=%d",
+                vclass, track, conditions, category,
+            )
+            return None
+        lb_id = result.get("leaderboard_id")
+        return int(lb_id) if lb_id is not None else None
+
     def auth(self, steam_name: str, account_id: Optional[int] = None) -> Dict[str, Any]:
         """Validate / link a Steam account.
 

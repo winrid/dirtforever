@@ -72,8 +72,9 @@ USERS_DIR  = os.path.join(DATA_DIR, 'users')
 CLUBS_DIR  = os.path.join(DATA_DIR, 'clubs')
 EVENTS_DIR = os.path.join(DATA_DIR, 'events')
 RESULTS_DIR = os.path.join(DATA_DIR, 'results')
+TIME_TRIALS_DIR = os.path.join(DATA_DIR, 'time_trials')
 
-for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR):
+for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR, TIME_TRIALS_DIR):
     os.makedirs(d, exist_ok=True)
 
 
@@ -1864,6 +1865,140 @@ def api_game_auth() -> Response | tuple[Response, int]:
         'linked': False,
         'steam_name': steam_name,
     })
+
+
+# ── Time Trial helpers ───────────────────────────────────
+
+def _stable_int_id(string_id: str, base: int = 100000) -> int:
+    """Derive a stable positive integer from a string (md5-based, deterministic)."""
+    h = int.from_bytes(hashlib.md5(string_id.encode()).digest()[:4], 'little')
+    return base + (h % 90000)
+
+
+def _tt_key(vclass: str, track: str, conditions: str, category: str) -> str:
+    return f'{vclass}_{track}_{conditions}_{category}'
+
+
+def _tt_path(key: str) -> str:
+    return os.path.join(TIME_TRIALS_DIR, f'{key}.json')
+
+
+def _load_tt(key: str) -> list[Any]:
+    p = _tt_path(key)
+    if os.path.exists(p):
+        return _load(p)  # type: ignore[return-value]
+    return []
+
+
+def _save_tt(key: str, entries: list[Any]) -> None:
+    _save(_tt_path(key), entries)
+
+
+# ── Time Trial API endpoints ──────────────────────────────
+
+@app.route('/api/game/time-trial-submit', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_time_trial_submit() -> Response | tuple[Response, int]:
+    """Accept a time trial result from the game server and persist it."""
+    data = request.get_json(silent=True) or {}
+
+    try:
+        vclass = str(int(data['vehicle_class_id']))
+        track = str(int(data['track_model_id']))
+        conditions = str(int(data['conditions_id']))
+        category = str(int(data['category']))
+        vehicle_id = int(data['vehicle_id'])
+        livery_id = int(data.get('livery_id', 0))
+        stage_time_ms = int(data['stage_time_ms'])
+        nationality_id = int(data.get('nationality_id', 0))
+        using_wheel = bool(data.get('using_wheel', False))
+        using_assists = bool(data.get('using_assists', False))
+        ghost_data_b64 = str(data.get('ghost_data_b64', ''))
+    except (KeyError, TypeError, ValueError) as exc:
+        return _api_error(f'invalid payload: {exc}')
+
+    if stage_time_ms <= 0:
+        return _api_error('stage_time_ms must be positive')
+
+    username = g.game_user
+    key = _tt_key(vclass, track, conditions, category)
+    entries = _load_tt(key)
+
+    # Replace user's existing entry only if the new time is better
+    existing = next((e for e in entries if e['username'] == username), None)
+    if existing is not None:
+        if stage_time_ms >= existing['stage_time_ms']:
+            # Not a personal best — acknowledge but don't store
+            return jsonify({'ok': True, 'stored': False, 'reason': 'not a personal best'})
+        entries = [e for e in entries if e['username'] != username]
+
+    entries.append({
+        'username': username,
+        'stage_time_ms': stage_time_ms,
+        'vehicle_id': vehicle_id,
+        'livery_id': livery_id,
+        'nationality_id': nationality_id,
+        'using_wheel': using_wheel,
+        'using_assists': using_assists,
+        'ghost_data_b64': ghost_data_b64,
+        'submitted_at': datetime.now().isoformat(),
+    })
+    entries.sort(key=lambda e: e['stage_time_ms'])
+    _save_tt(key, entries)
+
+    return jsonify({'ok': True, 'stored': True, 'rank': next(
+        i + 1 for i, e in enumerate(entries) if e['username'] == username
+    )})
+
+
+@app.route('/api/game/time-trial-leaderboard')
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_time_trial_leaderboard() -> Response | tuple[Response, int]:
+    """Return time trial leaderboard entries for a given 4-tuple."""
+    try:
+        vclass = str(int(request.args['vclass']))
+        track = str(int(request.args['track']))
+        conditions = str(int(request.args['conditions']))
+        category = str(int(request.args['category']))
+    except (KeyError, TypeError, ValueError) as exc:
+        return _api_error(f'invalid query params: {exc}')
+
+    key = _tt_key(vclass, track, conditions, category)
+    entries = _load_tt(key)
+
+    out = []
+    for i, e in enumerate(entries):
+        out.append({
+            'rank': i + 1,
+            'username': e['username'],
+            'stage_time_ms': e['stage_time_ms'],
+            'vehicle_id': e['vehicle_id'],
+            'livery_id': e.get('livery_id', 0),
+            'nationality_id': e.get('nationality_id', 0),
+            'using_wheel': e.get('using_wheel', False),
+            'using_assists': e.get('using_assists', False),
+        })
+
+    return jsonify({'ok': True, 'entries': out, 'total': len(out)})
+
+
+@app.route('/api/game/time-trial-leaderboard-id')
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_time_trial_leaderboard_id() -> Response | tuple[Response, int]:
+    """Return a stable integer LeaderboardId for a time trial 4-tuple."""
+    try:
+        vclass = str(int(request.args['vclass']))
+        track = str(int(request.args['track']))
+        conditions = str(int(request.args['conditions']))
+        category = str(int(request.args['category']))
+    except (KeyError, TypeError, ValueError) as exc:
+        return _api_error(f'invalid query params: {exc}')
+
+    lb_id = _stable_int_id(f'tt-{vclass}-{track}-{conditions}-{category}', base=4_000_000)
+    return jsonify({'ok': True, 'leaderboard_id': lb_id})
 
 
 # ── Cron API ─────────────────────────────────────────────
