@@ -26,6 +26,13 @@ class UInt8:
         self.value = value
 
 
+class UInt16:
+    """Wrapper to encode a value as ui16 (unsigned 16-bit integer)."""
+    __slots__ = ("value",)
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+
 class Int64:
     """Wrapper to force si64 encoding even for small values."""
     __slots__ = ("value",)
@@ -110,8 +117,8 @@ def _decode_value(payload: bytes, offset: int) -> Tuple[Any, int]:
         if value_type == b"lob":
             size = struct.unpack_from("<I", payload, offset)[0]
             offset += 4
-            data = payload[offset : offset + size]
-            return {"blob_base64": base64.b64encode(data).decode("ascii"), "size": size}, offset + size
+            data = bytes(payload[offset : offset + size])
+            return data, offset + size
         return {"unsupported_marker": marker.decode("ascii", errors="replace")}, offset
 
     # Timestamp type: tutc = 4-byte Unix timestamp
@@ -141,7 +148,7 @@ def _decode_value(payload: bytes, offset: int) -> Tuple[Any, int]:
         if value_type == b"i08":
             return UInt8(payload[offset]), offset + 1
         if value_type == b"i16":
-            return struct.unpack_from("<H", payload, offset)[0], offset + 2
+            return UInt16(struct.unpack_from("<H", payload, offset)[0]), offset + 2
         if value_type == b"i32":
             return UInt32(struct.unpack_from("<I", payload, offset)[0]), offset + 4
         if value_type == b"i64":
@@ -171,6 +178,8 @@ def _encode_value(value: Any) -> bytes:
         return b"tutc" + struct.pack("<I", value.value)
     if isinstance(value, UInt8):
         return b"ui08" + struct.pack("<B", value.value)
+    if isinstance(value, UInt16):
+        return b"ui16" + struct.pack("<H", value.value)
     if isinstance(value, UInt32):
         return b"ui32" + struct.pack("<I", value.value)
     if isinstance(value, Int64):

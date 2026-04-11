@@ -63,14 +63,30 @@ class TuningBlob:
 
     @classmethod
     def default(cls) -> TuningBlob:
-        """Return a default (all-zero) tuning blob.
+        """Return a default tuning blob.
 
-        The 222-byte payload matches the observed size for DR2 cars.
-        All-zero payload means "use car defaults" for most fields.
+        Uses the exact 140-byte blob observed from upstream Clubs.GetClubs
+        Progress entries (all defaults / untuned car).
         """
-        # Observed layout: 8 bytes of counts (3, 1) + 214 bytes of tuning data
-        payload = struct.pack("<II", 3, 1) + b"\x00" * 214
+        # Decoded content is 222 bytes (matches upstream uncompressed_size)
+        payload = zlib.decompress(bytes.fromhex(
+            "789c63666060606400819cf8f43d25b90c0c6f022dec1914445c41626969cfec66ce"
+            "9c69c7c0a0e0c4402478b174b6dd998397ed5eca70dbff6f31b0b70f88b0676068b0"
+            "07c9852648d8715d5fbca7e423b7074471831b03c383fd2026489c4b618d3b583c45"
+            "0c482fd83f6ba6a41db1f62200c42e100000ba10239c"
+        ))
         return cls(version=1, uncompressed_size=len(payload), payload=payload)
+
+    @classmethod
+    def default_bytes(cls) -> bytes:
+        """Return the raw 140-byte default blob as-is (no re-compression)."""
+        return bytes.fromhex(
+            "0100000010000000de00000000000000"
+            "789c63666060606400819cf8f43d25b90c0c6f022dec1914445c41626969cfec66ce"
+            "9c69c7c0a0e0c4402478b174b6dd998397ed5eca70dbff6f31b0b70f88b0676068b0"
+            "07c9852648d8715d5fbca7e423b7074471831b03c383fd2026489c4b618d3b583c45"
+            "0c482fd83f6ba6a41db1f62200c42e100000ba10239c"
+        )
 
 
 def decode_tuning_blob(data: bytes) -> Optional[TuningBlob]:

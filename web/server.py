@@ -1596,6 +1596,40 @@ def api_game_profile() -> Response | tuple[Response, int]:
     })
 
 
+@app.route('/api/game/stage-begin', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_stage_begin() -> Response | tuple[Response, int]:
+    """Store pre-stage setup data (tuning, tyres, livery) before a stage starts."""
+    data = request.get_json(silent=True) or {}
+    event_id = data.get('event_id', '').strip()
+    username = g.game_user
+
+    if not event_id:
+        return _api_error('event_id is required')
+    try:
+        _validate_id(event_id)
+    except Exception:
+        return _api_error('invalid event_id')
+
+    stage_index = int(data.get('stage_index', 0))
+
+    results = get_results(event_id)
+    # Store in_progress keyed by username -> stage_index
+    in_progress = results.setdefault('in_progress', {})
+    user_progress = in_progress.setdefault(username, {})
+    user_progress[str(stage_index)] = {
+        'vehicle_id': data.get('vehicle_id'),
+        'livery_id': data.get('livery_id'),
+        'tuning_setup_b64': data.get('tuning_setup_b64', ''),
+        'tyre_compound': data.get('tyre_compound', 2),
+        'tyres_remaining': data.get('tyres_remaining', 3),
+        'nationality_id': data.get('nationality_id', 0),
+    }
+    save_results(event_id, results)
+    return jsonify({'ok': True})
+
+
 @app.route('/api/game/stage-complete', methods=['POST'])
 @csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
@@ -1624,8 +1658,14 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     results = get_results(event_id)
     entries = results.get('entries', [])
 
+    # Pull any in_progress data stored by stage-begin for this user/stage
+    in_progress_entry: dict[str, Any] = (
+        results.get('in_progress', {})
+        .get(username, {})
+        .get(str(stage_index), {})
+    )
+
     existing = next((e for e in entries if e['username'] == username), None)
-    stages = event.get('stages', [])
 
     if existing is None:
         # New entry — pad all previous stages with 0 so indices stay consistent
@@ -1640,10 +1680,32 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
         }
         entries.append(existing)
 
-    stage_entry = {
+    # Merge in_progress fields as defaults — explicit data takes priority
+    def _pick(key: str, default: Any = None) -> Any:
+        v = data.get(key)
+        if v is None:
+            v = in_progress_entry.get(key, default)
+        return v
+
+    stage_entry: dict[str, Any] = {
         'time_ms': time_ms,
         'penalties_ms': penalties_ms,
         'submitted_at': datetime.now().isoformat(),
+        'meters_driven': int(data.get('meters_driven', 0)),
+        'distance_driven': int(data.get('distance_driven', 0)),
+        'using_wheel': bool(data.get('using_wheel', False)),
+        'using_assists': bool(data.get('using_assists', False)),
+        'race_status': int(data.get('race_status', 0)),
+        'has_repaired': bool(data.get('has_repaired', False)),
+        'repair_penalty_ms': int(data.get('repair_penalty_ms', 0)),
+        'vehicle_id': vehicle_id if vehicle_id is not None else in_progress_entry.get('vehicle_id'),
+        'livery_id': _pick('livery_id', 0),
+        'nationality_id': _pick('nationality_id', 0),
+        'tuning_setup_b64': _pick('tuning_setup_b64', ''),
+        'tyre_compound': _pick('tyre_compound', 2),
+        'tyres_remaining': _pick('tyres_remaining', 3),
+        'vehicle_mud': data.get('vehicle_mud') or {},
+        'comp_damage': data.get('comp_damage') or {},
     }
 
     # Extend or replace at the right index
@@ -1668,6 +1730,56 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
         (i + 1 for i, e in enumerate(entries) if e['username'] == username), 0
     )
     return jsonify({'ok': True, 'position': position, 'total_entries': len(entries)})
+
+
+@app.route('/api/game/my-progress')
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_my_progress() -> Response:
+    """Return the authenticated user's full stage progress across all events."""
+    username = g.game_user
+    events_out = []
+    for evt in get_all_events():
+        evt_id = evt.get('id', '')
+        if not evt_id:
+            continue
+        res = get_results(evt_id)
+        user_entry = next(
+            (e for e in res.get('entries', []) if e.get('username') == username),
+            None,
+        )
+        if not user_entry:
+            continue
+
+        completed: list[dict[str, Any]] = []
+        for i, s in enumerate(user_entry.get('stages', [])):
+            if not s or s.get('time_ms', 0) <= 0:
+                continue
+            completed.append({
+                'stage_index': i,
+                'time_ms': s.get('time_ms', 0),
+                'penalties_ms': s.get('penalties_ms', 0),
+                'meters_driven': s.get('meters_driven', 0),
+                'distance_driven': s.get('distance_driven', 0),
+                'vehicle_id': s.get('vehicle_id') or user_entry.get('vehicle_id'),
+                'livery_id': s.get('livery_id', 0),
+                'nationality_id': s.get('nationality_id', 0),
+                'has_repaired': s.get('has_repaired', False),
+                'repair_penalty_ms': s.get('repair_penalty_ms', 0),
+                'tuning_setup_b64': s.get('tuning_setup_b64', ''),
+                'tyre_compound': s.get('tyre_compound', 2),
+                'tyres_remaining': s.get('tyres_remaining', 3),
+                'vehicle_damage': s.get('comp_damage') or {},
+                'vehicle_mud': s.get('vehicle_mud') or {},
+            })
+
+        events_out.append({
+            'event_id': evt_id,
+            'completed_stages': completed,
+            'total_time_ms': user_entry.get('total_time_ms', 0),
+        })
+
+    return jsonify({'ok': True, 'events': events_out})
 
 
 @app.route('/api/game/leaderboard/<event_id>')

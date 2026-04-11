@@ -178,6 +178,41 @@ class DirtForeverClient:
             "events": result.get("events", []),
         }
 
+    def submit_stage_begin(
+        self,
+        event_id: str,
+        stage_index: int,
+        vehicle_id: Optional[int] = None,
+        livery_id: int = 0,
+        tuning_setup_b64: str = "",
+        tyre_compound: int = 2,
+        tyres_remaining: int = 3,
+        nationality_id: int = 0,
+    ) -> bool:
+        """Store pre-stage setup data on the web server before a stage starts.
+
+        Returns True on success, False on any error.
+        """
+        payload: Dict[str, Any] = {
+            "event_id": event_id,
+            "stage_index": stage_index,
+            "livery_id": livery_id,
+            "tuning_setup_b64": tuning_setup_b64,
+            "tyre_compound": tyre_compound,
+            "tyres_remaining": tyres_remaining,
+            "nationality_id": nationality_id,
+        }
+        if vehicle_id is not None:
+            payload["vehicle_id"] = vehicle_id
+        result = self._post("/api/game/stage-begin", payload)
+        if result and result.get("ok"):
+            return True
+        log.warning(
+            "submit_stage_begin: failed for event=%s stage=%d",
+            event_id, stage_index,
+        )
+        return False
+
     def submit_stage(
         self,
         event_id: str,
@@ -186,6 +221,20 @@ class DirtForeverClient:
         time_ms: int,
         vehicle_id: Optional[int] = None,
         penalties_ms: int = 0,
+        meters_driven: int = 0,
+        distance_driven: int = 0,
+        vehicle_mud: Optional[Dict[str, Any]] = None,
+        comp_damage: Optional[Dict[str, Any]] = None,
+        using_wheel: bool = False,
+        using_assists: bool = False,
+        race_status: int = 0,
+        nationality_id: int = 0,
+        livery_id: int = 0,
+        has_repaired: bool = False,
+        repair_penalty_ms: int = 0,
+        tuning_setup_b64: str = "",
+        tyre_compound: int = 2,
+        tyres_remaining: int = 3,
         **extra: Any,
     ) -> bool:
         """Submit a completed stage to the web API.
@@ -198,9 +247,25 @@ class DirtForeverClient:
             "stage_index": stage_index,
             "time_ms": time_ms,
             "penalties_ms": penalties_ms,
+            "meters_driven": meters_driven,
+            "distance_driven": distance_driven,
+            "using_wheel": using_wheel,
+            "using_assists": using_assists,
+            "race_status": race_status,
+            "nationality_id": nationality_id,
+            "livery_id": livery_id,
+            "has_repaired": has_repaired,
+            "repair_penalty_ms": repair_penalty_ms,
+            "tuning_setup_b64": tuning_setup_b64,
+            "tyre_compound": tyre_compound,
+            "tyres_remaining": tyres_remaining,
         }
         if vehicle_id is not None:
             payload["vehicle_id"] = vehicle_id
+        if vehicle_mud is not None:
+            payload["vehicle_mud"] = vehicle_mud
+        if comp_damage is not None:
+            payload["comp_damage"] = comp_damage
         payload.update(extra)
 
         result = self._post("/api/game/stage-complete", payload)
@@ -211,6 +276,17 @@ class DirtForeverClient:
             event_id, username, stage_index,
         )
         return False
+
+    def get_my_progress(self) -> Optional[Dict[str, Any]]:
+        """Fetch the authenticated user's full progress across all events.
+
+        Returns the response dict (with key ``"events"``) or None on error.
+        """
+        result = self._get("/api/game/my-progress")
+        if not result or not result.get("ok"):
+            log.warning("get_my_progress: empty or error response")
+            return None
+        return result
 
     def get_leaderboard(self, event_id: str) -> List[Dict[str, Any]]:
         """Return leaderboard entries for an event.

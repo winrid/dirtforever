@@ -100,9 +100,11 @@ class App:
 
     @staticmethod
     def _json_default(obj: Any) -> Any:
-        from .egonet import Timestamp, UInt32, UInt8, Int64
-        if isinstance(obj, (Timestamp, UInt32, UInt8, Int64)):
+        from .egonet import Timestamp, UInt32, UInt16, UInt8, Int64
+        if isinstance(obj, (Timestamp, UInt32, UInt16, UInt8, Int64)):
             return obj.value
+        if isinstance(obj, bytes):
+            return {"blob_base64": base64.b64encode(obj).decode("ascii"), "size": len(obj)}
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
     def capture(self, request: Dict[str, Any]) -> Path:
