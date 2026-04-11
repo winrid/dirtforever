@@ -25,11 +25,13 @@ RAW_BINARY_MARKER = "__raw_binary__"
 def _stable_int_id(string_id: str, base: int = 100000, offset: int = 0) -> int:
     """Derive a stable positive integer ID from a string identifier.
 
-    Uses a simple hash so the same string always produces the same integer.
+    Uses md5 so the same string ALWAYS produces the same integer across
+    process restarts (Python's built-in hash() is randomized per-process).
     The result is kept well within 31-bit signed range to avoid EgoNet
     encoding issues.
     """
-    h = hash(string_id) & 0x7FFFFFFF  # positive 31-bit value
+    import hashlib
+    h = int.from_bytes(hashlib.md5(string_id.encode()).digest()[:4], "little")
     return base + (h % 90000) + offset
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "upstream_templates"
