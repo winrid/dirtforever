@@ -24,6 +24,7 @@ packages = []
 [tool.mypy]
 strict = true
 python_version = "3.11"
+mypy_path = ".."
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -40,3 +41,7 @@ extra_checks = true
 [[tool.mypy.overrides]]
 module = "flask_wtf.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "dr2server.*"
+follow_imports = "silent"
