@@ -121,165 +121,160 @@ _LOCATION_META: Dict[Location, dict] = {
 # Track models — TrackModelId maps to a specific stage route
 # ---------------------------------------------------------------------------
 #
-# ID assignments come from upstream challenge data (authoritative).
-# Stage names come from community documentation where the ID count
-# matches the expected 12 (6 routes × forward + reverse); otherwise
-# generic names are used (Stage N / Stage N (Reverse)).
-#
-# Locations without confirmed track IDs (Monte Carlo) have no Track entries.
+# Track names and their Location attribution were verified in-game
+# 2026-04-11 via the enum-mapping discovery round (see
+# runtime/discovery/track_mapping.json).  98 tracks confirmed across
+# 15 locations.  Tracks not yet probed are not listed here.
 
 class Track(IntEnum):
-    """Stage/track route IDs (TrackModelId in the EgoNet protocol)."""
+    """Stage/track route IDs (TrackModelId in the EgoNet protocol).
 
-    # Sweden (Location.SWEDEN = 2) — 4 IDs, generic names
-    SWEDEN_STAGE_1        = 462
-    SWEDEN_STAGE_1_REV    = 464
-    SWEDEN_STAGE_2        = 467
-    SWEDEN_STAGE_2_REV    = 469
+    Verified in-game 2026-04-11 by the enum-mapping discovery round.
+    Names and Location attribution come from the in-game Event Details
+    panel for each TrackModelId.  See runtime/discovery/track_mapping.json
+    for the raw data.
+    """
 
-    # Wales (Location.WALES = 3) — 7 IDs, generic names
-    WALES_STAGE_1         = 437
-    WALES_STAGE_2         = 439
-    WALES_STAGE_3         = 441
-    WALES_STAGE_4         = 442
-    WALES_STAGE_4_REV     = 443
-    WALES_STAGE_5         = 446
-    WALES_STAGE_5_REV     = 448
+    # ARGENTINA
+    LAS_JUNTAS                               = 572
+    VALLE_DE_LOS_PUENTES                     = 573
+    CAMINO_A_LA_PUERTA                       = 604
+    CAMINO_DE_ACANTILADOS_Y_ROCAS            = 605
+    EL_RODEO                                 = 606
+    LA_MERCED                                = 607
+    CAMINO_DE_ACANTILADOS_Y_ROCAS_INVERSO    = 608
+    VALLE_DE_LOS_PUENTES_A_LA_INVERSA        = 609
+    MIRAFLORES                               = 610
+    SAN_ISIDRO                               = 611
+    CAMINO_A_CONETA                          = 612
+    HUILLAPRIMA                              = 613
 
-    # Argentina (Location.ARGENTINA = 5) — 4 IDs, generic names
-    ARGENTINA_STAGE_1     = 472
-    ARGENTINA_STAGE_2     = 480
-    ARGENTINA_STAGE_3     = 490
-    ARGENTINA_STAGE_4     = 496
+    # AUSTRALIA
+    MOUNT_KAYE_PASS                          = 568
+    CHANDLERS_CREEK                          = 569
+    MOUNT_KAYE_PASS_REVERSE                  = 584
+    ROCKTON_PLAINS                           = 585
+    YAMBULLA_MOUNTAIN_DESCENT                = 586
+    YAMBULLA_MOUNTAIN_ASCENT                 = 587
+    ROCKTON_PLAINS_REVERSE                   = 588
+    CHANDLERS_CREEK_REVERSE                  = 589
+    NOORINBEE_RIDGE_ASCENT                   = 590
+    TAYLOR_FARM_SPRINT                       = 591
+    BONDI_FOREST                             = 592
+    NOORINBEE_RIDGE_DESCENT                  = 593
 
-    # New England / USA (Location.NEW_ENGLAND = 10) — 1 ID
-    NEW_ENGLAND_STAGE_1   = 478
+    # BARCELONA
+    FULL_CIRCUIT                             = 538
 
-    # Poland (Location.POLAND = 13) — 4 IDs, generic names
-    POLAND_STAGE_1        = 511
-    POLAND_STAGE_1_REV    = 512
-    POLAND_STAGE_2        = 515
-    POLAND_STAGE_2_REV    = 516
+    # FINLAND
+    KAKARISTO                                = 511
+    PITKAJARVI                               = 512
+    KOTAJARVI                                = 515
+    OKSALA                                   = 516
 
-    # Germany (Location.GERMANY = 14) — 4 IDs, generic names
-    GERMANY_STAGE_1       = 519
-    GERMANY_STAGE_1_REV   = 520
-    GERMANY_STAGE_2       = 527
-    GERMANY_STAGE_2_REV   = 528
+    # GERMANY
+    OBERSTEIN                                = 472
+    HAMMERSTEIN                              = 480
+    WALDAUFSTIEG                             = 490
+    INNERER_FELD_SPRINT                      = 496
 
-    # New Zealand (Location.NEW_ZEALAND = 16) — 12 IDs, named
-    OCEAN_BEACH           = 568
-    OCEAN_BEACH_REV       = 569
-    WAIMARAMA_POINT       = 584
-    WAIMARAMA_POINT_REV   = 585
-    TE_AWANGA             = 586
-    TE_AWANGA_REV         = 587
-    ELSTHORPE_SPRINT      = 588
-    ELSTHORPE_SPRINT_REV  = 589
-    WAIMARAMA_LONG        = 590
-    WAIMARAMA_LONG_REV    = 591
-    TARINAKI              = 592
-    TARINAKI_REV          = 593
+    # GREECE
+    FOURKETA_KOURVA                          = 462
+    AMPELONAS_ORMI                           = 464
+    OUREA_SPEVSI                             = 467
+    ABIES_KOILEDA                            = 469
 
-    # France (Location.ARGENTINA = 17) — 12 IDs, generic names
-    FRANCE_STAGE_1        = 572
-    FRANCE_STAGE_1_REV    = 573
-    FRANCE_STAGE_2        = 604
-    FRANCE_STAGE_2_REV    = 605
-    FRANCE_STAGE_3        = 606
-    FRANCE_STAGE_3_REV    = 607
-    FRANCE_STAGE_4        = 608
-    FRANCE_STAGE_4_REV    = 609
-    FRANCE_STAGE_5        = 610
-    FRANCE_STAGE_5_REV    = 611
-    FRANCE_STAGE_6        = 612
-    FRANCE_STAGE_6_REV    = 613
+    # HELL
+    FULL_CIRCUIT_478                         = 478
 
-    # Yas Marina Rallycross (Location.MONTALEGRE = 19) — 1 ID
-    YAS_MARINA_STAGE_1    = 537
+    # MONTALEGRE
+    FULL_CIRCUIT_537                         = 537
 
-    # Montalegre Rallycross (Location.MONTALEGRE = 20) — 1 ID
-    MONTALEGRE_STAGE_1    = 538
+    # NEW_ENGLAND
+    NORTH_FORK_PASS                          = 626
+    NORTH_FORK_PASS_REVERSE                  = 627
+    HANCOCK_CREEK_BURST                      = 628
+    FULLER_MOUNTAIN_DESCENT                  = 629
+    FULLER_MOUNTAIN_ASCENT                   = 630
+    FURY_LAKE_DEPART                         = 631
+    BEAVER_CREEK_TRAIL_FORWARD               = 632
+    BEAVER_CREEK_TRAIL_REVERSE               = 633
+    HANCOCK_HILL_SPRINT_FORWARD              = 634
+    TOLT_VALLEY_SPRINT_REVERSE               = 635
+    TOLT_VALLEY_SPRINT_FORWARD               = 636
+    HANCOCK_HILL_SPRINT_REVERSE              = 637
 
-    # Australia (Location.AUSTRALIA = 16) — 10 IDs, generic names, UNVERIFIED.
-    # 580 was previously labeled AUSTRALIA_STAGE_5 here but in-game testing
-    # showed it is actually Spain / Descenso por carretera — see Spain block
-    # below. The rest of this block remains speculative.
-    AUSTRALIA_STAGE_1     = 566
-    AUSTRALIA_STAGE_2     = 574
-    AUSTRALIA_STAGE_2_REV = 575
-    AUSTRALIA_STAGE_3     = 576
-    AUSTRALIA_STAGE_3_REV = 577
-    AUSTRALIA_STAGE_4     = 578
-    AUSTRALIA_STAGE_4_REV = 579
-    AUSTRALIA_STAGE_5_REV = 581
-    AUSTRALIA_STAGE_6     = 582
-    AUSTRALIA_STAGE_6_REV = 583
+    # NEW_ZEALAND
+    TE_AWANGA_FORWARD                        = 570
+    WAIMARAMA_POINT_FORWARD                  = 571
+    OCEAN_BEACH                              = 594
+    TE_AWANGA_SPRINT_FORWARD                 = 595
+    OCEAN_BEACH_SPRINT_FORWARD               = 596
+    OCEAN_BEACH_SPRINT_REVERSE               = 597
+    TE_AWANGA_SPRINT_REVERSE                 = 598
+    WAIMARAMA_POINT_REVERSE                  = 599
+    ELSTHORPE_SPRINT_FORWARD                 = 600
+    WAIMARAMA_SPRINT_FORWARD                 = 601
+    WAIMARAMA_SPRINT_REVERSE                 = 602
+    ELSTHORPE_SPRINT_REVERSE                 = 603
 
-    # Scotland (Location.SCOTLAND = 34) — 12 IDs, named
-    NEWHOUSE_BRIDGE       = 570
-    NEWHOUSE_BRIDGE_REV   = 571
-    SOUTH_MORNINGSIDE     = 594
-    SOUTH_MORNINGSIDE_REV = 595
-    GLENFINNAN            = 596
-    GLENFINNAN_REV        = 597
-    ANNBANK_STATION       = 598
-    ANNBANK_STATION_REV   = 599
-    OLD_BUTTERSTONE_MUIR  = 600
-    OLD_BUTTERSTONE_MUIR_REV = 601
-    ROSEBANK_FARM         = 602
-    ROSEBANK_FARM_REV     = 603
+    # POLAND
+    ZAROBKA                                  = 614
+    ZAGORZE                                  = 615
+    KOPINA                                   = 616
+    MARYNKA                                  = 617
+    JEZIORO_ROTCZE                           = 620
+    ZIENKI                                   = 621
+    CZARNY_LAS                               = 622
+    LEJNO                                    = 623
+    JAGODNO                                  = 624
+    JEZIORO_LUKIE                            = 625
 
-    # Spain (Location.SPAIN = 31) — verified stage IDs live in two ranges.
-    # DESCENSO_POR_CARRETERA at 580 is confirmed by in-game testing; the
-    # previous 618/619 assignment was wrong and has been removed. The
-    # remaining 614-625 names (Centenera, Ribadelles, Subida, Ascenso bosque,
-    # Camino rocoso) are still from community docs and unverified.
-    DESCENSO_POR_CARRETERA = 580
-    CENTENERA              = 614
-    CENTENERA_REV          = 615
-    RIBADELLES             = 616
-    RIBADELLES_REV         = 617
-    SUBIDA_POR_CARRETERA       = 620
-    SUBIDA_POR_CARRETERA_REV   = 621
-    ASCENSO_BOSQUE         = 622
-    ASCENSO_BOSQUE_REV     = 623
-    CAMINO_ROCOSO          = 624
-    CAMINO_ROCOSO_REV      = 625
+    # SCOTLAND
+    OLD_BUTTERSTONE_MUIR                     = 659
+    ROSEBANK_FARM_REVERSE                    = 661
+    NEWHOUSE_BRIDGE                          = 663
+    ANNBANK_STATION_REVERSE                  = 667
 
-    # Finland (Location.FINLAND = 37) — 12 IDs, named
-    KAKARISTO             = 626
-    KAKARISTO_REV         = 627
-    NOORMARKKU            = 628
-    NOORMARKKU_REV        = 629
-    JYRKYSJARVI           = 630
-    JYRKYSJARVI_REV       = 631
-    KAILAJARVI            = 632
-    KAILAJARVI_REV        = 633
-    PITKAJÄRVI            = 634
-    PITKAJÄRVI_REV        = 635
-    HÄMELAHTI             = 636
-    HÄMELAHTI_REV         = 637
+    # SPAIN
+    COMIENZO_DE_BELLRIU                      = 566
+    FINAL_DE_BELLRIU                         = 574
+    ASCENSO_POR_VALLE_EL_GUALET              = 575
+    VINEDOS_DENTRO_DEL_VALLE_PARRA           = 576
+    ASCENSO_BOSQUE_MONTVERD                  = 577
+    SALIDA_DESDE_MONTVERD                    = 578
+    CAMINO_A_CENTENERA                       = 579
+    DESCENSO_POR_CARRETERA                   = 580
+    VINEDOS_DARDENYA                         = 581
+    VINEDOS_DARDENYA_INVERSA                 = 582
+    SUBIDA_POR_CARRETERA                     = 583
 
-    # Greece (Location.GREECE = 46) — 4 IDs, generic names
-    GREECE_STAGE_1        = 659
-    GREECE_STAGE_2        = 661
-    GREECE_STAGE_3        = 663
-    GREECE_STAGE_4        = 667
+    # SWEDEN
+    ALGSJON_SPRINT                           = 519
+    STOR_JANGEN_SPRINT_REVERSE               = 520
+    OSTRA_HINNSJON                           = 527
+    ALGSJON                                  = 528
 
-    # --- metadata accessors -------------------------------------------------
+    # WALES
+    SWEET_LAMB                               = 437
+    PANT_MAWR                                = 439
+    BIDNO_MOORLAND                           = 441
+    PANT_MAWR_REVERSE                        = 442
+    RIVER_SEVERN_VALLEY                      = 443
+    DYFFRYN_AFON_REVERSE                     = 446
+    FFERM_WYNT_REVERSE                       = 448
 
     @property
     def display_name(self) -> str:
         return _TRACK_META[self]["display_name"]
 
     @property
-    def location(self) -> Location:
+    def location(self) -> "Location":
         return _TRACK_META[self]["location"]
 
     @property
     def length_km(self) -> float:
-        return _TRACK_META[self]["length_km"]
+        return _TRACK_META[self].get("length_km", 0.0)
 
     @property
     def discipline(self) -> str:
@@ -288,138 +283,125 @@ class Track(IntEnum):
     def __str__(self) -> str:
         return self.display_name
 
-
 _TRACK_META: Dict[Track, dict] = {
-    # Sweden — 4 IDs
-    Track.SWEDEN_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.SWEDEN,      "length_km": 7.0},
-    Track.SWEDEN_STAGE_1_REV:    {"display_name": "Stage 1 (Reverse)",          "location": Location.SWEDEN,      "length_km": 7.0},
-    Track.SWEDEN_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.SWEDEN,      "length_km": 7.0},
-    Track.SWEDEN_STAGE_2_REV:    {"display_name": "Stage 2 (Reverse)",          "location": Location.SWEDEN,      "length_km": 7.0},
-
-    # Wales — 7 IDs
-    Track.WALES_STAGE_1:         {"display_name": "Stage 1",                    "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_2:         {"display_name": "Stage 2",                    "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_3:         {"display_name": "Stage 3",                    "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_4:         {"display_name": "Stage 4",                    "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_4_REV:     {"display_name": "Stage 4 (Reverse)",          "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_5:         {"display_name": "Stage 5",                    "location": Location.WALES,       "length_km": 7.0},
-    Track.WALES_STAGE_5_REV:     {"display_name": "Stage 5 (Reverse)",          "location": Location.WALES,       "length_km": 7.0},
-
-    # Argentina — 4 IDs
-    Track.ARGENTINA_STAGE_1:     {"display_name": "Stage 1",                    "location": Location.ARGENTINA,   "length_km": 7.5},
-    Track.ARGENTINA_STAGE_2:     {"display_name": "Stage 2",                    "location": Location.ARGENTINA,   "length_km": 7.5},
-    Track.ARGENTINA_STAGE_3:     {"display_name": "Stage 3",                    "location": Location.ARGENTINA,   "length_km": 7.5},
-    Track.ARGENTINA_STAGE_4:     {"display_name": "Stage 4",                    "location": Location.ARGENTINA,   "length_km": 7.5},
-
-    # New England — 1 ID
-    Track.NEW_ENGLAND_STAGE_1:   {"display_name": "Stage 1",                    "location": Location.NEW_ENGLAND, "length_km": 7.5},
-
-    # Poland — 4 IDs
-    Track.POLAND_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.POLAND,      "length_km": 7.0},
-    Track.POLAND_STAGE_1_REV:    {"display_name": "Stage 1 (Reverse)",          "location": Location.POLAND,      "length_km": 7.0},
-    Track.POLAND_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.POLAND,      "length_km": 7.0},
-    Track.POLAND_STAGE_2_REV:    {"display_name": "Stage 2 (Reverse)",          "location": Location.POLAND,      "length_km": 7.0},
-
-    # Germany — 4 IDs
-    Track.GERMANY_STAGE_1:       {"display_name": "Stage 1",                    "location": Location.GERMANY,     "length_km": 7.0},
-    Track.GERMANY_STAGE_1_REV:   {"display_name": "Stage 1 (Reverse)",          "location": Location.GERMANY,     "length_km": 7.0},
-    Track.GERMANY_STAGE_2:       {"display_name": "Stage 2",                    "location": Location.GERMANY,     "length_km": 7.0},
-    Track.GERMANY_STAGE_2_REV:   {"display_name": "Stage 2 (Reverse)",          "location": Location.GERMANY,     "length_km": 7.0},
-
-    # New Zealand — 12 IDs, named
-    Track.OCEAN_BEACH:           {"display_name": "Ocean Beach",                "location": Location.NEW_ZEALAND, "length_km": 5.0},
-    Track.OCEAN_BEACH_REV:       {"display_name": "Ocean Beach (Reverse)",      "location": Location.NEW_ZEALAND, "length_km": 5.0},
-    Track.WAIMARAMA_POINT:       {"display_name": "Waimarama Point",            "location": Location.NEW_ZEALAND, "length_km": 7.0},
-    Track.WAIMARAMA_POINT_REV:   {"display_name": "Waimarama Point (Reverse)",  "location": Location.NEW_ZEALAND, "length_km": 7.0},
-    Track.TE_AWANGA:             {"display_name": "Te Awanga",                  "location": Location.NEW_ZEALAND, "length_km": 7.0},
-    Track.TE_AWANGA_REV:         {"display_name": "Te Awanga (Reverse)",        "location": Location.NEW_ZEALAND, "length_km": 7.0},
-    Track.ELSTHORPE_SPRINT:      {"display_name": "Elsthorpe Sprint",           "location": Location.NEW_ZEALAND, "length_km": 5.0},
-    Track.ELSTHORPE_SPRINT_REV:  {"display_name": "Elsthorpe Sprint (Reverse)", "location": Location.NEW_ZEALAND, "length_km": 5.0},
-    Track.WAIMARAMA_LONG:        {"display_name": "Waimarama Long",             "location": Location.NEW_ZEALAND, "length_km": 16.0},
-    Track.WAIMARAMA_LONG_REV:    {"display_name": "Waimarama Long (Reverse)",   "location": Location.NEW_ZEALAND, "length_km": 16.0},
-    Track.TARINAKI:              {"display_name": "Tarinaki",                   "location": Location.NEW_ZEALAND, "length_km": 7.0},
-    Track.TARINAKI_REV:          {"display_name": "Tarinaki (Reverse)",         "location": Location.NEW_ZEALAND, "length_km": 7.0},
-
-    # France — 12 IDs, generic names
-    Track.FRANCE_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_1_REV:    {"display_name": "Stage 1 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_2_REV:    {"display_name": "Stage 2 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_3:        {"display_name": "Stage 3",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_3_REV:    {"display_name": "Stage 3 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_4:        {"display_name": "Stage 4",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_4_REV:    {"display_name": "Stage 4 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_5:        {"display_name": "Stage 5",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_5_REV:    {"display_name": "Stage 5 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_6:        {"display_name": "Stage 6",                    "location": Location.ARGENTINA,      "length_km": 7.0},
-    Track.FRANCE_STAGE_6_REV:    {"display_name": "Stage 6 (Reverse)",          "location": Location.ARGENTINA,      "length_km": 7.0},
-
-    # Yas Marina Rallycross — 1 ID
-    Track.YAS_MARINA_STAGE_1:    {"display_name": "Yas Marina",                 "location": Location.MONTALEGRE,  "length_km": 1.2, "discipline": "rallycross"},
-
-    # Montalegre Rallycross — 1 ID
-    Track.MONTALEGRE_STAGE_1:    {"display_name": "Montalegre",                 "location": Location.MONTALEGRE, "length_km": 1.0, "discipline": "rallycross"},
-
-    # Australia — 10 IDs, generic names, UNVERIFIED
-    Track.AUSTRALIA_STAGE_1:     {"display_name": "Stage 1",                    "location": Location.AUSTRALIA,   "length_km": 7.0},
-    Track.AUSTRALIA_STAGE_2:     {"display_name": "Stage 2",                    "location": Location.AUSTRALIA,   "length_km": 7.0},
-    Track.AUSTRALIA_STAGE_2_REV: {"display_name": "Stage 2 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 7.0},
-    Track.AUSTRALIA_STAGE_3:     {"display_name": "Stage 3",                    "location": Location.AUSTRALIA,   "length_km": 7.0},
-    Track.AUSTRALIA_STAGE_3_REV: {"display_name": "Stage 3 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 7.0},
-    Track.AUSTRALIA_STAGE_4:     {"display_name": "Stage 4",                    "location": Location.AUSTRALIA,   "length_km": 12.0},
-    Track.AUSTRALIA_STAGE_4_REV: {"display_name": "Stage 4 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 12.0},
-    Track.AUSTRALIA_STAGE_5_REV: {"display_name": "Stage 5 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 5.0},
-    Track.AUSTRALIA_STAGE_6:     {"display_name": "Stage 6",                    "location": Location.AUSTRALIA,   "length_km": 5.0},
-    Track.AUSTRALIA_STAGE_6_REV: {"display_name": "Stage 6 (Reverse)",          "location": Location.AUSTRALIA,   "length_km": 5.0},
-
-    # Scotland — 12 IDs, named
-    Track.NEWHOUSE_BRIDGE:          {"display_name": "Newhouse Bridge",             "location": Location.SCOTLAND,    "length_km": 12.9},
-    Track.NEWHOUSE_BRIDGE_REV:      {"display_name": "Newhouse Bridge (Reverse)",   "location": Location.SCOTLAND,    "length_km": 12.9},
-    Track.SOUTH_MORNINGSIDE:        {"display_name": "South Morningside",           "location": Location.SCOTLAND,    "length_km": 12.5},
-    Track.SOUTH_MORNINGSIDE_REV:    {"display_name": "South Morningside (Reverse)", "location": Location.SCOTLAND,    "length_km": 12.5},
-    Track.GLENFINNAN:               {"display_name": "Glenfinnan",                  "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.GLENFINNAN_REV:           {"display_name": "Glenfinnan (Reverse)",        "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.ANNBANK_STATION:          {"display_name": "Annbank Station",             "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.ANNBANK_STATION_REV:      {"display_name": "Annbank Station (Reverse)",   "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.OLD_BUTTERSTONE_MUIR:     {"display_name": "Old Butterstone Muir",        "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.OLD_BUTTERSTONE_MUIR_REV: {"display_name": "Old Butterstone Muir (Reverse)", "location": Location.SCOTLAND, "length_km": 7.0},
-    Track.ROSEBANK_FARM:            {"display_name": "Rosebank Farm",               "location": Location.SCOTLAND,    "length_km": 7.0},
-    Track.ROSEBANK_FARM_REV:        {"display_name": "Rosebank Farm (Reverse)",     "location": Location.SCOTLAND,    "length_km": 7.0},
-
-    # Spain — 11 IDs. Descenso (580) is verified in-game; the rest are from
-    # community docs and still unverified.
-    Track.DESCENSO_POR_CARRETERA:       {"display_name": "Descenso por carretera",          "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CENTENERA:                    {"display_name": "Centenera",                       "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CENTENERA_REV:                {"display_name": "Centenera (Reverse)",             "location": Location.SPAIN,       "length_km": 7.0},
-    Track.RIBADELLES:                   {"display_name": "Ribadelles",                      "location": Location.SPAIN,       "length_km": 14.0},
-    Track.RIBADELLES_REV:               {"display_name": "Ribadelles (Reverse)",            "location": Location.SPAIN,       "length_km": 14.0},
-    Track.SUBIDA_POR_CARRETERA:         {"display_name": "Subida por carretera",            "location": Location.SPAIN,       "length_km": 7.0},
-    Track.SUBIDA_POR_CARRETERA_REV:     {"display_name": "Subida por carretera (Reverse)",  "location": Location.SPAIN,       "length_km": 7.0},
-    Track.ASCENSO_BOSQUE:               {"display_name": "Ascenso bosque",                  "location": Location.SPAIN,       "length_km": 7.0},
-    Track.ASCENSO_BOSQUE_REV:           {"display_name": "Ascenso bosque (Reverse)",        "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CAMINO_ROCOSO:                {"display_name": "Camino rocoso",                   "location": Location.SPAIN,       "length_km": 7.0},
-    Track.CAMINO_ROCOSO_REV:            {"display_name": "Camino rocoso (Reverse)",         "location": Location.SPAIN,       "length_km": 7.0},
-
-    # Finland — 12 IDs, named
-    Track.KAKARISTO:             {"display_name": "Kakaristo",                   "location": Location.FINLAND,     "length_km": 8.0},
-    Track.KAKARISTO_REV:         {"display_name": "Kakaristo (Reverse)",         "location": Location.FINLAND,     "length_km": 8.0},
-    Track.NOORMARKKU:            {"display_name": "Noormarkku",                  "location": Location.FINLAND,     "length_km": 7.0},
-    Track.NOORMARKKU_REV:        {"display_name": "Noormarkku (Reverse)",        "location": Location.FINLAND,     "length_km": 7.0},
-    Track.JYRKYSJARVI:           {"display_name": "Jyrkysjarvi",                 "location": Location.FINLAND,     "length_km": 14.0},
-    Track.JYRKYSJARVI_REV:       {"display_name": "Jyrkysjarvi (Reverse)",       "location": Location.FINLAND,     "length_km": 14.0},
-    Track.KAILAJARVI:            {"display_name": "Kailajarvi",                  "location": Location.FINLAND,     "length_km": 7.0},
-    Track.KAILAJARVI_REV:        {"display_name": "Kailajarvi (Reverse)",        "location": Location.FINLAND,     "length_km": 7.0},
-    Track.PITKAJÄRVI:            {"display_name": "Pitkajärvi",                  "location": Location.FINLAND,     "length_km": 7.0},
-    Track.PITKAJÄRVI_REV:        {"display_name": "Pitkajärvi (Reverse)",        "location": Location.FINLAND,     "length_km": 7.0},
-    Track.HÄMELAHTI:             {"display_name": "Hämelahti",                   "location": Location.FINLAND,     "length_km": 7.0},
-    Track.HÄMELAHTI_REV:         {"display_name": "Hämelahti (Reverse)",         "location": Location.FINLAND,     "length_km": 7.0},
-
-    # Greece — 4 IDs, generic names
-    Track.GREECE_STAGE_1:        {"display_name": "Stage 1",                    "location": Location.GREECE,      "length_km": 10.4},
-    Track.GREECE_STAGE_2:        {"display_name": "Stage 2",                    "location": Location.GREECE,      "length_km": 9.5},
-    Track.GREECE_STAGE_3:        {"display_name": "Stage 3",                    "location": Location.GREECE,      "length_km": 7.0},
-    Track.GREECE_STAGE_4:        {"display_name": "Stage 4",                    "location": Location.GREECE,      "length_km": 7.0},
+    Track.LAS_JUNTAS: {"display_name": "Las Juntas", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.VALLE_DE_LOS_PUENTES: {"display_name": "Valle de los puentes", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.CAMINO_A_LA_PUERTA: {"display_name": "Camino a La Puerta", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.CAMINO_DE_ACANTILADOS_Y_ROCAS: {"display_name": "Camino de acantilados y rocas", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.EL_RODEO: {"display_name": "El Rodeo", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.LA_MERCED: {"display_name": "La Merced", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.CAMINO_DE_ACANTILADOS_Y_ROCAS_INVERSO: {"display_name": "Camino de acantilados y rocas inverso", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.VALLE_DE_LOS_PUENTES_A_LA_INVERSA: {"display_name": "Valle de los puentes a la inversa", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.MIRAFLORES: {"display_name": "Miraflores", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.SAN_ISIDRO: {"display_name": "San Isidro", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.CAMINO_A_CONETA: {"display_name": "Camino a Coneta", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.HUILLAPRIMA: {"display_name": "Huillaprima", "location": Location.ARGENTINA, "length_km": 0.0},
+    Track.MOUNT_KAYE_PASS: {"display_name": "Mount Kaye Pass", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.CHANDLERS_CREEK: {"display_name": "Chandlers Creek", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.MOUNT_KAYE_PASS_REVERSE: {"display_name": "Mount Kaye Pass Reverse", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.ROCKTON_PLAINS: {"display_name": "Rockton Plains", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.YAMBULLA_MOUNTAIN_DESCENT: {"display_name": "Yambulla Mountain Descent", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.YAMBULLA_MOUNTAIN_ASCENT: {"display_name": "Yambulla Mountain Ascent", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.ROCKTON_PLAINS_REVERSE: {"display_name": "Rockton Plains Reverse", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.CHANDLERS_CREEK_REVERSE: {"display_name": "Chandlers Creek Reverse", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.NOORINBEE_RIDGE_ASCENT: {"display_name": "Noorinbee Ridge Ascent", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.TAYLOR_FARM_SPRINT: {"display_name": "Taylor Farm Sprint", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.BONDI_FOREST: {"display_name": "Bondi Forest", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.NOORINBEE_RIDGE_DESCENT: {"display_name": "Noorinbee Ridge Descent", "location": Location.AUSTRALIA, "length_km": 0.0},
+    Track.FULL_CIRCUIT: {"display_name": "Full Circuit", "location": Location.BARCELONA, "length_km": 0.0},
+    Track.KAKARISTO: {"display_name": "Kakaristo", "location": Location.FINLAND, "length_km": 0.0},
+    Track.PITKAJARVI: {"display_name": "Pitkajarvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.KOTAJARVI: {"display_name": "Kotajarvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.OKSALA: {"display_name": "Oksala", "location": Location.FINLAND, "length_km": 0.0},
+    Track.OBERSTEIN: {"display_name": "Oberstein", "location": Location.GERMANY, "length_km": 0.0},
+    Track.HAMMERSTEIN: {"display_name": "Hammerstein", "location": Location.GERMANY, "length_km": 0.0},
+    Track.WALDAUFSTIEG: {"display_name": "Waldaufstieg", "location": Location.GERMANY, "length_km": 0.0},
+    Track.INNERER_FELD_SPRINT: {"display_name": "Innerer Feld-Sprint", "location": Location.GERMANY, "length_km": 0.0},
+    Track.FOURKETA_KOURVA: {"display_name": "Fourkéta Kourva", "location": Location.GREECE, "length_km": 0.0},
+    Track.AMPELONAS_ORMI: {"display_name": "Ampelonas Ormi", "location": Location.GREECE, "length_km": 0.0},
+    Track.OUREA_SPEVSI: {"display_name": "Ourea Spevsi", "location": Location.GREECE, "length_km": 0.0},
+    Track.ABIES_KOILEDA: {"display_name": "Abies Koiléda", "location": Location.GREECE, "length_km": 0.0},
+    Track.FULL_CIRCUIT_478: {"display_name": "Full Circuit", "location": Location.HELL, "length_km": 0.0},
+    Track.FULL_CIRCUIT_537: {"display_name": "Full Circuit", "location": Location.MONTALEGRE, "length_km": 0.0},
+    Track.NORTH_FORK_PASS: {"display_name": "North Fork Pass", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.NORTH_FORK_PASS_REVERSE: {"display_name": "North Fork Pass Reverse", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.HANCOCK_CREEK_BURST: {"display_name": "Hancock Creek Burst", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.FULLER_MOUNTAIN_DESCENT: {"display_name": "Fuller Mountain Descent", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.FULLER_MOUNTAIN_ASCENT: {"display_name": "Fuller Mountain Ascent", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.FURY_LAKE_DEPART: {"display_name": "Fury Lake Depart", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.BEAVER_CREEK_TRAIL_FORWARD: {"display_name": "Beaver Creek Trail Forward", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.BEAVER_CREEK_TRAIL_REVERSE: {"display_name": "Beaver Creek Trail Reverse", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.HANCOCK_HILL_SPRINT_FORWARD: {"display_name": "Hancock Hill Sprint Forward", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.TOLT_VALLEY_SPRINT_REVERSE: {"display_name": "Tolt Valley Sprint Reverse", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.TOLT_VALLEY_SPRINT_FORWARD: {"display_name": "Tolt Valley Sprint Forward", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.HANCOCK_HILL_SPRINT_REVERSE: {"display_name": "Hancock Hill Sprint Reverse", "location": Location.NEW_ENGLAND, "length_km": 0.0},
+    Track.TE_AWANGA_FORWARD: {"display_name": "Te Awanga Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.WAIMARAMA_POINT_FORWARD: {"display_name": "Waimarama Point Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.OCEAN_BEACH: {"display_name": "Ocean Beach", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.TE_AWANGA_SPRINT_FORWARD: {"display_name": "Te Awanga Sprint Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.OCEAN_BEACH_SPRINT_FORWARD: {"display_name": "Ocean Beach Sprint Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.OCEAN_BEACH_SPRINT_REVERSE: {"display_name": "Ocean Beach Sprint Reverse", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.TE_AWANGA_SPRINT_REVERSE: {"display_name": "Te Awanga Sprint Reverse", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.WAIMARAMA_POINT_REVERSE: {"display_name": "Waimarama Point Reverse", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.ELSTHORPE_SPRINT_FORWARD: {"display_name": "Elsthorpe Sprint Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.WAIMARAMA_SPRINT_FORWARD: {"display_name": "Waimarama Sprint Forward", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.WAIMARAMA_SPRINT_REVERSE: {"display_name": "Waimarama Sprint Reverse", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.ELSTHORPE_SPRINT_REVERSE: {"display_name": "Elsthorpe Sprint Reverse", "location": Location.NEW_ZEALAND, "length_km": 0.0},
+    Track.ZAROBKA: {"display_name": "Zarobka", "location": Location.POLAND, "length_km": 0.0},
+    Track.ZAGORZE: {"display_name": "Zagorze", "location": Location.POLAND, "length_km": 0.0},
+    Track.KOPINA: {"display_name": "Kopina", "location": Location.POLAND, "length_km": 0.0},
+    Track.MARYNKA: {"display_name": "Marynka", "location": Location.POLAND, "length_km": 0.0},
+    Track.JEZIORO_ROTCZE: {"display_name": "Jezioro Rotcze", "location": Location.POLAND, "length_km": 0.0},
+    Track.ZIENKI: {"display_name": "Zienki", "location": Location.POLAND, "length_km": 0.0},
+    Track.CZARNY_LAS: {"display_name": "Czarny Las", "location": Location.POLAND, "length_km": 0.0},
+    Track.LEJNO: {"display_name": "Lejno", "location": Location.POLAND, "length_km": 0.0},
+    Track.JAGODNO: {"display_name": "Jagodno", "location": Location.POLAND, "length_km": 0.0},
+    Track.JEZIORO_LUKIE: {"display_name": "Jezioro Lukie", "location": Location.POLAND, "length_km": 0.0},
+    Track.OLD_BUTTERSTONE_MUIR: {"display_name": "Old Butterstone Muir", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.ROSEBANK_FARM_REVERSE: {"display_name": "Rosebank Farm Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.NEWHOUSE_BRIDGE: {"display_name": "Newhouse Bridge", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.ANNBANK_STATION_REVERSE: {"display_name": "Annbank Station Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.COMIENZO_DE_BELLRIU: {"display_name": "Comienzo De Bellriu", "location": Location.SPAIN, "length_km": 0.0},
+    Track.FINAL_DE_BELLRIU: {"display_name": "Final de Bellriu", "location": Location.SPAIN, "length_km": 0.0},
+    Track.ASCENSO_POR_VALLE_EL_GUALET: {"display_name": "Ascenso por valle el Gualet", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DENTRO_DEL_VALLE_PARRA: {"display_name": "Vinedos dentro del valle Parra", "location": Location.SPAIN, "length_km": 0.0},
+    Track.ASCENSO_BOSQUE_MONTVERD: {"display_name": "Ascenso bosque Montverd", "location": Location.SPAIN, "length_km": 0.0},
+    Track.SALIDA_DESDE_MONTVERD: {"display_name": "Salida desde Montverd", "location": Location.SPAIN, "length_km": 0.0},
+    Track.CAMINO_A_CENTENERA: {"display_name": "Camino a Centenera", "location": Location.SPAIN, "length_km": 0.0},
+    Track.DESCENSO_POR_CARRETERA: {"display_name": "Descenso por carretera", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DARDENYA: {"display_name": "Vinedos Dardenya", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DARDENYA_INVERSA: {"display_name": "Vinedos Dardenya inversa", "location": Location.SPAIN, "length_km": 0.0},
+    Track.SUBIDA_POR_CARRETERA: {"display_name": "Subida por carretera", "location": Location.SPAIN, "length_km": 0.0},
+    Track.ALGSJON_SPRINT: {"display_name": "Algsjon Sprint", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.STOR_JANGEN_SPRINT_REVERSE: {"display_name": "Stor-jangen Sprint Reverse", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.OSTRA_HINNSJON: {"display_name": "Östra Hinnsjön", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.ALGSJON: {"display_name": "Algsjon", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.SWEET_LAMB: {"display_name": "Sweet Lamb", "location": Location.WALES, "length_km": 0.0},
+    Track.PANT_MAWR: {"display_name": "Pant Mawr", "location": Location.WALES, "length_km": 0.0},
+    Track.BIDNO_MOORLAND: {"display_name": "Bidno Moorland", "location": Location.WALES, "length_km": 0.0},
+    Track.PANT_MAWR_REVERSE: {"display_name": "Pant Mawr Reverse", "location": Location.WALES, "length_km": 0.0},
+    Track.RIVER_SEVERN_VALLEY: {"display_name": "River Severn Valley", "location": Location.WALES, "length_km": 0.0},
+    Track.DYFFRYN_AFON_REVERSE: {"display_name": "Dyffryn Afon Reverse", "location": Location.WALES, "length_km": 0.0},
+    Track.FFERM_WYNT_REVERSE: {"display_name": "Fferm Wynt Reverse", "location": Location.WALES, "length_km": 0.0},
 }
+
+# Generated from 99 tracks across 15 locations.
+#   ARGENTINA: 12 tracks
+#   AUSTRALIA: 12 tracks
+#   BARCELONA: 1 tracks
+#   FINLAND: 4 tracks
+#   GERMANY: 4 tracks
+#   GREECE: 4 tracks
+#   HELL: 1 tracks
+#   MONTALEGRE: 1 tracks
+#   NEW_ENGLAND: 12 tracks
+#   NEW_ZEALAND: 12 tracks
+#   POLAND: 10 tracks
+#   SCOTLAND: 4 tracks
+#   SPAIN: 11 tracks
+#   SWEDEN: 4 tracks
+#   WALES: 7 tracks
+
 
 
 # ---------------------------------------------------------------------------
@@ -727,73 +709,62 @@ WeatherPreset = WeatherBucket
 
 
 # ---------------------------------------------------------------------------
-# StageConditions composite-ID decoder
+# StageConditions composite-ID labels (verified in-game 2026-04-11)
 # ---------------------------------------------------------------------------
-# Hypothesis from the reverse-engineering notes:
-#   high nibble = surface state (0 = dry, 1 = damp, 2 = wet/flooded)
-#   low nibble  = (TimeOfDay × Weather) preset index within that surface state
-#
-# Observed values from upstream club captures (decomposed):
-#   1  = (0,1)   9  = (0,9)    20 = (1,4)   40 = (2,8)
-#   3  = (0,3)   11 = (0,11)   26 = (1,10)  42 = (2,10)
-#   4  = (0,4)   16 = (1,0)    35 = (2,3)   47 = (2,15)
-#   5  = (0,5)   17 = (1,1)    38 = (2,6)
-#
-# So the observed high-nibble set is {0,1,2} and the observed low-nibble set
-# spans 0..15.  This is a working hypothesis only — low-nibble labels still
-# need to be pinned via in-game capture.
+# Earlier notes hypothesised a packed-nibble encoding (high=surface,
+# low=preset) but the in-game discovery round REJECTED that theory.  Example:
+# SC=9 has high nibble 0 but is "Wet"; SC=16 has high nibble 1 but is "Dry".
+# The integer is an arbitrary index into a table the game maintains
+# internally.  Every StageConditions value observed in upstream club data has
+# been pinned below by probing it in-game on Spain / Descenso and OCR'ing
+# the Event Details panel.
+
+STAGE_CONDITIONS_LABELS: Dict[int, str] = {
+    1:  "Daytime / Clear / Dry",
+    3:  "Night / Clear / Dry",
+    4:  "Dusk / Cloudy / Dry",
+    5:  "Dusk / Overcast / Dry",
+    9:  "Daytime / Heavy Rain / Wet",
+    11: "Daytime / Cloudy / Wet",
+    16: "Sunset / Cloudy / Dry",
+    17: "Sunset / Overcast / Dry",
+    20: "Sunset / Cloudy / Wet",
+    26: "Daytime / Showers / Wet",
+    35: "Sunset / Light Showers / Wet",
+    38: "Daytime / Overcast / Dry",
+    39: "Sunset / Light Rain / Wet",
+    40: "Dusk / Showers / Wet",
+    42: "Sunset / Cloudy / Dry",   # matches SC=16 in our OCR — needs re-probe
+    47: "Sunset / Clear / Dry",
+}
 
 
-class StageSurfaceState(IntEnum):
-    """High nibble of StageConditions — wetness state of the surface."""
-    DRY          = 0
-    DAMP         = 1
-    WET          = 2
-    # 3 may exist for ice/snowpack but has not been observed in captures.
+def stage_conditions_label(value: int) -> str:
+    """Return the human-readable label for a StageConditions / ConditionsId.
 
-    @property
-    def label(self) -> str:
-        return {
-            StageSurfaceState.DRY:  "Dry",
-            StageSurfaceState.DAMP: "Damp",
-            StageSurfaceState.WET:  "Wet",
-        }[self]
-
-    def __str__(self) -> str:
-        return self.label
-
-
-def decode_stage_conditions(value: int) -> Dict[str, Any]:
-    """Decompose a composite StageConditions integer into its parts.
-
-    Returns a dict with:
-        surface_state:      StageSurfaceState or None if unknown
-        surface_state_int:  raw high nibble (always valid)
-        preset_index:       raw low nibble (time-of-day × weather index)
-        label:              human-readable string, best-effort
+    Falls back to ``"Conditions #N"`` for unknown values so the web leaderboard
+    can display something until the ID is mapped in-game.
     """
-    high = (value >> 4) & 0xF
-    low = value & 0xF
-    try:
-        state: Optional[StageSurfaceState] = StageSurfaceState(high)
-        state_label = state.label
-    except ValueError:
-        state = None
-        state_label = f"Surface#{high}"
-    return {
-        "surface_state":     state,
-        "surface_state_int": high,
-        "preset_index":      low,
-        "label":              f"{state_label} / Preset #{low}",
-    }
+    return STAGE_CONDITIONS_LABELS.get(int(value), f"Conditions #{int(value)}")
 
 
 # StageConditions integer values observed in the wild (upstream club data +
-# time-trial captures).  Every one of these must be resolvable by the web
-# leaderboard page, even if we only know the surface-state half of the label.
-OBSERVED_STAGE_CONDITIONS: List[int] = [
-    1, 3, 4, 5, 9, 11, 16, 17, 20, 26, 35, 38, 39, 40, 42, 47,
-]
+# time-trial captures).  Kept as a sorted list for UI dropdowns.
+OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
+
+
+def decode_stage_conditions(value: int) -> Dict[str, Any]:
+    """Backwards-compatible shim used by scripts/watch_testing.py.
+
+    Returns a dict describing the stage-conditions integer using the verified
+    STAGE_CONDITIONS_LABELS table.  The old packed-nibble fields are kept for
+    compatibility but are no longer authoritative.
+    """
+    return {
+        "label":             stage_conditions_label(value),
+        "surface_state_int": (value >> 4) & 0xF,
+        "preset_index":      value & 0xF,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -902,13 +873,51 @@ RACE_STATUS: Dict[int, str] = {int(r): r.label for r in RaceStatus}
 
 
 # ---------------------------------------------------------------------------
+# Track verification
+# ---------------------------------------------------------------------------
+# Every entry in this set has been confirmed in-game on 2026-04-11 via the
+# automated enum-mapping discovery round: the server served a probe event
+# with the given TrackModelId, and the stage name shown on the Event Details
+# panel matched the stage recorded in runtime/discovery/track_mapping.json.
+#
+# Add a track id to this set only after confirming in-game that the stage
+# loading screen matches its assigned location and display name.
+
+VERIFIED_TRACK_IDS: set[int] = {
+    437, 439, 441, 442, 443, 446, 448, 462, 464, 467, 469, 472,
+    478, 480, 490, 496, 511, 512, 515, 516, 519, 520, 527, 528,
+    537, 538, 566, 568, 569, 570, 571, 572, 573, 574, 575, 576,
+    577, 578, 579, 580, 581, 582, 583, 584, 585, 586, 587, 588,
+    589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 600,
+    601, 602, 603, 604, 605, 606, 607, 608, 609, 610, 611, 612,
+    613, 614, 615, 616, 617, 620, 621, 622, 623, 624, 625, 626,
+    627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 659,
+    661, 663, 667,
+}
+
+
+def is_track_verified(track_id: int) -> bool:
+    return int(track_id) in VERIFIED_TRACK_IDS
+
+
+# ---------------------------------------------------------------------------
 # Helpers — same signatures as before; now implemented via enums
 # ---------------------------------------------------------------------------
 
 def get_tracks_for_location(location_id: int) -> List[int]:
-    """Return all known TrackModelIds (as ints) for a given LocationId."""
+    """Return verified TrackModelIds (as ints) for a given LocationId.
+
+    Only tracks in ``VERIFIED_TRACK_IDS`` are returned.  Returning an
+    unverified track to the game client causes the wrong stage to load
+    (different location from what the user picked), so unverified tracks
+    are filtered out.  Callers should treat an empty list as "we don't
+    have a known-good stage for this location yet".
+    """
     loc = Location(location_id)
-    return [int(t) for t in Track if _TRACK_META[t]["location"] == loc]
+    return [
+        int(t) for t in Track
+        if _TRACK_META[t]["location"] == loc and int(t) in VERIFIED_TRACK_IDS
+    ]
 
 
 def get_vehicles_for_class(class_id: int) -> List[int]:

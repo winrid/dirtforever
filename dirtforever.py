@@ -416,7 +416,7 @@ def run_gui():
     btn_frame.pack(fill="x", padx=20, pady=(5, 8))
 
     start_btn = tk.Button(
-        btn_frame, text="START DIRTFOREVER", font=("Segoe UI", 11, "bold"),
+        btn_frame, text="START", font=("Segoe UI", 11, "bold"),
         bg=GREEN, fg="#111", activebackground="#1a9e4a", activeforeground="#111",
         relief="flat", cursor="hand2", padx=20, pady=10,
     )
