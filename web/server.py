@@ -64,6 +64,7 @@ SMTP_PASS = os.environ.get('EMAIL_HOST_PASSWORD', '')
 SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
+CRON_API_KEY = os.environ.get('CRON_API_KEY', '')
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.environ.get('DATA_DIR', os.path.join(BASE, 'data'))
@@ -1748,6 +1749,33 @@ def api_game_auth() -> Response | tuple[Response, int]:
         'linked': False,
         'steam_name': steam_name,
     })
+
+
+# ── Cron API ─────────────────────────────────────────────
+# Externally triggered (cron, systemd timer, uptime monitor, etc.).
+# Authenticated via the X-Cron-Key header matching CRON_API_KEY.
+# The handler is idempotent — safe to invoke off-schedule.
+
+
+def cron_auth_required(f: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(f)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if not CRON_API_KEY:
+            return _api_error('cron disabled (CRON_API_KEY not set)', 503)
+        supplied = request.headers.get('X-Cron-Key', '')
+        if not hmac.compare_digest(supplied, CRON_API_KEY):
+            return _api_error('unauthorized', 401)
+        return f(*args, **kwargs)
+    return wrapper
+
+
+@app.route('/api/cron', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+@cron_auth_required
+def api_cron() -> Response:
+    from events_generator import run_cron_tick  # lazy import to avoid cycles
+    result = run_cron_tick(datetime.utcnow())
+    return jsonify({'ok': True, **result})
 
 
 # ── Main ─────────────────────────────────────────────────

@@ -914,9 +914,10 @@ button { cursor: pointer; font-family: inherit; }
     flex-shrink: 0;
 }
 
-.badge-daily   { background: rgba(34,197,94,0.15); color: var(--green); }
-.badge-weekly  { background: rgba(168,85,247,0.15); color: var(--purple); }
-.badge-monthly { background: rgba(232,114,12,0.15); color: var(--accent-bright); }
+.badge-daily    { background: rgba(34,197,94,0.15); color: var(--green); }
+.badge-weekly   { background: rgba(168,85,247,0.15); color: var(--purple); }
+.badge-monthly  { background: rgba(232,114,12,0.15); color: var(--accent-bright); }
+.badge-official { background: rgba(251,191,36,0.18); color: #fbbf24; }
 
 .badge-xs { font-size: .6rem; padding: .15rem .4rem; }
 

@@ -30,6 +30,7 @@
         <a href="/events/{{ event.id }}" class="event-card reveal" style="animation-delay:{{ loop.index0 * 0.08 }}s">
             <div class="event-card-top">
                 <span class="event-badge badge-{{ event.type }}">{{ event.type | upper }}</span>
+                {% if event.system %}<span class="event-badge badge-official">OFFICIAL</span>{% endif %}
                 <span class="event-card-conditions">{{ event.conditions }}</span>
             </div>
             <h3 class="event-card-name">{{ event.name }}</h3>
@@ -65,7 +66,9 @@
                     <span class="countdown-icon">&#9201;</span>
                     {{ event.end_time | countdown }}
                 </span>
-                {% if event.club_id %}
+                {% if event.system %}
+                <span class="event-card-club text-muted">Official event</span>
+                {% elif event.club_id %}
                 <span class="event-card-club text-muted">Club event</span>
                 {% endif %}
             </div>
