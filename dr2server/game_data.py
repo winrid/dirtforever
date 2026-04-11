@@ -56,13 +56,17 @@ class _LabelMixin(IntEnum):
 class Location(IntEnum):
     """Rally/rallycross location IDs (LocationId in the EgoNet protocol).
 
-    Verified by in-game testing — map names are from the stage loading screen.
+    Verified by in-game testing — map names are from the Event Details
+    header in the Racenet Clubs UI (OCR'd via the automated discovery
+    pipeline on 2026-04-11).
     """
+    MONTE_CARLO     = 4   # Monte Carlo / Monaco (rally, Season 1 DLC)
     GREECE          = 2   # Greece rally
     WALES           = 3   # Wales rally
     GERMANY         = 5   # Germany rally
     LYDDEN_HILL     = 9   # Lydden Hill RX (England)
     HELL            = 10  # Hell RX (Norway)
+    HOLJES          = 11  # Höljes RX (Sweden)
     FINLAND         = 13  # Finland rally
     SWEDEN          = 14  # Sweden rally
     AUSTRALIA       = 16  # Australia rally
@@ -70,11 +74,18 @@ class Location(IntEnum):
     LOHEAC          = 18  # Loheac RX (France)
     MONTALEGRE      = 19  # Montalegre RX (Portugal)
     BARCELONA       = 20  # Barcelona RX (Spain)
+    TWIN_PEAKS      = 22  # Twin Peaks freeplay (Washington, USA)
+    TROIS_RIVIERES  = 30  # Trois-Rivières RX (Canada)
     SPAIN           = 31  # Spain rally (Ribadelles)
     NEW_ZEALAND     = 34  # New Zealand rally
     POLAND          = 36  # Poland rally
     NEW_ENGLAND     = 37  # New England rally (USA)
     SILVERSTONE     = 38  # Silverstone RX (England)
+    METTET          = 39  # Mettet RX (Belgium)
+    ESTERING        = 40  # Estering RX (Germany)
+    BIKERNIEKI      = 41  # Bikernieki / Riga RX (Latvia)
+    KILLARNEY       = 42  # Killarney RX (South Africa)
+    YAS_MARINA      = 43  # Yas Marina RX (Abu Dhabi, UAE)
     SCOTLAND        = 46  # Scotland rally
 
     # --- metadata accessors -------------------------------------------------
@@ -96,24 +107,33 @@ class Location(IntEnum):
 
 
 _LOCATION_META: Dict[Location, dict] = {
-    Location.GREECE:      {"display_name": "Greece",         "country": "Greece",      "discipline": "rally"},
-    Location.WALES:       {"display_name": "Wales",          "country": "UK",          "discipline": "rally"},
-    Location.GERMANY:     {"display_name": "Germany",        "country": "Germany",     "discipline": "rally"},
-    Location.LYDDEN_HILL: {"display_name": "Lydden Hill",    "country": "England",     "discipline": "rallycross"},
-    Location.HELL:        {"display_name": "Hell",           "country": "Norway",      "discipline": "rallycross"},
-    Location.FINLAND:     {"display_name": "Finland",        "country": "Finland",     "discipline": "rally"},
-    Location.SWEDEN:      {"display_name": "Sweden",         "country": "Sweden",      "discipline": "rally"},
-    Location.AUSTRALIA:   {"display_name": "Australia",      "country": "Australia",   "discipline": "rally"},
-    Location.ARGENTINA:   {"display_name": "Argentina",      "country": "Argentina",   "discipline": "rally"},
-    Location.LOHEAC:      {"display_name": "Loheac",         "country": "France",      "discipline": "rallycross"},
-    Location.MONTALEGRE:  {"display_name": "Montalegre",     "country": "Portugal",    "discipline": "rallycross"},
-    Location.BARCELONA:   {"display_name": "Barcelona",      "country": "Spain",       "discipline": "rallycross"},
-    Location.SPAIN:       {"display_name": "Spain",          "country": "Spain",       "discipline": "rally"},
-    Location.NEW_ZEALAND: {"display_name": "New Zealand",    "country": "New Zealand", "discipline": "rally"},
-    Location.POLAND:      {"display_name": "Poland",         "country": "Poland",      "discipline": "rally"},
-    Location.NEW_ENGLAND: {"display_name": "New England",    "country": "USA",         "discipline": "rally"},
-    Location.SILVERSTONE: {"display_name": "Silverstone",    "country": "England",     "discipline": "rallycross"},
-    Location.SCOTLAND:    {"display_name": "Scotland",       "country": "UK",          "discipline": "rally"},
+    Location.MONTE_CARLO:    {"display_name": "Monte Carlo",      "country": "Monaco",       "discipline": "rally"},
+    Location.GREECE:         {"display_name": "Greece",           "country": "Greece",       "discipline": "rally"},
+    Location.WALES:          {"display_name": "Wales",            "country": "UK",           "discipline": "rally"},
+    Location.GERMANY:        {"display_name": "Germany",          "country": "Germany",      "discipline": "rally"},
+    Location.LYDDEN_HILL:    {"display_name": "Lydden Hill",      "country": "England",      "discipline": "rallycross"},
+    Location.HELL:           {"display_name": "Hell",             "country": "Norway",       "discipline": "rallycross"},
+    Location.HOLJES:         {"display_name": "Höljes",           "country": "Sweden",       "discipline": "rallycross"},
+    Location.FINLAND:        {"display_name": "Finland",          "country": "Finland",      "discipline": "rally"},
+    Location.SWEDEN:         {"display_name": "Sweden",           "country": "Sweden",       "discipline": "rally"},
+    Location.AUSTRALIA:      {"display_name": "Australia",        "country": "Australia",    "discipline": "rally"},
+    Location.ARGENTINA:      {"display_name": "Argentina",        "country": "Argentina",    "discipline": "rally"},
+    Location.LOHEAC:         {"display_name": "Loheac",           "country": "France",       "discipline": "rallycross"},
+    Location.MONTALEGRE:     {"display_name": "Montalegre",       "country": "Portugal",     "discipline": "rallycross"},
+    Location.BARCELONA:      {"display_name": "Barcelona",        "country": "Spain",        "discipline": "rallycross"},
+    Location.TWIN_PEAKS:     {"display_name": "Twin Peaks",       "country": "USA",          "discipline": "rally"},
+    Location.TROIS_RIVIERES: {"display_name": "Trois-Rivières",   "country": "Canada",       "discipline": "rallycross"},
+    Location.SPAIN:          {"display_name": "Spain",            "country": "Spain",        "discipline": "rally"},
+    Location.NEW_ZEALAND:    {"display_name": "New Zealand",      "country": "New Zealand",  "discipline": "rally"},
+    Location.POLAND:         {"display_name": "Poland",           "country": "Poland",       "discipline": "rally"},
+    Location.NEW_ENGLAND:    {"display_name": "New England",      "country": "USA",          "discipline": "rally"},
+    Location.SILVERSTONE:    {"display_name": "Silverstone",      "country": "England",      "discipline": "rallycross"},
+    Location.METTET:         {"display_name": "Mettet",           "country": "Belgium",      "discipline": "rallycross"},
+    Location.ESTERING:       {"display_name": "Estering",         "country": "Germany",      "discipline": "rallycross"},
+    Location.BIKERNIEKI:     {"display_name": "Bikernieki",       "country": "Latvia",       "discipline": "rallycross"},
+    Location.KILLARNEY:      {"display_name": "Killarney",        "country": "South Africa", "discipline": "rallycross"},
+    Location.YAS_MARINA:     {"display_name": "Yas Marina",       "country": "UAE",          "discipline": "rallycross"},
+    Location.SCOTLAND:       {"display_name": "Scotland",         "country": "UK",           "discipline": "rally"},
 }
 
 
