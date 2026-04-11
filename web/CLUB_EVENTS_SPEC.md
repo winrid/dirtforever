@@ -83,24 +83,27 @@ Locations with no confirmed track IDs (won't appear in-game): Monte Carlo.
 
 Use these exact strings for the `car_class` field:
 
-| Class | Era/Type |
-|---|---|
-| H1 FWD | Historic 1960s FWD |
-| H2 FWD | Historic 1970s FWD |
-| H2 RWD | Historic 1970s RWD |
-| H3 RWD | Historic 1980s RWD |
-| Group B RWD | Group B RWD |
-| Group B 4WD | Group B 4WD |
-| Group A | Group A (1990s) |
-| R2 | Modern R2 |
-| F2 Kit Car | F2 Kit Car |
-| R5 | Modern R5 |
-| Rally GT | Rally GT |
-| NR4/R4 | NR4/R4 |
-| 2000cc 4WD | 2000cc 4WD |
-| RX Super 1600 | Rallycross Super 1600 |
-| RX Supercars | Rallycross Supercars |
-| RX Supercars 2019 | Rallycross Supercars 2019 |
+| Class | ID | Era/Type |
+|---|---|---|
+| Group A | 72 | Group A (1990s) |
+| Group B 4WD | 73 | Group B 4WD |
+| Group B RWD | 74 | Group B RWD |
+| RX Supercars | 78 | Rallycross Supercars |
+| F2 Kit Car | 86 | F2 Kit Car |
+| Group B Rallycross | 89 | Group B RX |
+| RX Super 1600 | 92 | Rallycross Super 1600 |
+| R5 | 93 | Modern R5 |
+| 2000cc 4WD | 94 | 4WD under 2000cc |
+| Cross Kart | 95 | Cross Kart |
+| NR4/R4 | 96 | NR4/R4 |
+| H2 RWD | 97 | Historic 1970s RWD |
+| H3 RWD | 98 | Historic 1980s RWD |
+| R2 | 99 | Modern R2 |
+| H2 FWD | 100 | Historic 1970s FWD |
+| H1 FWD | 101 | Historic 1960s FWD |
+| RX2 | 102 | Rallycross RX2 |
+
+All 17 classes confirmed by in-game testing.
 
 ## UI Requirements
 

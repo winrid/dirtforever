@@ -422,17 +422,22 @@ class VehicleClass(IntEnum):
     Invalid IDs crash the game client.
     """
     GROUP_A        = 72
+    GROUP_B_4WD    = 73
+    GROUP_B_RWD    = 74
     RX_SUPERCARS   = 78
     F2_KIT_CAR     = 86
+    GROUP_B_RX     = 89
     RX_SUPER_1600  = 92
     R5             = 93
+    CC_4WD         = 94   # 4WD <= 2000cc
+    CROSS_KART     = 95
     NR4_R4         = 96
     H2_RWD         = 97
     H3_RWD         = 98
+    R2             = 99
     H2_FWD         = 100
-    # IDs not yet confirmed (need in-game testing):
-    # H1_FWD, Group B RWD, Group B 4WD, R2, Rally GT,
-    # 2000cc 4WD, RX Supercars 2019
+    H1_FWD         = 101
+    RX2            = 102
 
     @property
     def label(self) -> str:
@@ -443,15 +448,23 @@ class VehicleClass(IntEnum):
 
 
 _VEHICLE_CLASS_LABELS: Dict[VehicleClass, str] = {
-    VehicleClass.GROUP_A:          "Group A",
-    VehicleClass.RX_SUPERCARS:     "RX Supercars",
-    VehicleClass.F2_KIT_CAR:       "F2 Kit Car",
-    VehicleClass.RX_SUPER_1600:    "RX Super 1600",
-    VehicleClass.R5:               "R5",
-    VehicleClass.NR4_R4:           "NR4/R4",
-    VehicleClass.H2_RWD:           "H2 RWD",
-    VehicleClass.H3_RWD:           "H3 RWD",
-    VehicleClass.H2_FWD:           "H2 FWD",
+    VehicleClass.GROUP_A:       "Group A",
+    VehicleClass.GROUP_B_4WD:   "Group B 4WD",
+    VehicleClass.GROUP_B_RWD:   "Group B RWD",
+    VehicleClass.RX_SUPERCARS:  "RX Supercars",
+    VehicleClass.F2_KIT_CAR:    "F2 Kit Car",
+    VehicleClass.GROUP_B_RX:    "Group B Rallycross",
+    VehicleClass.RX_SUPER_1600: "RX Super 1600",
+    VehicleClass.R5:            "R5",
+    VehicleClass.CC_4WD:        "2000cc 4WD",
+    VehicleClass.CROSS_KART:    "Cross Kart",
+    VehicleClass.NR4_R4:        "NR4/R4",
+    VehicleClass.H2_RWD:        "H2 RWD",
+    VehicleClass.H3_RWD:        "H3 RWD",
+    VehicleClass.R2:            "R2",
+    VehicleClass.H2_FWD:        "H2 FWD",
+    VehicleClass.H1_FWD:        "H1 FWD",
+    VehicleClass.RX2:           "RX2",
 }
 
 
@@ -506,17 +519,17 @@ class Vehicle(IntEnum):
 
 _VEHICLE_META: Dict[Vehicle, dict] = {
     # H1 FWD
-    Vehicle.LANCIA_FULVIA_HF:  {"display_name": "Lancia Fulvia HF",        "vehicle_class": None,      "abbrev": "ful"},
-    Vehicle.MINI_COOPER_S:     {"display_name": "Mini Cooper S",            "vehicle_class": None,      "abbrev": "mcs"},
-    Vehicle.CITROEN_DS_21:     {"display_name": "Citroen DS 21",            "vehicle_class": None,      "abbrev": "cds"},
+    Vehicle.LANCIA_FULVIA_HF:  {"display_name": "Lancia Fulvia HF",        "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "ful"},
+    Vehicle.MINI_COOPER_S:     {"display_name": "Mini Cooper S",            "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "mcs"},
+    Vehicle.CITROEN_DS_21:     {"display_name": "Citroen DS 21",            "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "cds"},
     # H2 FWD
     Vehicle.VW_GOLF_GTI_16V:   {"display_name": "Volkswagen Golf GTI 16V",  "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "gti"},
     # H2 RWD
     Vehicle.FORD_ESCORT_MK2:   {"display_name": "Ford Escort Mk II",        "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "mr5"},
     Vehicle.ALPINE_A110_1600S: {"display_name": "Alpine A110 1600 S",       "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "alp"},
     # Group B 4WD
-    Vehicle.AUDI_SPORT_QUATTRO_S1_E2: {"display_name": "Audi Sport Quattro S1 E2", "vehicle_class": None, "abbrev": "aqe"},
-    Vehicle.MG_METRO_6R4:             {"display_name": "MG Metro 6R4",             "vehicle_class": None, "abbrev": "6r4"},
+    Vehicle.AUDI_SPORT_QUATTRO_S1_E2: {"display_name": "Audi Sport Quattro S1 E2", "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "aqe"},
+    Vehicle.MG_METRO_6R4:             {"display_name": "MG Metro 6R4",             "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "6r4"},
     # Group A
     Vehicle.MITSUBISHI_LANCER_EVO6:   {"display_name": "Mitsubishi Lancer Evo VI", "vehicle_class": VehicleClass.GROUP_A,    "abbrev": "ev6"},
     # R5
@@ -525,12 +538,12 @@ _VEHICLE_META: Dict[Vehicle, dict] = {
     Vehicle.FORD_FIESTA_R5:       {"display_name": "Ford Fiesta R5",           "vehicle_class": VehicleClass.R5, "abbrev": "fr5"},
     Vehicle.SKODA_FABIA_R5:       {"display_name": "Skoda Fabia R5",           "vehicle_class": VehicleClass.R5, "abbrev": "sr5"},
     Vehicle.MITSUBISHI_SPACE_STAR_R5: {"display_name": "Mitsubishi Space Star R5", "vehicle_class": VehicleClass.R5, "abbrev": "msr"},
-    # Rally GT
-    Vehicle.PORSCHE_911_RGT:  {"display_name": "Porsche 911 RGT Rally",    "vehicle_class": None, "abbrev": "99r"},
-    Vehicle.ASTON_MARTIN_V8:  {"display_name": "Aston Martin V8 Vantage",  "vehicle_class": None, "abbrev": "amr"},
+    # NR4/R4 (closest to Rally GT - the actual Rally GT class doesn't have a confirmed ID)
+    Vehicle.PORSCHE_911_RGT:  {"display_name": "Porsche 911 RGT Rally",    "vehicle_class": VehicleClass.NR4_R4, "abbrev": "99r"},
+    Vehicle.ASTON_MARTIN_V8:  {"display_name": "Aston Martin V8 Vantage",  "vehicle_class": VehicleClass.NR4_R4, "abbrev": "amr"},
     # 2000cc 4WD
-    Vehicle.SUBARU_IMPREZA_2001: {"display_name": "Subaru Impreza 2001",      "vehicle_class": None, "abbrev": "srs"},
-    Vehicle.SUBARU_IMPREZA_S4:   {"display_name": "Subaru Impreza S4 Rally",  "vehicle_class": None, "abbrev": "srs_05"},
+    Vehicle.SUBARU_IMPREZA_2001: {"display_name": "Subaru Impreza 2001",      "vehicle_class": VehicleClass.CC_4WD, "abbrev": "srs"},
+    Vehicle.SUBARU_IMPREZA_S4:   {"display_name": "Subaru Impreza S4 Rally",  "vehicle_class": VehicleClass.CC_4WD, "abbrev": "srs_05"},
 }
 
 
@@ -691,7 +704,7 @@ VEHICLE_CLASSES: Dict[int, str] = {
 VEHICLES: Dict[int, dict] = {
     int(v): {
         "name":   _VEHICLE_META[v]["display_name"],
-        "class":  int(_VEHICLE_META[v]["vehicle_class"]) if _VEHICLE_META[v]["vehicle_class"] is not None else None,
+        "class":  int(_VEHICLE_META[v]["vehicle_class"]),
         "abbrev": _VEHICLE_META[v]["abbrev"],
     }
     for v in Vehicle

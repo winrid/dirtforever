@@ -57,19 +57,21 @@ def _location_id_for(name: str) -> Optional[int]:
 _VCLASS_BY_LABEL: Dict[str, int] = {}
 for _vc in VehicleClass:
     _VCLASS_BY_LABEL[_vc.label.lower()] = int(_vc)
-# Normalisation aliases so web UI names match game IDs
+# Normalisation aliases so web UI names (with various formats) match game IDs
 _EXTRA_VCLASS_ALIASES: Dict[str, int] = {
-    "h2 (rwd)":      int(VehicleClass.H2_RWD),
-    "h2 rwd":         int(VehicleClass.H2_RWD),
-    "h3 (rwd)":      int(VehicleClass.H3_RWD),
-    "h3 rwd":         int(VehicleClass.H3_RWD),
-    "h2 (fwd)":      int(VehicleClass.H2_FWD),
-    "h2 fwd":         int(VehicleClass.H2_FWD),
-    "f2 kit car":    int(VehicleClass.F2_KIT_CAR),
-    "f2 kit cars":   int(VehicleClass.F2_KIT_CAR),
-    "nr4/r4":        int(VehicleClass.NR4_R4),
-    "rx supercars":  int(VehicleClass.RX_SUPERCARS),
-    "rx super 1600": int(VehicleClass.RX_SUPER_1600),
+    "h1 (fwd)":       int(VehicleClass.H1_FWD),
+    "h2 (fwd)":       int(VehicleClass.H2_FWD),
+    "h2 (rwd)":       int(VehicleClass.H2_RWD),
+    "h3 (rwd)":       int(VehicleClass.H3_RWD),
+    "group b (4wd)":  int(VehicleClass.GROUP_B_4WD),
+    "group b (awd)":  int(VehicleClass.GROUP_B_4WD),
+    "group b (rwd)":  int(VehicleClass.GROUP_B_RWD),
+    "group b rallycross": int(VehicleClass.GROUP_B_RX),
+    "f2 kit cars":    int(VehicleClass.F2_KIT_CAR),
+    "rally gt":       int(VehicleClass.NR4_R4),  # no confirmed Rally GT ID
+    "2000cc 4wd":     int(VehicleClass.CC_4WD),
+    "4wd <= 2000cc":  int(VehicleClass.CC_4WD),
+    "cross kart":     int(VehicleClass.CROSS_KART),
 }
 _VCLASS_BY_LABEL.update(_EXTRA_VCLASS_ALIASES)
 

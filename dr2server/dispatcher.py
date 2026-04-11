@@ -317,8 +317,9 @@ class RpcDispatcher:
                     ))
 
                 # Requirements: vehicle class if confirmed, else open class.
-                # Only IDs verified by in-game testing. Invalid IDs crash the game.
-                _CONFIRMED_CLASSES = {72, 78, 86, 92, 93, 96, 97, 98, 100}
+                # All IDs verified by in-game testing. Invalid IDs crash the game.
+                _CONFIRMED_CLASSES = {72, 73, 74, 78, 86, 89, 92, 93, 94, 95,
+                                      96, 97, 98, 99, 100, 101, 102}
                 if vclass_id is not None and vclass_id in _CONFIRMED_CLASSES:
                     requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
                 else:
