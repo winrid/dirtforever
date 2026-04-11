@@ -131,6 +131,7 @@ def save_user(u: dict[str, Any]) -> None:
 
 
 def get_all_users() -> list[Any]:
+    # Yes I know this is bad, we'll switch to a real database with indexes if anyone ends up using this
     return _list_json(USERS_DIR)
 
 
@@ -238,6 +239,7 @@ def save_club(c: dict[str, Any]) -> None:
 
 
 def get_all_clubs() -> list[Any]:
+    # Yes I know this is bad, we'll switch to a real database with indexes if anyone ends up using this
     return _list_json(CLUBS_DIR)
 
 
@@ -255,6 +257,7 @@ def save_event(e: dict[str, Any]) -> None:
 
 
 def get_all_events() -> list[Any]:
+    # Yes I know this is bad, we'll switch to a real database with indexes if anyone ends up using this
     return _list_json(EVENTS_DIR)
 
 

@@ -1,0 +1,3 @@
+16=Australia
+34=New Zealand
+46=Scotland
