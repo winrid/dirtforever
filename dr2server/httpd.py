@@ -602,3 +602,8 @@ def main() -> int:
             server.shutdown()
             server.server_close()
     return 0
+
+
+if __name__ == "__main__":
+    import sys as _sys
+    _sys.exit(main())

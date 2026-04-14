@@ -202,6 +202,23 @@
         </div>
     </div>
 
+    <div class="container" id="manual">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> MANUAL</h2>
+        <div class="install-uninstall">
+            <p>If you'd rather not grant DirtForever admin access each session, uncheck <strong>Easy Setup Mode</strong> in the app and do the hosts + certificate setup once yourself. After that the app can run without elevation.</p>
+            <p style="margin-top:.75rem;"><strong>1. Trust the TLS certificate.</strong> Launch DirtForever once so it generates <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\certs\dr2server-cert.pem</code>. Then open <code style="color:var(--accent-bright)">certmgr.msc</code> &rarr; <em>Trusted Root Certification Authorities</em> &rarr; <em>Certificates</em>, right-click &rarr; <em>All Tasks</em> &rarr; <em>Import...</em>, and import that <code style="color:var(--accent-bright)">.pem</code> file. Or from an elevated prompt: <code style="color:var(--accent-bright)">certutil -addstore Root "%APPDATA%\DirtForever\certs\dr2server-cert.pem"</code>.</p>
+            <p style="margin-top:.75rem;"><strong>2. Redirect the game's servers to your machine.</strong> Open <code style="color:var(--accent-bright)">C:\Windows\System32\drivers\etc\hosts</code> in an elevated editor and append:</p>
+            <pre style="background:var(--bg-deep); border:1px solid var(--border); padding:.75rem 1rem; border-radius:var(--radius); overflow-x:auto; font-size:.85rem; margin-top:.5rem;"><code># BEGIN DIRTFOREVER
+127.0.0.1    prod.egonet.codemasters.com
+127.0.0.1    qa.egonet.codemasters.com
+127.0.0.1    terms.codemasters.com
+127.0.0.1    aurora.codemasters.local
+# END DIRTFOREVER</code></pre>
+            <p style="margin-top:.75rem;"><strong>3. Run DirtForever with Easy Setup off.</strong> Open the app, uncheck <em>Easy Setup Mode (Requires Admin)</em>, and click <strong>START</strong>. It will skip the elevation prompt and just launch the server on :443 / :8080. Stopping the server will leave your hosts file intact.</p>
+            <p style="margin-top:.75rem; color: var(--text-muted); font-size:.9rem;">Note: binding to port 443 still requires admin on most Windows setups. If start-up fails, either run DirtForever as administrator once (Easy Setup will still be off) or grant your user account port-443 permission.</p>
+        </div>
+    </div>
+
     <div class="container">
         <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING</h2>
         <div class="install-uninstall">

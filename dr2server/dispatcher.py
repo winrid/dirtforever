@@ -91,7 +91,7 @@ class RpcDispatcher:
             "RaceNet.GetTermsAndConditions": self._get_terms,
             "RaceNet.AcceptTerms": self._accept_terms,
             "RaceNet.CheckAccountLinked": self._account_linked,
-            "Clubs.GetClubs": self._template_or_stub("Clubs.GetClubs", self._clubs),
+            "Clubs.GetClubs": self._clubs,
             "Clubs.GetChampionshipLeaderboard": self._clubs_leaderboard,
             "Clubs.GetChampionshipFriendsLeaderboard": self._clubs_leaderboard,
             "Announcements.GetAnnouncements": self._announcements,
@@ -244,11 +244,24 @@ class RpcDispatcher:
     def _clubs(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Return club challenges.
 
-        When api_client is configured, always fetch from the dirtforever.net
-        API.  If the API returns no data, return empty clubs (do NOT fall back
-        to hardcoded test data in production mode).  Only use the hardcoded
-        fallback when api_client is None (local development mode with no token).
+        Resolution order:
+          1. If DR2_DEBUG_CLUBS_FILE env var is set, serve a synthetic clubs
+             response built from that JSON file (one Challenge per probe
+             entry).  This is used for the enum-mapping testing round to
+             probe specific LocationId/TrackModelId/StageConditions tuples
+             and read the game's resolved labels from the event-details UI.
+          2. Otherwise, if api_client is configured, fetch from dirtforever.net.
+          3. Otherwise, return the hardcoded local-dev fallback.
         """
+        import os
+        debug_path = os.environ.get("DR2_DEBUG_CLUBS_FILE")
+        if debug_path:
+            try:
+                return self._debug_clubs_from_file(debug_path)
+            except Exception as exc:
+                print(f"[CLUBS] DR2_DEBUG_CLUBS_FILE={debug_path} failed: {exc}")
+                # Fall through to normal path
+
         if self.api_client is not None:
             result = self._clubs_from_api()
             if result is not None:
@@ -258,6 +271,98 @@ class RpcDispatcher:
             return {"ok": True, "Challenges": [], "Progress": [], "Clubs": []}
 
         return self._clubs_hardcoded_fallback()
+
+    def _debug_clubs_from_file(self, path: str) -> Dict[str, Any]:
+        """Build a synthetic clubs response from a JSON probe file.
+
+        The JSON schema:
+            {
+              "probes": [
+                {"name": "P01 L13 T626", "location_id": 13,
+                 "track_model_id": 626, "stage_conditions": 1},
+                ...
+              ]
+            }
+
+        Each probe becomes its OWN club (with one challenge with one event
+        with one stage) so the probes can be navigated via the clubs list's
+        Left/Right arrows without hitting championship event-lock gates.
+        The probe's `name` is used as the Club.Name so it can be identified
+        from the Clubs list tile label.  Keep names ≤16 chars.
+        """
+        import json as _json
+        with open(path, encoding="utf-8") as f:
+            spec = _json.load(f)
+
+        probes: List[Dict[str, Any]] = spec.get("probes", [])
+
+        now = int(time.time())
+        window = EntryWindow(
+            visible=now - 172800, start=now - 86400,
+            last_entry=now + 86400, end=now + 86400,
+        )
+
+        clubs_egonet: List[Dict[str, Any]] = []
+        challenges_egonet: List[Dict[str, Any]] = []
+        progress_egonet: List[Dict[str, Any]] = []
+
+        for idx, probe in enumerate(probes):
+            name = str(probe.get("name", f"P{idx:02d}"))[:20]
+            loc_id = int(probe["location_id"])
+            track_id = int(probe["track_model_id"])
+            conditions = int(probe.get("stage_conditions", 1))
+
+            club_int_id = _stable_int_id(f"debug-club-{idx}",
+                                         base=100000, offset=idx)
+            self._club_id_map[club_int_id] = f"debug-club-{idx}"
+
+            chal_id = _stable_int_id(f"debug-probe-{idx}",
+                                     base=700000, offset=idx)
+            self._challenge_event_map[chal_id] = f"debug-{idx}"
+
+            stage = Stage(
+                stage_id=0,
+                track_model_id=track_id,
+                has_service_area=True,
+                leaderboard_id=chal_id * 10,
+                stage_conditions=conditions,
+            )
+            event = Event(
+                event_id=chal_id,
+                location_id=loc_id,
+                stages=[stage],
+                leaderboard_id=chal_id + 900000,
+            )
+            clubs_egonet.append(
+                Club(
+                    id=club_int_id,
+                    name=name,
+                    creator_name="discovery",
+                    amount_of_events=1,
+                ).to_egonet()
+            )
+            challenges_egonet.append(
+                Challenge(
+                    name=name,
+                    challenge_id=chal_id,
+                    club_id=club_int_id,
+                    # Default to H2 FWD (vclass 100) if probe doesn't specify;
+                    # empty requirements list appears to crash the game client.
+                    requirements=[{"Type": 1, "Value": UInt32(int(probe.get("vehicle_class_id", 100)))}],
+                    events=[event],
+                    entry_window=window,
+                    num_entrants=0,
+                    leaderboard_id=chal_id + 800000,
+                ).to_egonet()
+            )
+
+        print(f"[CLUBS] DEBUG MODE: serving {len(probes)} probes from {path}")
+        return {
+            "ok": True,
+            "Challenges": challenges_egonet,
+            "Progress": progress_egonet,
+            "Clubs": clubs_egonet,
+        }
 
     def _empty_clubs(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Deprecated alias kept for backwards compatibility."""
@@ -637,21 +742,21 @@ class RpcDispatcher:
         clubs_data = [
             (1001, "Community Rally NZ", "CommunityServer", "Community Rally - New Zealand",
              100001, Location.NEW_ZEALAND, [
-                 Stage(stage_id=0, track_model_id=Track.OCEAN_BEACH,         has_service_area=True,  leaderboard_id=3000001),
-                 Stage(stage_id=1, track_model_id=Track.OCEAN_BEACH_REV,     has_service_area=False, leaderboard_id=3000002),
-                 Stage(stage_id=2, track_model_id=Track.WAIMARAMA_POINT_REV, has_service_area=True,  leaderboard_id=3000003),
-                 Stage(stage_id=3, track_model_id=Track.TE_AWANGA,           has_service_area=False, leaderboard_id=3000004),
+                 Stage(stage_id=0, track_model_id=Track.OCEAN_BEACH,                 has_service_area=True,  leaderboard_id=3000001),
+                 Stage(stage_id=1, track_model_id=Track.OCEAN_BEACH_SPRINT_REVERSE,  has_service_area=False, leaderboard_id=3000002),
+                 Stage(stage_id=2, track_model_id=Track.WAIMARAMA_POINT_REVERSE,     has_service_area=True,  leaderboard_id=3000003),
+                 Stage(stage_id=3, track_model_id=Track.TE_AWANGA_FORWARD,           has_service_area=False, leaderboard_id=3000004),
              ], 12),
             (1002, "Community Rally ARG", "CommunityServer", "Community Rally - Argentina",
              100002, Location.ARGENTINA, [
-                 Stage(stage_id=0, track_model_id=Track.VALLE_DE_LOS_PUENTES,     has_service_area=True,  leaderboard_id=3000005),
-                 Stage(stage_id=1, track_model_id=Track.VALLE_DE_LOS_PUENTES_REV, has_service_area=False, leaderboard_id=3000006),
+                 Stage(stage_id=0, track_model_id=Track.VALLE_DE_LOS_PUENTES,              has_service_area=True,  leaderboard_id=3000005),
+                 Stage(stage_id=1, track_model_id=Track.VALLE_DE_LOS_PUENTES_A_LA_INVERSA, has_service_area=False, leaderboard_id=3000006),
              ], 8),
             (1003, "Community Rally ESP", "CommunityServer", "Community Rally - Spain",
              100003, Location.SPAIN, [
-                 Stage(stage_id=0, track_model_id=Track.RIBADELLES,     has_service_area=True,  leaderboard_id=3000007),
-                 Stage(stage_id=1, track_model_id=Track.RIBADELLES_REV, has_service_area=False, leaderboard_id=3000008),
-                 Stage(stage_id=2, track_model_id=Track.CENTENERA,      has_service_area=True,  leaderboard_id=3000009),
+                 Stage(stage_id=0, track_model_id=Track.DESCENSO_POR_CARRETERA,  has_service_area=True,  leaderboard_id=3000007),
+                 Stage(stage_id=1, track_model_id=Track.SUBIDA_POR_CARRETERA,    has_service_area=False, leaderboard_id=3000008),
+                 Stage(stage_id=2, track_model_id=Track.COMIENZO_DE_BELLRIU,     has_service_area=True,  leaderboard_id=3000009),
              ], 15),
         ]
 
@@ -795,7 +900,7 @@ class RpcDispatcher:
                     "IsFounder":      False,
                     "IsVIP":          False,
                     "Nationality":    UInt32(nat),
-                    "GhostAvailable": True,
+                    "GhostAvailable": False,
                     "LiveryId":       UInt32(lid),
                 })
             return {
