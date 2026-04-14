@@ -1,6 +1,6 @@
 # DirtForever — DiRT Rally 2.0 Community Server
 
-A community replacement for the defunct RaceNet/EgoNet backend. Run a small local server that intercepts the game's network calls and connects to [dirtforever.net](https://dirtforever.net) for clubs, leaderboards, and stage results.
+A community alternative to the RaceNet/EgoNet backend. Run a small local server that intercepts the game's network calls and connects to [dirtforever.net](https://dirtforever.net) for clubs, leaderboards, and stage results.
 
 ---
 
