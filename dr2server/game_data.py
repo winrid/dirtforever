@@ -187,22 +187,60 @@ class Track(IntEnum):
     FULL_CIRCUIT                             = 538
 
     # FINLAND
+    KONTINJARVI                              = 505
+    HAMELAHTI                                = 506
+    KAILAJARVI                               = 507
+    JYRKYSJARVI                              = 508
+    NAARAJARVI                               = 509
+    PASKURI                                  = 510
     KAKARISTO                                = 511
     PITKAJARVI                               = 512
+    ISO_OKSJARVI                             = 513
+    JARVENKYLA                               = 514
     KOTAJARVI                                = 515
     OKSALA                                   = 516
 
     # GERMANY
     OBERSTEIN                                = 472
     HAMMERSTEIN                              = 480
+    FRAUENBERG                               = 489
     WALDAUFSTIEG                             = 490
+    KREUZUNGSRING_REVERSE                    = 491
+    KREUZUNGSRING                            = 492
+    WALDABSTIEG                              = 493
+    RUSCHBERG                                = 494
+    VERBUNDSRING                             = 495
     INNERER_FELD_SPRINT                      = 496
+    INNERER_FELD_SPRINT_UMGEKEHRT            = 497
+    VERBUNDSRING_REVERSE                     = 498
 
     # GREECE
+    KATHODO_LEONTIOU                         = 460
+    POMONA_EKRIXI                            = 461
     FOURKETA_KOURVA                          = 462
+    KORYFI_DAFNI                             = 463
     AMPELONAS_ORMI                           = 464
+    PERASMA_PLATANI                          = 465
+    TSIRISTRA_THEA                           = 466
     OUREA_SPEVSI                             = 467
+    PEDINES_EPIDAXI                          = 468
     ABIES_KOILEDA                            = 469
+    YPSONA_TOU_DASOS                         = 470
+    ANODOU_FARMAKAS                          = 471
+
+    # MONTE_CARLO
+    PRA_D_ALART                              = 435
+    COL_DE_TURINI_DEPART                     = 449
+    GORDOLON_COURTE_MONTEE                   = 450
+    COL_DE_TURINI_SPRINT_EN_DESCENTE         = 451
+    COL_DE_TURINI_SPRINT_EN_MONTEE           = 452
+    COL_DE_TURINI_DESCENTE                   = 453
+    VALLEE_DESCENDANTE                       = 454
+    ROUTE_DE_TURINI                          = 455
+    COL_DE_TURINI_DEPART_EN_DESCENTE         = 456
+    APPROCHE_DU_COL_DE_TURINI_MONTEE         = 457
+    ROUTE_DE_TURINI_DESCENTE                 = 458
+    ROUTE_DE_TURINI_MONTEE                   = 459
 
     # HELL
     FULL_CIRCUIT_478                         = 478
@@ -243,6 +281,8 @@ class Track(IntEnum):
     ZAGORZE                                  = 615
     KOPINA                                   = 616
     MARYNKA                                  = 617
+    BORYSIK                                  = 618
+    JOZEFIN                                  = 619
     JEZIORO_ROTCZE                           = 620
     ZIENKI                                   = 621
     CZARNY_LAS                               = 622
@@ -251,13 +291,22 @@ class Track(IntEnum):
     JEZIORO_LUKIE                            = 625
 
     # SCOTLAND
+    SOUTH_MORNINGSIDE                        = 657
+    SOUTH_MORNINGSIDE_REVERSE                = 658
     OLD_BUTTERSTONE_MUIR                     = 659
+    ROSEBANK_FARM                            = 660
     ROSEBANK_FARM_REVERSE                    = 661
+    OLD_BUTTERSTONE_MUIR_REVERSE             = 662
     NEWHOUSE_BRIDGE                          = 663
+    NEWHOUSE_BRIDGE_REVERSE                  = 664
+    GLENCASTLE_FARM                          = 665
+    ANNBANK_STATION                          = 666
     ANNBANK_STATION_REVERSE                  = 667
+    GLENCASTLE_FARM_REVERSE                  = 668
 
     # SPAIN
     COMIENZO_DE_BELLRIU                      = 566
+    CENTENERA                                = 567
     FINAL_DE_BELLRIU                         = 574
     ASCENSO_POR_VALLE_EL_GUALET              = 575
     VINEDOS_DENTRO_DEL_VALLE_PARRA           = 576
@@ -270,18 +319,31 @@ class Track(IntEnum):
     SUBIDA_POR_CARRETERA                     = 583
 
     # SWEDEN
+    RAMSHYTTAN                               = 517
+    NORRASKOGA                               = 518
     ALGSJON_SPRINT                           = 519
     STOR_JANGEN_SPRINT_REVERSE               = 520
+    STOR_JANGEN_SPRINT                       = 521
+    SKOGSRALLYT                              = 522
+    HAMRA                                    = 523
+    LYSVIK                                   = 524
+    ELGSJON                                  = 525
+    BJORKLANGEN                              = 526
     OSTRA_HINNSJON                           = 527
     ALGSJON                                  = 528
 
     # WALES
     SWEET_LAMB                               = 437
+    GEUFRON_FOREST                           = 438
     PANT_MAWR                                = 439
+    BIDNO_MOORLAND_REVERSE                   = 440
     BIDNO_MOORLAND                           = 441
     PANT_MAWR_REVERSE                        = 442
     RIVER_SEVERN_VALLEY                      = 443
+    BRONFELEN                                = 444
+    FFERM_WYNT                               = 445
     DYFFRYN_AFON_REVERSE                     = 446
+    DYFFRYN_AFON                             = 447
     FFERM_WYNT_REVERSE                       = 448
 
     @property
@@ -329,18 +391,54 @@ _TRACK_META: Dict[Track, dict] = {
     Track.BONDI_FOREST: {"display_name": "Bondi Forest", "location": Location.AUSTRALIA, "length_km": 0.0},
     Track.NOORINBEE_RIDGE_DESCENT: {"display_name": "Noorinbee Ridge Descent", "location": Location.AUSTRALIA, "length_km": 0.0},
     Track.FULL_CIRCUIT: {"display_name": "Full Circuit", "location": Location.BARCELONA, "length_km": 0.0},
+    Track.KONTINJARVI: {"display_name": "Kontinjärvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.HAMELAHTI: {"display_name": "Hämelahti", "location": Location.FINLAND, "length_km": 0.0},
+    Track.KAILAJARVI: {"display_name": "Kailajärvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.JYRKYSJARVI: {"display_name": "Jyrkysjärvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.NAARAJARVI: {"display_name": "Naarajärvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.PASKURI: {"display_name": "Paskuri", "location": Location.FINLAND, "length_km": 0.0},
     Track.KAKARISTO: {"display_name": "Kakaristo", "location": Location.FINLAND, "length_km": 0.0},
     Track.PITKAJARVI: {"display_name": "Pitkajarvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.ISO_OKSJARVI: {"display_name": "Iso Oksjärvi", "location": Location.FINLAND, "length_km": 0.0},
+    Track.JARVENKYLA: {"display_name": "Järvenkylä", "location": Location.FINLAND, "length_km": 0.0},
     Track.KOTAJARVI: {"display_name": "Kotajarvi", "location": Location.FINLAND, "length_km": 0.0},
     Track.OKSALA: {"display_name": "Oksala", "location": Location.FINLAND, "length_km": 0.0},
     Track.OBERSTEIN: {"display_name": "Oberstein", "location": Location.GERMANY, "length_km": 0.0},
     Track.HAMMERSTEIN: {"display_name": "Hammerstein", "location": Location.GERMANY, "length_km": 0.0},
+    Track.FRAUENBERG: {"display_name": "Frauenberg", "location": Location.GERMANY, "length_km": 0.0},
     Track.WALDAUFSTIEG: {"display_name": "Waldaufstieg", "location": Location.GERMANY, "length_km": 0.0},
+    Track.KREUZUNGSRING_REVERSE: {"display_name": "Kreuzungsring Reverse", "location": Location.GERMANY, "length_km": 0.0},
+    Track.KREUZUNGSRING: {"display_name": "Kreuzungsring", "location": Location.GERMANY, "length_km": 0.0},
+    Track.WALDABSTIEG: {"display_name": "Waldabstieg", "location": Location.GERMANY, "length_km": 0.0},
+    Track.RUSCHBERG: {"display_name": "Ruschberg", "location": Location.GERMANY, "length_km": 0.0},
+    Track.VERBUNDSRING: {"display_name": "Verbundsring", "location": Location.GERMANY, "length_km": 0.0},
     Track.INNERER_FELD_SPRINT: {"display_name": "Innerer Feld-Sprint", "location": Location.GERMANY, "length_km": 0.0},
+    Track.INNERER_FELD_SPRINT_UMGEKEHRT: {"display_name": "Innerer Feld-Sprint (umgekehrt)", "location": Location.GERMANY, "length_km": 0.0},
+    Track.VERBUNDSRING_REVERSE: {"display_name": "Verbundsring Reverse", "location": Location.GERMANY, "length_km": 0.0},
+    Track.KATHODO_LEONTIOU: {"display_name": "Kathodo Leontiou", "location": Location.GREECE, "length_km": 0.0},
+    Track.POMONA_EKRIXI: {"display_name": "Pomona Ekrixi", "location": Location.GREECE, "length_km": 0.0},
     Track.FOURKETA_KOURVA: {"display_name": "Fourkéta Kourva", "location": Location.GREECE, "length_km": 0.0},
+    Track.KORYFI_DAFNI: {"display_name": "Koryfi Dafni", "location": Location.GREECE, "length_km": 0.0},
     Track.AMPELONAS_ORMI: {"display_name": "Ampelonas Ormi", "location": Location.GREECE, "length_km": 0.0},
+    Track.PERASMA_PLATANI: {"display_name": "Perasma Platani", "location": Location.GREECE, "length_km": 0.0},
+    Track.TSIRISTRA_THEA: {"display_name": "Tsiristra Théa", "location": Location.GREECE, "length_km": 0.0},
     Track.OUREA_SPEVSI: {"display_name": "Ourea Spevsi", "location": Location.GREECE, "length_km": 0.0},
+    Track.PEDINES_EPIDAXI: {"display_name": "Pedines Epidaxi", "location": Location.GREECE, "length_km": 0.0},
     Track.ABIES_KOILEDA: {"display_name": "Abies Koiléda", "location": Location.GREECE, "length_km": 0.0},
+    Track.YPSONA_TOU_DASOS: {"display_name": "Ypsona tou Dasos", "location": Location.GREECE, "length_km": 0.0},
+    Track.ANODOU_FARMAKAS: {"display_name": "Anodou Farmakas", "location": Location.GREECE, "length_km": 0.0},
+    Track.PRA_D_ALART: {"display_name": "Pra d'Alart", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.COL_DE_TURINI_DEPART: {"display_name": "Col de Turini Départ", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.GORDOLON_COURTE_MONTEE: {"display_name": "Gordolon - Courte montée", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.COL_DE_TURINI_SPRINT_EN_DESCENTE: {"display_name": "Col de Turini - Sprint en descente", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.COL_DE_TURINI_SPRINT_EN_MONTEE: {"display_name": "Col de Turini sprint en Montée", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.COL_DE_TURINI_DESCENTE: {"display_name": "Col de Turini - Descente", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.VALLEE_DESCENDANTE: {"display_name": "Vallée descendante", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.ROUTE_DE_TURINI: {"display_name": "Route de Turini", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.COL_DE_TURINI_DEPART_EN_DESCENTE: {"display_name": "Col de Turini - Départ en descente", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.APPROCHE_DU_COL_DE_TURINI_MONTEE: {"display_name": "Approche du Col de Turini - Montée", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.ROUTE_DE_TURINI_DESCENTE: {"display_name": "Route de Turini Descente", "location": Location.MONTE_CARLO, "length_km": 0.0},
+    Track.ROUTE_DE_TURINI_MONTEE: {"display_name": "Route de Turini Montée", "location": Location.MONTE_CARLO, "length_km": 0.0},
     Track.FULL_CIRCUIT_478: {"display_name": "Full Circuit", "location": Location.HELL, "length_km": 0.0},
     Track.FULL_CIRCUIT_537: {"display_name": "Full Circuit", "location": Location.MONTALEGRE, "length_km": 0.0},
     Track.NORTH_FORK_PASS: {"display_name": "North Fork Pass", "location": Location.NEW_ENGLAND, "length_km": 0.0},
@@ -371,56 +469,68 @@ _TRACK_META: Dict[Track, dict] = {
     Track.ZAGORZE: {"display_name": "Zagorze", "location": Location.POLAND, "length_km": 0.0},
     Track.KOPINA: {"display_name": "Kopina", "location": Location.POLAND, "length_km": 0.0},
     Track.MARYNKA: {"display_name": "Marynka", "location": Location.POLAND, "length_km": 0.0},
+    Track.BORYSIK: {"display_name": "Borysik", "location": Location.POLAND, "length_km": 0.0},
+    Track.JOZEFIN: {"display_name": "Józefin", "location": Location.POLAND, "length_km": 0.0},
     Track.JEZIORO_ROTCZE: {"display_name": "Jezioro Rotcze", "location": Location.POLAND, "length_km": 0.0},
     Track.ZIENKI: {"display_name": "Zienki", "location": Location.POLAND, "length_km": 0.0},
     Track.CZARNY_LAS: {"display_name": "Czarny Las", "location": Location.POLAND, "length_km": 0.0},
     Track.LEJNO: {"display_name": "Lejno", "location": Location.POLAND, "length_km": 0.0},
     Track.JAGODNO: {"display_name": "Jagodno", "location": Location.POLAND, "length_km": 0.0},
     Track.JEZIORO_LUKIE: {"display_name": "Jezioro Lukie", "location": Location.POLAND, "length_km": 0.0},
+    Track.SOUTH_MORNINGSIDE: {"display_name": "South Morningside", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.SOUTH_MORNINGSIDE_REVERSE: {"display_name": "South Morningside Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
     Track.OLD_BUTTERSTONE_MUIR: {"display_name": "Old Butterstone Muir", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.ROSEBANK_FARM: {"display_name": "Rosebank Farm", "location": Location.SCOTLAND, "length_km": 0.0},
     Track.ROSEBANK_FARM_REVERSE: {"display_name": "Rosebank Farm Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.OLD_BUTTERSTONE_MUIR_REVERSE: {"display_name": "Old Butterstone Muir Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
     Track.NEWHOUSE_BRIDGE: {"display_name": "Newhouse Bridge", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.NEWHOUSE_BRIDGE_REVERSE: {"display_name": "Newhouse Bridge Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.GLENCASTLE_FARM: {"display_name": "Glencastle Farm", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.ANNBANK_STATION: {"display_name": "Annbank Station", "location": Location.SCOTLAND, "length_km": 0.0},
     Track.ANNBANK_STATION_REVERSE: {"display_name": "Annbank Station Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
+    Track.GLENCASTLE_FARM_REVERSE: {"display_name": "Glencastle Farm Reverse", "location": Location.SCOTLAND, "length_km": 0.0},
     Track.COMIENZO_DE_BELLRIU: {"display_name": "Comienzo De Bellriu", "location": Location.SPAIN, "length_km": 0.0},
+    Track.CENTENERA: {"display_name": "Centenera", "location": Location.SPAIN, "length_km": 0.0},
     Track.FINAL_DE_BELLRIU: {"display_name": "Final de Bellriu", "location": Location.SPAIN, "length_km": 0.0},
     Track.ASCENSO_POR_VALLE_EL_GUALET: {"display_name": "Ascenso por valle el Gualet", "location": Location.SPAIN, "length_km": 0.0},
-    Track.VINEDOS_DENTRO_DEL_VALLE_PARRA: {"display_name": "Vinedos dentro del valle Parra", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DENTRO_DEL_VALLE_PARRA: {"display_name": "Viñedos dentro del valle Parra", "location": Location.SPAIN, "length_km": 0.0},
     Track.ASCENSO_BOSQUE_MONTVERD: {"display_name": "Ascenso bosque Montverd", "location": Location.SPAIN, "length_km": 0.0},
     Track.SALIDA_DESDE_MONTVERD: {"display_name": "Salida desde Montverd", "location": Location.SPAIN, "length_km": 0.0},
     Track.CAMINO_A_CENTENERA: {"display_name": "Camino a Centenera", "location": Location.SPAIN, "length_km": 0.0},
     Track.DESCENSO_POR_CARRETERA: {"display_name": "Descenso por carretera", "location": Location.SPAIN, "length_km": 0.0},
-    Track.VINEDOS_DARDENYA: {"display_name": "Vinedos Dardenya", "location": Location.SPAIN, "length_km": 0.0},
-    Track.VINEDOS_DARDENYA_INVERSA: {"display_name": "Vinedos Dardenya inversa", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DARDENYA: {"display_name": "Viñedos Dardenya", "location": Location.SPAIN, "length_km": 0.0},
+    Track.VINEDOS_DARDENYA_INVERSA: {"display_name": "Viñedos Dardenya inversa", "location": Location.SPAIN, "length_km": 0.0},
     Track.SUBIDA_POR_CARRETERA: {"display_name": "Subida por carretera", "location": Location.SPAIN, "length_km": 0.0},
-    Track.ALGSJON_SPRINT: {"display_name": "Algsjon Sprint", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.RAMSHYTTAN: {"display_name": "Rämshyttan", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.NORRASKOGA: {"display_name": "Norraskoga", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.ALGSJON_SPRINT: {"display_name": "Älgsjön Sprint", "location": Location.SWEDEN, "length_km": 0.0},
     Track.STOR_JANGEN_SPRINT_REVERSE: {"display_name": "Stor-jangen Sprint Reverse", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.STOR_JANGEN_SPRINT: {"display_name": "Stor-jangen Sprint", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.SKOGSRALLYT: {"display_name": "Skogsrallyt", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.HAMRA: {"display_name": "Hamra", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.LYSVIK: {"display_name": "Lysvik", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.ELGSJON: {"display_name": "Elgsjön", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.BJORKLANGEN: {"display_name": "Björklangen", "location": Location.SWEDEN, "length_km": 0.0},
     Track.OSTRA_HINNSJON: {"display_name": "Östra Hinnsjön", "location": Location.SWEDEN, "length_km": 0.0},
-    Track.ALGSJON: {"display_name": "Algsjon", "location": Location.SWEDEN, "length_km": 0.0},
+    Track.ALGSJON: {"display_name": "Älgsjön", "location": Location.SWEDEN, "length_km": 0.0},
     Track.SWEET_LAMB: {"display_name": "Sweet Lamb", "location": Location.WALES, "length_km": 0.0},
+    Track.GEUFRON_FOREST: {"display_name": "Geufron Forest", "location": Location.WALES, "length_km": 0.0},
     Track.PANT_MAWR: {"display_name": "Pant Mawr", "location": Location.WALES, "length_km": 0.0},
+    Track.BIDNO_MOORLAND_REVERSE: {"display_name": "Bidno Moorland Reverse", "location": Location.WALES, "length_km": 0.0},
     Track.BIDNO_MOORLAND: {"display_name": "Bidno Moorland", "location": Location.WALES, "length_km": 0.0},
     Track.PANT_MAWR_REVERSE: {"display_name": "Pant Mawr Reverse", "location": Location.WALES, "length_km": 0.0},
     Track.RIVER_SEVERN_VALLEY: {"display_name": "River Severn Valley", "location": Location.WALES, "length_km": 0.0},
+    Track.BRONFELEN: {"display_name": "Bronfelen", "location": Location.WALES, "length_km": 0.0},
+    Track.FFERM_WYNT: {"display_name": "Fferm Wynt", "location": Location.WALES, "length_km": 0.0},
     Track.DYFFRYN_AFON_REVERSE: {"display_name": "Dyffryn Afon Reverse", "location": Location.WALES, "length_km": 0.0},
+    Track.DYFFRYN_AFON: {"display_name": "Dyffryn Afon", "location": Location.WALES, "length_km": 0.0},
     Track.FFERM_WYNT_REVERSE: {"display_name": "Fferm Wynt Reverse", "location": Location.WALES, "length_km": 0.0},
 }
 
-# Generated from 99 tracks across 15 locations.
-#   ARGENTINA: 12 tracks
-#   AUSTRALIA: 12 tracks
-#   BARCELONA: 1 tracks
-#   FINLAND: 4 tracks
-#   GERMANY: 4 tracks
-#   GREECE: 4 tracks
-#   HELL: 1 tracks
-#   MONTALEGRE: 1 tracks
-#   NEW_ENGLAND: 12 tracks
-#   NEW_ZEALAND: 12 tracks
-#   POLAND: 10 tracks
-#   SCOTLAND: 4 tracks
-#   SPAIN: 11 tracks
-#   SWEDEN: 4 tracks
-#   WALES: 7 tracks
+# 159 tracks across 16 locations (13 rally × 12 stages + 3 rallycross).
+#   Rally: ARGENTINA, AUSTRALIA, FINLAND, GERMANY, GREECE, MONTE_CARLO,
+#     NEW_ENGLAND, NEW_ZEALAND, POLAND, SCOTLAND, SPAIN, SWEDEN, WALES — 12 each.
+#   Rallycross: BARCELONA (1), HELL (1), MONTALEGRE (1).
 
 
 

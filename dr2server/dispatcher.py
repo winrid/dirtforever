@@ -900,7 +900,7 @@ class RpcDispatcher:
                     "IsFounder":      False,
                     "IsVIP":          False,
                     "Nationality":    UInt32(nat),
-                    "GhostAvailable": True,
+                    "GhostAvailable": False,
                     "LiveryId":       UInt32(lid),
                 })
             return {

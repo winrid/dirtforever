@@ -20,22 +20,21 @@ SetTitleMatchMode 2
 if !WinExist(gameWindow) {
     ExitApp 3
 }
-WinActivate gameWindow
-WinWaitActive gameWindow, , 5
-Sleep 300
+; Only activate if not already active — saves ~300ms per call during fast loops.
+if !WinActive(gameWindow) {
+    WinActivate gameWindow
+    WinWaitActive gameWindow, , 5
+    Sleep 100
+}
 
 AHI := AutoHotInterception()
-keyboardIds := [1, 2, 3, 4, 5, 6]
+keyboardId := 1
 sc := GetKeySC(keyName)
 
 Loop count {
-    for keyboardId in keyboardIds {
-        AHI.SendKeyEvent(keyboardId, sc, 1)
-    }
+    AHI.SendKeyEvent(keyboardId, sc, 1)
     Sleep 60
-    for keyboardId in keyboardIds {
-        AHI.SendKeyEvent(keyboardId, sc, 0)
-    }
+    AHI.SendKeyEvent(keyboardId, sc, 0)
     if A_Index < count {
         Sleep delayMs
     }
