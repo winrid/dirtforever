@@ -19,13 +19,13 @@ To play in future sessions, just run DirtForever.exe before launching the game.
 ### What Works
 
 - Login
-- Events / Career mode
 - Clubs with custom server-defined events
 - Stage time submission and leaderboards (via dirtforever.net)
 - Vehicle select, repairs, tuning
 
 ### What Doesn't Work Yet
 
+- Daily/Weekly/Monthly Events (although they do in Clubs). We could add this though, if people really want!
 - Full championship progression
 - Multiplayer / Time Trial ghosts
 - In-game currency / store (uses placeholder data)
