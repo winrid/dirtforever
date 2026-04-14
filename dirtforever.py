@@ -415,12 +415,46 @@ def run_gui():
     btn_frame = tk.Frame(root, bg=BG)
     btn_frame.pack(fill="x", padx=20, pady=(5, 8))
 
+    easy_setup_var = tk.BooleanVar(value=config.get("easy_setup", True))
+    easy_cb = tk.Checkbutton(
+        btn_frame, text="Easy Setup Mode (Requires Admin)",
+        variable=easy_setup_var,
+        bg=BG, fg=TEXT, activebackground=BG, activeforeground=TEXT,
+        selectcolor=BG_ELEVATED, font=("Segoe UI", 9),
+        highlightthickness=0, bd=0, anchor="w",
+    )
+    easy_cb.pack(fill="x", pady=(0, 2))
+
+    manual_link = tk.Label(
+        btn_frame, text="Manual setup instructions \u2192",
+        font=("Segoe UI", 8, "underline"),
+        fg=ACCENT, bg=BG, cursor="hand2", anchor="w",
+    )
+    manual_link.bind(
+        "<Button-1>",
+        lambda e: webbrowser.open("https://dirtforever.net/install#manual"),
+    )
+
+    def _update_easy_setup():
+        if easy_setup_var.get():
+            manual_link.pack_forget()
+        else:
+            manual_link.pack(fill="x", pady=(0, 5), before=start_btn)
+        config["easy_setup"] = easy_setup_var.get()
+        save_config(config)
+
+    easy_cb.configure(command=_update_easy_setup)
+
     start_btn = tk.Button(
         btn_frame, text="START", font=("Segoe UI", 11, "bold"),
         bg=GREEN, fg="#111", activebackground="#1a9e4a", activeforeground="#111",
         relief="flat", cursor="hand2", padx=20, pady=10,
     )
     start_btn.pack(fill="x", pady=(0, 5))
+
+    # Show link below checkbox if starting unchecked
+    if not easy_setup_var.get():
+        manual_link.pack(fill="x", pady=(0, 5), before=start_btn)
 
     stop_btn = tk.Button(
         btn_frame, text="STOP", font=("Segoe UI", 10, "bold"),
@@ -536,7 +570,9 @@ def run_gui():
         def setup_and_start():
             nonlocal config
             try:
-                # Generate cert if missing
+                easy_setup = easy_setup_var.get()
+
+                # Generate cert if missing (needed in both modes — server loads it).
                 if not cert_exists():
                     root.after(0, lambda: log("Generating TLS certificate..."))
                     generate_cert()
@@ -544,10 +580,11 @@ def run_gui():
                     config["key_path"] = str(KEY_PATH)
                     save_config(config)
 
-                # Check if admin actions needed (cert trust + hosts)
-                needs_admin = not hosts_configured()
-                # Always try to ensure cert is trusted and hosts are set
-                if needs_admin or not hosts_configured():
+                if not easy_setup:
+                    root.after(0, lambda: log(
+                        "Easy Setup off - assuming hosts & cert trust are configured manually. "
+                        "See dirtforever.net/install#manual"))
+                elif not hosts_configured():
                     root.after(0, lambda: log("Setting up hosts & cert trust (admin required)..."))
                     # Write a helper script and run it elevated
                     helper = DIRTFOREVER_DIR / "_admin_start.py"
@@ -614,6 +651,12 @@ def run_gui():
             # Wait for server to stop
             if server_thread:
                 server_thread.join(timeout=5)
+
+            if not easy_setup_var.get():
+                root.after(0, lambda: log(
+                    "Easy Setup off - leaving hosts unchanged. Remove them manually if desired."))
+                root.after(0, lambda: set_status(False, "Stopped"))
+                return
 
             # Remove hosts (needs admin)
             root.after(0, lambda: log("Removing hosts entries (admin required)..."))
