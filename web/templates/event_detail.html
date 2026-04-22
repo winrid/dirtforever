@@ -97,49 +97,6 @@
     </div>
 
     <div class="event-detail-side">
-        {% if current_user %}
-        {% set already_submitted = entries | selectattr('username', 'equalto', current_user.username) | list | length > 0 %}
-        <div class="card reveal" style="animation-delay:.15s">
-            <div class="card-header">
-                <h2 class="card-title"><span class="accent">//</span> Submit Times</h2>
-            </div>
-            <div class="card-body">
-                {% if already_submitted %}
-                <p class="text-muted">You've already submitted times for this event.</p>
-                {% else %}
-                <form method="post" action="/events/{{ event.id }}/submit" class="submit-form">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-group">
-                        <label class="form-label">Car</label>
-                        <select name="car" class="form-input form-select" required>
-                            <option value="">Select car...</option>
-                            {% for car in cars %}
-                            <option value="{{ car }}">{{ car }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    {% for stage in event.stages %}
-                    <div class="form-group">
-                        <label class="form-label">S{{ loop.index }}: {{ stage.name }}</label>
-                        <input type="text" name="stage_{{ loop.index0 }}" class="form-input mono"
-                               placeholder="MM:SS.mmm" required pattern="\d{1,2}:\d{2}\.\d{1,3}">
-                        <span class="form-hint">Format: MM:SS.mmm (e.g. 04:23.456)</span>
-                    </div>
-                    {% endfor %}
-                    <button type="submit" class="btn btn-primary btn-full">Submit Times</button>
-                </form>
-                {% endif %}
-            </div>
-        </div>
-        {% else %}
-        <div class="card reveal" style="animation-delay:.15s">
-            <div class="card-body" style="text-align:center;padding:2rem;">
-                <p class="text-muted">Sign in to submit your times.</p>
-                <a href="/login" class="btn btn-primary btn-sm" style="margin-top:1rem;">Sign In</a>
-            </div>
-        </div>
-        {% endif %}
-
         <div class="card reveal" style="animation-delay:.2s">
             <div class="card-body event-info-card">
                 <div class="event-info-row">

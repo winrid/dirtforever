@@ -1508,70 +1508,7 @@ def event_detail(event_id: str) -> str:
     results = get_results(event_id)
     entries = results.get('entries', [])
     club = get_club(event['club_id']) if event.get('club_id') else None
-    cars = CAR_CLASSES.get(event.get('car_class', ''), [])
-    return render_template('event_detail.html', event=event, entries=entries, club=club, cars=cars)
-
-
-@app.route('/events/<event_id>/submit', methods=['POST'])
-@verified_required
-def submit_time(event_id: str) -> Response:
-    event = get_event(event_id)
-    if not event:
-        abort(404)
-
-    user = current_user()
-    assert user is not None
-    results = get_results(event_id)
-    entries = results.get('entries', [])
-
-    existing = next((e for e in entries if e['username'] == user['username']), None)
-    if existing:
-        flash('You have already submitted times for this event.', 'warning')
-        return redirect(url_for('event_detail', event_id=event_id))
-
-    car = request.form.get('car', '')
-    stage_times = []
-    total = 0
-    for i, stage in enumerate(event.get('stages', [])):
-        raw = request.form.get(f'stage_{i}', '0')
-        try:
-            parts = raw.replace(',', '.').split(':')
-            if len(parts) == 2:
-                mins, rest = parts
-                secs_parts = rest.split('.')
-                secs = int(secs_parts[0])
-                millis = int(secs_parts[1].ljust(3, '0')[:3]) if len(secs_parts) > 1 else 0
-                ms = int(mins) * 60000 + secs * 1000 + millis
-            else:
-                ms = int(float(raw) * 1000)
-        except (ValueError, IndexError):
-            ms = 0
-
-        if ms <= 0:
-            flash(f'Invalid time for stage {i + 1}.', 'error')
-            return redirect(url_for('event_detail', event_id=event_id))
-
-        stage_times.append({
-            'time_ms': ms,
-            'penalties_ms': 0,
-            'submitted_at': datetime.now().isoformat(),
-        })
-        total += ms
-
-    entry = {
-        'username': user['username'],
-        'car': car,
-        'stages': stage_times,
-        'total_time_ms': total,
-    }
-    entries.append(entry)
-    entries.sort(key=lambda e: e['total_time_ms'])
-    results['entries'] = entries
-    save_results(event_id, results)
-
-    pos = next(i for i, e in enumerate(entries) if e['username'] == user['username']) + 1
-    flash(f'Times submitted! You placed P{pos} of {len(entries)}.', 'success')
-    return redirect(url_for('event_detail', event_id=event_id))
+    return render_template('event_detail.html', event=event, entries=entries, club=club)
 
 
 @app.route('/profile/<username>')
