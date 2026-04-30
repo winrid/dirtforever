@@ -8,8 +8,16 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: dist/DirtForever.exe
+          - os: ubuntu-22.04
+            artifact: dist/DirtForever-linux-x86_64
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
@@ -17,18 +25,25 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk binutils
+
+      - name: Install Python dependencies
         run: |
           pip install pyinstaller cryptography
 
       - name: Write version from release tag
+        shell: bash
         run: |
           echo "${{ github.event.release.tag_name }}" | sed 's/^v//' > VERSION
 
-      - name: Build exe
+      - name: Build
         run: python build_exe.py
 
       - name: Upload to release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/DirtForever.exe
+          files: ${{ matrix.artifact }}

@@ -6,7 +6,7 @@ A community alternative to the RaceNet/EgoNet backend. Run a small local server 
 
 ## Quick Start
 
-### Setup
+### Setup (Windows)
 
 1. Create an account at [dirtforever.net](https://dirtforever.net/register)
 2. Log in, go to Dashboard, click **Generate Game Token**
@@ -15,6 +15,15 @@ A community alternative to the RaceNet/EgoNet backend. Run a small local server 
 5. Launch DiRT Rally 2.0 via Steam
 
 To play in future sessions, just run DirtForever.exe before launching the game.
+
+### Setup (Linux, via Steam Proton)
+
+1. Create an account at [dirtforever.net](https://dirtforever.net/register) and generate a Game Token from your Dashboard.
+2. Download [DirtForever-linux-x86_64](https://github.com/winrid/dirtforever/releases/latest), `chmod +x` it, and run it.
+3. Launch DR2 via Steam (Proton) at least once so the prefix exists, then click **START** in DirtForever. A polkit prompt asks for your password once to grant the binary port-443 access and add the redirect entries to `/etc/hosts`. The TLS cert is then installed into DR2's Proton prefix automatically (uses `protontricks-launch` if available, otherwise the bundled Proton wine).
+4. Launch DiRT Rally 2.0 via Steam.
+
+Or run from source: `git clone https://github.com/winrid/dirtforever && cd dirtforever && uv run python dirtforever.py`.
 
 ### What Works
 
@@ -32,11 +41,21 @@ To play in future sessions, just run DirtForever.exe before launching the game.
 
 ### Uninstalling
 
+**Windows:**
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\remove_windows_redirect.ps1
 ```
 
 Remove the certificate manually via `certmgr.msc` if desired. Config is stored at `%APPDATA%\DirtForever\config.json`.
+
+**Linux:**
+
+```sh
+sudo sed -i '/# BEGIN DIRTFOREVER/,/# END DIRTFOREVER/d' /etc/hosts
+protontricks-launch --appid 690790 certutil -delstore Root prod.egonet.codemasters.com
+rm -rf ~/.config/dirtforever
+```
 
 ---
 
