@@ -7,3 +7,12 @@ web/data
 web/.venv
 .env
 data/upstream_templates/
+
+# PyInstaller (build_exe.py)
+dist/
+build/
+*.spec
+
+# Local virtualenvs
+.venv/
+.venv-build/

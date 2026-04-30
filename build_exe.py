@@ -1,18 +1,37 @@
-"""Build script — produces dist/DirtForever.exe via PyInstaller.
+"""Build script — produces a single-file binary via PyInstaller.
 
 Run:
     python build_exe.py
+
+Output:
+    Windows  -> dist/DirtForever.exe
+    Linux    -> dist/DirtForever-linux-x86_64
 
 Requirements:
     pip install pyinstaller cryptography
 """
 from __future__ import annotations
 
+import platform
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+IS_WIN = sys.platform == "win32"
+IS_LINUX = sys.platform == "linux"
+
+if IS_WIN:
+    APP_NAME = "DirtForever"           # PyInstaller appends .exe
+    OUTPUT_NAME = "DirtForever.exe"
+elif IS_LINUX:
+    # Honest arch tag — CI publishes x86_64 only, but a local build on
+    # aarch64 would otherwise produce a misnamed binary.
+    APP_NAME = f"DirtForever-linux-{platform.machine()}"
+    OUTPUT_NAME = APP_NAME
+else:
+    APP_NAME = "DirtForever"
+    OUTPUT_NAME = "DirtForever"
 
 
 def check_pyinstaller() -> None:
@@ -71,7 +90,7 @@ def build() -> None:
     cmd: list[str] = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
-        "--name", "DirtForever",
+        "--name", APP_NAME,
         # No --uac-admin: the app elevates only when needed (hosts/cert),
         # not on every launch. This avoids the UAC prompt just to see the GUI.
         "--windowed",  # No console window (GUI app)
@@ -81,6 +100,9 @@ def build() -> None:
         "--workpath", str(ROOT / "build"),
         "--specpath", str(ROOT),
     ]
+    if IS_LINUX:
+        # Smaller ELF; harmless on Windows but only meaningful on Linux/macOS.
+        cmd.append("--strip")
 
     # Data files
     for entry in add_data:
@@ -109,7 +131,7 @@ def build() -> None:
         print(f"\n[build] PyInstaller failed (exit {result.returncode}).")
         sys.exit(result.returncode)
 
-    exe = ROOT / "dist" / "DirtForever.exe"
+    exe = ROOT / "dist" / OUTPUT_NAME
     print()
     if exe.exists():
         size_mb = exe.stat().st_size / (1024 * 1024)

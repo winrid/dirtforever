@@ -135,8 +135,8 @@
         <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> REQUIREMENTS</h2>
         <div class="install-prereqs">
             <div class="install-prereq">
-                <strong>Windows 10/11</strong>
-                <span>Required for the local server</span>
+                <strong>Windows 10/11 or Linux</strong>
+                <span>Linux uses Steam Proton; native binary for the server</span>
             </div>
             <div class="install-prereq">
                 <strong>DiRT Rally 2.0</strong>
@@ -161,13 +161,19 @@
             <div class="install-step">
                 <h3>Download and Run DirtForever</h3>
                 <p>Download the latest release and run it. No Python or other tools needed.</p>
-                <p style="margin-top: 1rem;">
+                <p style="margin-top: 1rem; display:flex; flex-wrap:wrap; gap:.75rem;">
                     <a href="https://github.com/winrid/dirtforever/releases/latest/download/DirtForever.exe"
                        style="display:inline-block; padding:.75rem 2rem; background:var(--accent); color:var(--bg-deep); font-family:var(--font-ui); font-weight:700; text-transform:uppercase; letter-spacing:1px; border-radius:var(--radius); text-decoration:none; font-size:.95rem;">
-                        Download DirtForever.exe
+                        Windows .exe
+                    </a>
+                    <a href="https://github.com/winrid/dirtforever/releases/latest/download/DirtForever-linux-x86_64"
+                       style="display:inline-block; padding:.75rem 2rem; background:var(--accent); color:var(--bg-deep); font-family:var(--font-ui); font-weight:700; text-transform:uppercase; letter-spacing:1px; border-radius:var(--radius); text-decoration:none; font-size:.95rem;">
+                        Linux x86_64
                     </a>
                 </p>
-                <p style="margin-top: .75rem; color: var(--text-muted); font-size: .9rem;">Windows will ask for administrator access. The app sets up a local TLS certificate and redirects game traffic to your machine. It will ask you to paste your game token.</p>
+                <p style="margin-top: .75rem; color: var(--text-muted); font-size: .9rem;"><strong>Windows:</strong> the app will ask for administrator access to install a local TLS certificate and redirect game traffic to your machine. Then paste your game token.</p>
+                <p style="margin-top: .35rem; color: var(--text-muted); font-size: .9rem;"><strong>Linux:</strong> <code style="color:var(--accent-bright)">chmod +x DirtForever-linux-x86_64</code>, run it, then click START. A polkit prompt asks for your password once to grant the binary port-443 access and add the redirect entries to <code style="color:var(--accent-bright)">/etc/hosts</code>. The app then installs the TLS cert into DR2's Proton prefix automatically (launch DR2 once via Steam first if you've never run it).</p>
+                <p style="margin-top: .35rem; color: var(--text-muted); font-size: .85rem;">Or run from source: <code style="color:var(--accent-bright)">git clone https://github.com/winrid/dirtforever &amp;&amp; cd dirtforever &amp;&amp; uv run python dirtforever.py</code></p>
             </div>
 
             <div class="install-step">
@@ -203,7 +209,7 @@
     </div>
 
     <div class="container" id="manual">
-        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> MANUAL</h2>
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> MANUAL (WINDOWS)</h2>
         <div class="install-uninstall">
             <p>If you'd rather not grant DirtForever admin access each session, uncheck <strong>Easy Setup Mode</strong> in the app and do the hosts + certificate setup once yourself. After that the app can run without elevation.</p>
             <p style="margin-top:.75rem;"><strong>1. Trust the TLS certificate.</strong> Launch DirtForever once so it generates <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\certs\dr2server-cert.pem</code>. Then open <code style="color:var(--accent-bright)">certmgr.msc</code> &rarr; <em>Trusted Root Certification Authorities</em> &rarr; <em>Certificates</em>, right-click &rarr; <em>All Tasks</em> &rarr; <em>Import...</em>, and import that <code style="color:var(--accent-bright)">.pem</code> file. Or from an elevated prompt: <code style="color:var(--accent-bright)">certutil -addstore Root "%APPDATA%\DirtForever\certs\dr2server-cert.pem"</code>.</p>
@@ -219,14 +225,46 @@
         </div>
     </div>
 
+    <div class="container" id="manual-linux">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> MANUAL (LINUX)</h2>
+        <div class="install-uninstall">
+            <p>If you'd rather not have DirtForever drive polkit each session, configure the three pieces yourself once and uncheck <strong>Easy Setup Mode</strong>. The binary then starts without prompting.</p>
+            <p style="margin-top:.75rem;"><strong>1. Grant the binary port-443 access.</strong> Run once:</p>
+            <pre style="background:var(--bg-deep); border:1px solid var(--border); padding:.75rem 1rem; border-radius:var(--radius); overflow-x:auto; font-size:.85rem; margin-top:.5rem;"><code>sudo setcap cap_net_bind_service=+ep ./DirtForever-linux-x86_64</code></pre>
+            <p style="margin-top:.75rem; color: var(--text-muted); font-size:.85rem;">If you run from source via <code style="color:var(--accent-bright)">uv</code>, target the venv interpreter instead: <code style="color:var(--accent-bright)">sudo setcap cap_net_bind_service=+ep "$(readlink -f "$(uv run which python)")"</code>. Note: this lets <em>any</em> script run through that interpreter bind low ports until you revoke it with <code style="color:var(--accent-bright)">sudo setcap -r &lt;path&gt;</code>. STOP does not undo it.</p>
+            <p style="margin-top:.75rem;"><strong>2. Add the hosts entries.</strong> Edit <code style="color:var(--accent-bright)">/etc/hosts</code> as root and append:</p>
+            <pre style="background:var(--bg-deep); border:1px solid var(--border); padding:.75rem 1rem; border-radius:var(--radius); overflow-x:auto; font-size:.85rem; margin-top:.5rem;"><code># BEGIN DIRTFOREVER
+127.0.0.1    prod.egonet.codemasters.com
+127.0.0.1    qa.egonet.codemasters.com
+127.0.0.1    terms.codemasters.com
+127.0.0.1    aurora.codemasters.local
+# END DIRTFOREVER</code></pre>
+            <p style="margin-top:.75rem;"><strong>3. Trust the TLS certificate inside DR2's Proton prefix.</strong> Launch DirtForever once so it generates <code style="color:var(--accent-bright)">~/.config/dirtforever/certs/dr2server-cert.pem</code>, then run (after launching DR2 via Steam at least once so the prefix exists):</p>
+            <pre style="background:var(--bg-deep); border:1px solid var(--border); padding:.75rem 1rem; border-radius:var(--radius); overflow-x:auto; font-size:.85rem; margin-top:.5rem;"><code>protontricks-launch --appid 690790 \
+  certutil -addstore Root ~/.config/dirtforever/certs/dr2server-cert.pem</code></pre>
+            <p style="margin-top:.5rem; color: var(--text-muted); font-size:.85rem;">If <code style="color:var(--accent-bright)">protontricks</code> is not installed, use the Proton-bundled wine directly: <code style="color:var(--accent-bright)">WINEPREFIX=~/.steam/steam/steamapps/compatdata/690790/pfx ~/.steam/steam/steamapps/common/Proton*/files/bin/wine certutil -addstore Root ~/.config/dirtforever/certs/dr2server-cert.pem</code></p>
+            <p style="margin-top:.75rem;"><strong>4. Run DirtForever with Easy Setup off.</strong> Launch the app, uncheck <em>Easy Setup Mode</em>, and click <strong>START</strong>. The server binds :443 and :8080 without any polkit prompt.</p>
+        </div>
+    </div>
+
     <div class="container">
-        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING</h2>
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING (WINDOWS)</h2>
         <div class="install-uninstall">
             <p>Run <strong>DirtForever.exe --setup</strong> to reconfigure, or to fully remove:</p>
             <p style="margin-top:.5rem;">1. Delete <code style="color:var(--accent-bright)">DirtForever.exe</code></p>
             <p>2. Remove hosts entries: open <code style="color:var(--accent-bright)">C:\Windows\System32\drivers\etc\hosts</code> as admin and delete the <code style="color:var(--accent-bright)"># BEGIN DIRTFOREVER</code> block</p>
             <p>3. Remove the certificate via <code style="color:var(--accent-bright)">certmgr.msc</code> (look under Trusted Root for "dirtforever")</p>
             <p>4. Delete config: <code style="color:var(--accent-bright)">%APPDATA%\DirtForever\</code></p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="section-title" style="font-size:1.5rem;"><span class="accent">//</span> UNINSTALLING (LINUX)</h2>
+        <div class="install-uninstall">
+            <p style="margin-top:.5rem;">1. Delete <code style="color:var(--accent-bright)">DirtForever-linux-x86_64</code> (its <code style="color:var(--accent-bright)">cap_net_bind_service</code> capability is removed with it). If you ran from source via <code style="color:var(--accent-bright)">uv</code>, also revoke the capability on the venv Python: <code style="color:var(--accent-bright)">sudo setcap -r "$(readlink -f "$(uv run which python)")"</code></p>
+            <p>2. Remove hosts entries: <code style="color:var(--accent-bright)">sudo sed -i '/# BEGIN DIRTFOREVER/,/# END DIRTFOREVER/d' /etc/hosts</code></p>
+            <p>3. Remove the certificate from DR2's Proton prefix: <code style="color:var(--accent-bright)">protontricks-launch --appid 690790 certutil -delstore Root prod.egonet.codemasters.com</code></p>
+            <p>4. Delete config: <code style="color:var(--accent-bright)">rm -rf ~/.config/dirtforever</code></p>
         </div>
     </div>
 </section>
