@@ -52,26 +52,32 @@
                 </div>
                 <div class="card-body">
                     {% if results %}
-                    <div class="lb-table">
-                        <div class="lb-row lb-row-header">
-                            <span class="lb-col lb-pos">Pos</span>
-                            <span class="lb-col lb-driver">Event</span>
-                            <span class="lb-col lb-car">Car</span>
-                            <span class="lb-col lb-time">Total Time</span>
-                        </div>
+                    <div class="lb-table-wrap">
+                    <table class="lb-table">
+                        <thead>
+                            <tr>
+                                <th class="lb-pos">Pos</th>
+                                <th class="lb-driver">Event</th>
+                                <th class="lb-car">Car</th>
+                                <th class="lb-time">Total Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
                         {% for r in results %}
-                        <div class="lb-row">
-                            <span class="lb-col lb-pos">
-                                <span class="pos-badge pos-{{ r.position }}">P{{ r.position }}</span>
-                            </span>
-                            <span class="lb-col lb-driver">
-                                <a href="/events/{{ r.event.id }}">{{ r.event.name }}</a>
-                                <span class="text-muted" style="font-size:.8rem;display:block;">{{ r.event.location }} &middot; {{ r.event.car_class }}</span>
-                            </span>
-                            <span class="lb-col lb-car text-muted">{{ r.entry.car }}</span>
-                            <span class="lb-col lb-time mono">{{ r.entry.total_time_ms | rally_time }}</span>
-                        </div>
+                            <tr>
+                                <td class="lb-pos">
+                                    <span class="pos-badge pos-{{ r.position }}">P{{ r.position }}</span>
+                                </td>
+                                <td class="lb-driver">
+                                    <a href="/events/{{ r.event.id }}">{{ r.event.name }}</a>
+                                    <span class="text-muted" style="font-size:.8rem;display:block;">{{ r.event.location }} &middot; {{ r.event.car_class }}</span>
+                                </td>
+                                <td class="lb-car text-muted">{{ r.entry.car }}</td>
+                                <td class="lb-time mono">{{ r.entry.total_time_ms | rally_time }}</td>
+                            </tr>
                         {% endfor %}
+                        </tbody>
+                    </table>
                     </div>
                     {% else %}
                     <p class="text-muted empty-state">No rally history yet.</p>

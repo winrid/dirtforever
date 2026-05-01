@@ -1529,12 +1529,19 @@ def profile(username: str) -> str:
                 pos = i + 1
                 best_positions.append(pos)
                 total_stages += len(entry.get('stages', []))
+                latest = max(
+                    (s.get('submitted_at') or '' for s in entry.get('stages', [])),
+                    default='',
+                )
                 results_list.append({
                     'event': evt,
                     'entry': entry,
                     'position': pos,
                     'total_entries': len(res['entries']),
+                    '_sort_key': latest or evt.get('start_time', ''),
                 })
+
+    results_list.sort(key=lambda r: r['_sort_key'], reverse=True)
 
     stats = {
         'total_events': len(results_list),

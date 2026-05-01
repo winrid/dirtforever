@@ -71,35 +71,42 @@
             {% endif %}
 
             {% if entries %}
-            <div class="lb-table reveal" style="animation-delay:.1s">
-                <div class="lb-row lb-row-header">
-                    <span class="lb-col lb-pos">Pos</span>
-                    <span class="lb-col lb-driver">Driver</span>
-                    <span class="lb-col lb-car">Car</span>
-                    <span class="lb-col lb-time">Time</span>
-                    <span class="lb-col lb-diff">Diff</span>
-                </div>
+            <div class="lb-table-wrap reveal" style="animation-delay:.1s">
+            <table class="lb-table">
+                <thead>
+                    <tr>
+                        <th class="lb-pos">Pos</th>
+                        <th class="lb-driver">Driver</th>
+                        <th class="lb-car">Car</th>
+                        <th class="lb-time">Time</th>
+                        <th class="lb-diff">Diff</th>
+                    </tr>
+                </thead>
+                <tbody>
                 {% for entry in entries %}
-                <div class="lb-row {% if current_user and entry.username == current_user.username %}lb-row-me{% endif %}"
-                     style="animation-delay:{{ 0.1 + loop.index0 * 0.03 }}s">
-                    <span class="lb-col lb-pos">
-                        <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
-                    </span>
-                    <span class="lb-col lb-driver">
-                        <span class="lb-flag">{{ entry.username | user_flag }}</span>
-                        <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
-                    </span>
-                    <span class="lb-col lb-car text-muted">{{ entry.car }}</span>
-                    <span class="lb-col lb-time mono">{{ entry.time_ms | rally_time }}</span>
-                    <span class="lb-col lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
-                        {% if loop.index == 1 %}
-                        &mdash;
-                        {% else %}
-                        {{ (entry.time_ms - leader_time) | time_diff }}
-                        {% endif %}
-                    </span>
-                </div>
+                    <tr class="{% if current_user and entry.username == current_user.username %}lb-row-me{% endif %}">
+                        <td class="lb-pos">
+                            <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
+                        </td>
+                        <td class="lb-driver">
+                            <span class="lb-driver-inner">
+                                <span class="lb-flag">{{ entry.username | user_flag }}</span>
+                                <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
+                            </span>
+                        </td>
+                        <td class="lb-car text-muted">{{ entry.car }}</td>
+                        <td class="lb-time mono">{{ entry.time_ms | rally_time }}</td>
+                        <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
+                            {% if loop.index == 1 %}
+                            &mdash;
+                            {% else %}
+                            {{ (entry.time_ms - leader_time) | time_diff }}
+                            {% endif %}
+                        </td>
+                    </tr>
                 {% endfor %}
+                </tbody>
+            </table>
             </div>
             {% else %}
             <div class="empty-state-box reveal">
@@ -181,45 +188,54 @@
             {% endif %}
 
             {% if tt_entries %}
-            <div class="lb-table reveal" style="animation-delay:.1s">
-                <div class="lb-row lb-row-header">
-                    <span class="lb-col lb-pos">Pos</span>
-                    <span class="lb-col lb-driver">Driver</span>
-                    <span class="lb-col lb-car">Car</span>
-                    <span class="lb-col lb-time">Time</span>
-                    <span class="lb-col lb-diff">Diff</span>
-                    <span class="lb-col lb-setup">Setup</span>
-                </div>
+            <div class="lb-table-wrap reveal" style="animation-delay:.1s">
+            <table class="lb-table">
+                <thead>
+                    <tr>
+                        <th class="lb-pos">Pos</th>
+                        <th class="lb-driver">Driver</th>
+                        <th class="lb-car">Car</th>
+                        <th class="lb-time">Time</th>
+                        <th class="lb-diff">Diff</th>
+                        <th class="lb-setup">Setup</th>
+                    </tr>
+                </thead>
+                <tbody>
                 {% for e in tt_entries %}
-                <div class="lb-row {% if current_user and e.username == current_user.username %}lb-row-me{% endif %}"
-                     style="animation-delay:{{ 0.1 + loop.index0 * 0.03 }}s">
-                    <span class="lb-col lb-pos">
-                        <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
-                    </span>
-                    <span class="lb-col lb-driver">
-                        <span class="lb-flag">{{ e.username | user_flag }}</span>
-                        <a href="/profile/{{ e.username }}">{{ e.username }}</a>
-                    </span>
-                    <span class="lb-col lb-car text-muted">{{ e.vehicle_name }}</span>
-                    <span class="lb-col lb-time mono">{{ e.time_ms | rally_time }}</span>
-                    <span class="lb-col lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
-                        {% if loop.index == 1 %}
-                        &mdash;
-                        {% else %}
-                        {{ (e.time_ms - tt_leader_time) | time_diff }}
-                        {% endif %}
-                    </span>
-                    <span class="lb-col lb-setup">
-                        <span class="setup-badge {% if e.using_wheel %}setup-wheel{% else %}setup-pad{% endif %}"
-                              title="{{ 'Wheel' if e.using_wheel else 'Gamepad' }}">
-                            {{ 'WHL' if e.using_wheel else 'PAD' }}
-                        </span>
-                        {% if e.using_assists %}
-                        <span class="setup-badge setup-assist" title="Assists on">A+</span>
-                        {% endif %}
-                    </span>
-                </div>
+                    <tr class="{% if current_user and e.username == current_user.username %}lb-row-me{% endif %}">
+                        <td class="lb-pos">
+                            <span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span>
+                        </td>
+                        <td class="lb-driver">
+                            <span class="lb-driver-inner">
+                                <span class="lb-flag">{{ e.username | user_flag }}</span>
+                                <a href="/profile/{{ e.username }}">{{ e.username }}</a>
+                            </span>
+                        </td>
+                        <td class="lb-car text-muted">{{ e.vehicle_name }}</td>
+                        <td class="lb-time mono">{{ e.time_ms | rally_time }}</td>
+                        <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
+                            {% if loop.index == 1 %}
+                            &mdash;
+                            {% else %}
+                            {{ (e.time_ms - tt_leader_time) | time_diff }}
+                            {% endif %}
+                        </td>
+                        <td class="lb-setup">
+                            <span class="lb-setup-inner">
+                                <span class="setup-badge {% if e.using_wheel %}setup-wheel{% else %}setup-pad{% endif %}"
+                                      title="{{ 'Wheel' if e.using_wheel else 'Gamepad' }}">
+                                    {{ 'WHL' if e.using_wheel else 'PAD' }}
+                                </span>
+                                {% if e.using_assists %}
+                                <span class="setup-badge setup-assist" title="Assists on">A+</span>
+                                {% endif %}
+                            </span>
+                        </td>
+                    </tr>
                 {% endfor %}
+                </tbody>
+            </table>
             </div>
             {% else %}
             <div class="empty-state-box reveal">
