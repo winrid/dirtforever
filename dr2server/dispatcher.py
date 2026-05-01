@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import secrets
 import time
 from pathlib import Path
@@ -20,6 +21,27 @@ Handler = Callable[[Dict[str, Any]], Union[Dict[str, Any], bytes]]
 # Sentinel to indicate the handler returned raw EgoNet binary bytes
 # that should be sent directly without re-encoding.
 RAW_BINARY_MARKER = "__raw_binary__"
+
+# Fallback AccountId for local-only mode (no api_client, so no web username
+# to derive an ID from). Local-only has no cross-player leaderboards, so the
+# value just needs to be a stable, valid si64.
+_FALLBACK_ACCOUNT_ID: int = 259912747194382660
+
+
+def stable_account_id(username: str) -> int:
+    """Derive a stable si64 AccountId from a web username.
+
+    Used at Login.Login and on every leaderboard Presence row so the game's
+    own-row check (local AccountId == row.AccountRef) succeeds naturally
+    without per-row special-casing. SHA-256 truncated to 63 bits keeps the
+    value positive in si64; collision odds are ~1 in 2**63.
+
+    Returns 0 for the empty string.
+    """
+    if not username:
+        return 0
+    digest = hashlib.sha256(username.encode("utf-8")).digest()
+    return int.from_bytes(digest[:8], "big") & 0x7FFFFFFFFFFFFFFF
 
 
 def _stable_int_id(string_id: str, base: int = 100000, offset: int = 0) -> int:
@@ -81,6 +103,9 @@ class RpcDispatcher:
         # The most recent GetLeaderboardId request — used by PostTime to
         # recover the 4-tuple (VehicleClassId is absent in PostTime params).
         self._last_tt_request: Optional[tuple] = None
+        # Local player's web username, lazily resolved via api_client.test_token().
+        # Used to identify the player's own row in leaderboard responses.
+        self._my_username: Optional[str] = None
         self._handlers: Dict[str, Handler] = {
             "Login.GetCurrentVersion": self._get_current_version,
             "Login.Login": self._login,
@@ -865,6 +890,62 @@ class RpcDispatcher:
 
         return {"ok": True, "Challenges": challenges, "Progress": [], "Clubs": clubs}
 
+    def _resolve_my_username(self) -> Optional[str]:
+        """Return the local player's web username, cached after first lookup.
+
+        Resolved via the API token configured at server start (each player
+        runs their own server bound to their dirtforever.net account, so
+        there's effectively one user per server). Returns None when no
+        api_client is configured or the token check fails.
+        """
+        if self._my_username is not None:
+            return self._my_username
+        if self.api_client is None:
+            return None
+        try:
+            username = self.api_client.test_token()
+        except Exception as exc:
+            print(f"[LB] test_token() raised: {exc}")
+            return None
+        if username:
+            self._my_username = username
+            print(f"[LB] Resolved local username: {username}")
+        return self._my_username
+
+    def my_account_id(self) -> int:
+        """Stable AccountId for the local player.
+
+        Hashed from the web username via :func:`stable_account_id` so the
+        value matches the EgoNetId/AccountRef on the player's leaderboard
+        row without any tagging step. Falls back to a labeled constant when
+        no api_client is configured (local-only mode has no cross-player
+        leaderboards).
+        """
+        username = self._resolve_my_username()
+        if username:
+            return stable_account_id(username)
+        return _FALLBACK_ACCOUNT_ID
+
+    def _player_rank_in(self, egonet_entries: list) -> int:
+        """Return the 1-based rank of the local player's row, or 0 if absent.
+
+        Used to populate ``PlayerRank`` in leaderboard responses. Read-only:
+        per-row IDs are assigned at construction time via
+        :func:`stable_account_id`, so no mutation is needed here.
+        """
+        me = self._resolve_my_username()
+        if not me:
+            return 0
+        for e in egonet_entries:
+            presence = e.get("Presence")
+            if not isinstance(presence, dict):
+                continue
+            if presence.get("Name", "") != me:
+                continue
+            rank = e.get("Rank", 0)
+            return int(getattr(rank, "value", rank) or 0)
+        return 0
+
     def _clubs_leaderboard(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Return leaderboard entries for a club championship."""
         if self.api_client is None:
@@ -908,13 +989,15 @@ class RpcDispatcher:
         # different structure than time-trial entries: Points instead of time.
         egonet_entries = []
         for i, e in enumerate(entries[start_rank:start_rank + limit]):
+            uname = e.get("username", "Unknown")
+            acc = stable_account_id(uname)
             egonet_entries.append({
                 "Presence": {
-                    "Name": e.get("username", "Unknown"),
+                    "Name": uname,
                     "IsCrossPlatform": True,
                     "NetworkId": 0,
-                    "EgoNetId": Int64(0),
-                    "AccountRef": Int64(0),
+                    "EgoNetId": Int64(acc),
+                    "AccountRef": Int64(acc),
                 },
                 "Points": e.get("points", 0),
                 "Rank": start_rank + i + 1,
@@ -922,12 +1005,14 @@ class RpcDispatcher:
                 "Nationality": UInt32(e.get("nationality_id", 0)),
             })
 
-        print(f"[CLUB_LB] club_id={club_id} event={event_id} returning {len(egonet_entries)} entries")
+        player_rank = self._player_rank_in(egonet_entries)
+        print(f"[CLUB_LB] club_id={club_id} event={event_id} returning "
+              f"{len(egonet_entries)} entries player_rank={player_rank}")
         return {
             "ok": True,
             "TotalEntries": len(entries),
             "Entries": egonet_entries,
-            "PlayerRank": 0,
+            "PlayerRank": player_rank,
         }
 
     @staticmethod
@@ -974,13 +1059,15 @@ class RpcDispatcher:
                 lid     = int(e.get("livery_id", 0) or 0)
                 nat     = int(e.get("nationality_id", 0) or 0)
                 rank    = int(e.get("rank", 0))
+                uname   = e.get("username", "Unknown")
+                acc     = stable_account_id(uname)
                 egonet_entries.append({
                     "Presence": {
-                        "Name": e.get("username", "Unknown"),
+                        "Name": uname,
                         "IsCrossPlatform": False,
                         "NetworkId": 0,
-                        "EgoNetId": Int64(0),
-                        "AccountRef": Int64(0),
+                        "EgoNetId": Int64(acc),
+                        "AccountRef": Int64(acc),
                     },
                     "PersonalBest":   Int64(time_ms),
                     "CumulativeBest": Int64(time_ms),
@@ -993,11 +1080,12 @@ class RpcDispatcher:
                     "GhostAvailable": False,
                     "LiveryId":       UInt32(lid),
                 })
+            player_rank = self._player_rank_in(egonet_entries)
             return {
                 "ok": True,
                 "TotalEntries": len(egonet_entries),
                 "Entries": egonet_entries,
-                "PlayerRank": 0,
+                "PlayerRank": player_rank,
             }
 
         # ── Club / championship leaderboard ────────────────────────────────
@@ -1037,13 +1125,15 @@ class RpcDispatcher:
             vehicle_id = e.get("vehicle_id", 0)
             if not isinstance(vehicle_id, int):
                 vehicle_id = 0
+            uname = e.get("username", "Unknown")
+            acc = stable_account_id(uname)
             egonet_entries.append({
                 "Presence": {
-                    "Name": e.get("username", "Unknown"),
+                    "Name": uname,
                     "IsCrossPlatform": False,
                     "NetworkId": Int64(0),
-                    "EgoNetId": Int64(0),
-                    "AccountRef": Int64(0),
+                    "EgoNetId": Int64(acc),
+                    "AccountRef": Int64(acc),
                 },
                 "PersonalBest":   Int64(total_ms),
                 "CumulativeBest": Int64(total_ms),
@@ -1056,11 +1146,12 @@ class RpcDispatcher:
                 "GhostAvailable": False,
                 "LiveryId":       UInt32(0),
             })
+        player_rank = self._player_rank_in(egonet_entries)
         return {
             "ok": True,
             "TotalEntries": len(egonet_entries),
             "Entries": egonet_entries,
-            "PlayerRank": 0,
+            "PlayerRank": player_rank,
         }
 
     def _time_trial_id(self, params: Dict[str, Any]) -> Dict[str, Any]:

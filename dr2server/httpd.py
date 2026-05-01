@@ -418,8 +418,10 @@ class RequestHandler(BaseHTTPRequestHandler):
         # This path is for local-only login
         # Real upstream returns: {"AccountId": <si64>, "Flags": <ui64>}
         session_id = secrets.token_hex(16)
-        # Use a large si64 AccountId like the real server
-        account_id = 259912747194382660
+        # AccountId is derived from the player's web username so it matches
+        # the EgoNetId/AccountRef hashed onto their leaderboard row. Falls
+        # back to a stable constant when there's no api_client (local-only).
+        account_id = self.app.dispatcher.my_account_id()
         result = self._sanitize_egonet_value({
             "AccountId": account_id,
             "Flags": 0,
