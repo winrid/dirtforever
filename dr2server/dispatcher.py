@@ -577,26 +577,180 @@ class RpcDispatcher:
             "Clubs": clubs_egonet,
         }
 
-    def _build_user_progress(self, web_events: list) -> list:
-        """Build Progress entries for the current user from stored stage data.
+    # VehicleDamage field order MUST match upstream exactly — the game
+    # parses this as an ordered struct. Used by Progress builders below.
+    @staticmethod
+    def _damage_from_dict(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        d = d or {}
+        return {
+            "WheelsWear":   UInt32(int(d.get("wheels_wear", 0))),
+            "Turbo":        UInt32(int(d.get("turbo", 0))),
+            "Springs":      UInt32(int(d.get("springs", 0))),
+            "Radiator":     float(d.get("radiator", 0.0)),
+            "Lights":       float(d.get("lights", 0.0)),
+            "Gearbox":      UInt32(int(d.get("gearbox", 0))),
+            "WheelsImpact": UInt32(int(d.get("wheels_impact", 0))),
+            "Exhaust":      float(d.get("exhaust", 0.0)),
+            "DiffImpact":   UInt32(int(d.get("diff_impact", 0))),
+            "DiffWear":     UInt32(int(d.get("diff_wear", 0))),
+            "Dampers":      UInt32(int(d.get("dampers", 0))),
+            "Clutch":       float(d.get("clutch", 0.0)),
+            "Brakes":       UInt32(int(d.get("brakes", 0))),
+            "Bodywork":     UInt32(int(d.get("bodywork", 0))),
+            "Engine":       float(d.get("engine", 0.0)),
+            "QuickRepairs": UInt16(int(d.get("quick_repairs", 0))),
+        }
 
-        Calls get_my_progress() so we use all the real captured values
-        (tuning setup, tyre compound, vehicle damage, etc.) instead of
-        hard-coded defaults.
+    # VehicleMud field order MUST match upstream exactly — only included in
+    # StageComplete responses (not StageBegin, not Clubs.GetClubs).
+    @staticmethod
+    def _mud_from_dict(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        d = d or {}
+        return {
+            "Dirt":        float(d.get("dirt", 0.0)),
+            "WheelMud0":   float(d.get("wheel_mud_0", d.get("wheel_mud0", 0.0))),
+            "WheelMud1":   float(d.get("wheel_mud_1", d.get("wheel_mud1", 0.0))),
+            "WheelMud2":   float(d.get("wheel_mud_2", d.get("wheel_mud2", 0.0))),
+            "WheelMud3":   float(d.get("wheel_mud_3", d.get("wheel_mud3", 0.0))),
+            "Mud":         float(d.get("mud", 0.0)),
+            "CleanHeight": float(d.get("clean_height", 0.0)),
+            "CleanDirt":   float(d.get("clean_dirt", 0.0)),
+            "CleanMud":    float(d.get("clean_mud", 0.0)),
+        }
+
+    @staticmethod
+    def _build_progress_dict(
+        challenge_id: int,
+        target_stage_index: int,
+        state: int,
+        vehicle_id: int,
+        livery_id: int,
+        meters_driven: int,
+        champ_time_ms: int,
+        has_repaired: bool,
+        repair_penalty_ms: int,
+        vehicle_damage: Dict[str, Any],
+        tyre_compound: int,
+        tyres_remaining: int,
+        tuning_bytes: bytes,
+        attempts_left: int,
+        percentile: int = 0,
+        vehicle_mud: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Build a single Progress dict matching upstream's wire shape exactly.
+
+        Field order, names, and EgoNet types are all verified against captured
+        upstream RaceNetChallenges.StageBegin/StageComplete responses (1606-byte
+        and 822-byte bodies decoded on 2026-04-27 from 159.153.126.42).
+
+        ``vehicle_mud`` is only populated for StageComplete-style responses;
+        StageBegin and Clubs.GetClubs Progress entries omit it.
+        """
+        progress: Dict[str, Any] = {
+            "ChallengeID":   challenge_id,
+            "EventIndex":    0,
+            "StageIndex":    target_stage_index,
+            "State":         state,
+            "StageTimeMs":   UInt32(0),
+            "VehicleInstId": Int64(0),
+            "VehicleId":     UInt32(vehicle_id),
+            "LiveryId":      UInt32(livery_id),
+            "MetersDriven":  meters_driven,
+            "Percentile":    percentile,
+            "ChampTimeMs":   UInt32(champ_time_ms),
+            "HasRepaired":   has_repaired,
+            "RepairPenalty": UInt32(repair_penalty_ms),
+            "VehicleDamage": vehicle_damage,
+        }
+        if vehicle_mud is not None:
+            progress["VehicleMud"] = vehicle_mud
+        progress["TyreCompound"]   = UInt32(tyre_compound)
+        progress["TyresRemaining"] = UInt32(tyres_remaining)
+        progress["TuningSetup"]    = tuning_bytes
+        progress["AttemptsLeft"]   = attempts_left
+        return progress
+
+    @staticmethod
+    def _zero_reward() -> Dict[str, Any]:
+        """Build a fully-zeroed EventReward/ChampReward matching upstream's shape.
+
+        Field order and EgoNet types verified against the StageComplete capture.
+        ``Reason.Source`` mirrors the observed upstream wire value (4) — see
+        :class:`game_data.RewardSource.UNKNOWN_4`.
+        """
+        from .game_data import RewardSource
+        return {
+            "Id": Int64(0),
+            "Reason": {
+                "Source":         int(RewardSource.UNKNOWN_4),
+                "Type":           0,
+                "FinishPosition": 0,
+                "FinishTimeMs":   0,
+                "SourceEntityId": Int64(0),
+                "SourceName":     "",
+            },
+            "Message":         "",
+            "SoftCurrency":    0,
+            "GarageSlots":     0,
+            "Items":           [],
+            "IsGlobalBoosted": False,
+        }
+
+    def _get_my_progress_safe(self) -> Optional[Dict[str, Any]]:
+        """Fetch get_my_progress(), suppressing/logging any error."""
+        if self.api_client is None:
+            return None
+        try:
+            return self.api_client.get_my_progress()
+        except Exception as exc:
+            print(f"[PROGRESS] get_my_progress() failed: {exc}")
+            return None
+
+    def _user_progress_for_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        """Return the my_progress entry for a given web event_id, or None."""
+        my_progress = self._get_my_progress_safe()
+        if not my_progress:
+            return None
+        for ep in my_progress.get("events", []):
+            if ep.get("event_id", "") == event_id:
+                return ep
+        return None
+
+    def _attempts_left_for(self, ep: Optional[Dict[str, Any]]) -> int:
+        """Compute AttemptsLeft from stored attempts_used.
+
+        Sources attempts_allowed from the Challenge dataclass default so that
+        the value is wired through model config rather than a literal in the
+        response builder.
+        """
+        attempts_allowed = Challenge().attempts_allowed
+        attempts_used = int((ep or {}).get("attempts_used", 0))
+        return max(attempts_allowed - attempts_used, 0)
+
+    def _decode_tuning_b64(self, tuning_b64: str) -> bytes:
+        """Decode a stored tuning blob; fall back to the default blob if empty."""
+        import base64
+        try:
+            tuning_bytes = base64.b64decode(tuning_b64) if tuning_b64 else b""
+        except Exception:
+            tuning_bytes = b""
+        if not tuning_bytes:
+            # Game crashes on empty/malformed TuningSetup blobs; the fallback
+            # is a known-valid neutral blob, NOT an invented gameplay default.
+            from .tuning import TuningBlob
+            tuning_bytes = TuningBlob.default_bytes()
+        return tuning_bytes
+
+    def _build_user_progress(self, web_events: list) -> list:
+        """Build Progress entries for the current user across all club events.
+
+        One entry per event where the user has at least one completed stage.
+        Used by the Clubs.GetClubs response.
         """
         if self.api_client is None:
             return []
 
-        import base64
-
-        # Fetch real per-user progress from the web API
-        try:
-            my_progress = self.api_client.get_my_progress()
-        except Exception as exc:
-            print(f"[PROGRESS] get_my_progress() failed: {exc}")
-            my_progress = None
-
-        # Build a quick lookup: event_id -> event data from my_progress
+        my_progress = self._get_my_progress_safe()
         progress_by_event: Dict[str, Any] = {}
         if my_progress:
             for ep in my_progress.get("events", []):
@@ -604,40 +758,12 @@ class RpcDispatcher:
                 if eid:
                     progress_by_event[eid] = ep
 
-        # Fetch leaderboard totals for percentile calculation
-        # key: event_id -> total entry count
-        lb_totals: Dict[str, int] = {}
-
-        # VehicleDamage field order MUST match upstream exactly — the game
-        # parses this as an ordered struct.
-        def _damage_from_dict(d: Dict[str, Any]) -> Dict[str, Any]:
-            d = d or {}
-            return {
-                "WheelsWear":   UInt32(int(d.get("wheels_wear", 0))),
-                "Turbo":        UInt32(int(d.get("turbo", 0))),
-                "Springs":      UInt32(int(d.get("springs", 0))),
-                "Radiator":     float(d.get("radiator", 0.0)),
-                "Lights":       float(d.get("lights", 0.0)),
-                "Gearbox":      UInt32(int(d.get("gearbox", 0))),
-                "WheelsImpact": UInt32(int(d.get("wheels_impact", 0))),
-                "Exhaust":      float(d.get("exhaust", 0.0)),
-                "DiffImpact":   UInt32(int(d.get("diff_impact", 0))),
-                "DiffWear":     UInt32(int(d.get("diff_wear", 0))),
-                "Dampers":      UInt32(int(d.get("dampers", 0))),
-                "Clutch":       float(d.get("clutch", 0.0)),
-                "Brakes":       UInt32(int(d.get("brakes", 0))),
-                "Bodywork":     UInt32(int(d.get("bodywork", 0))),
-                "Engine":       float(d.get("engine", 0.0)),
-                "QuickRepairs": UInt16(int(d.get("quick_repairs", 0))),
-            }
-
         progress: list = []
         for evt in web_events:
             evt_id = evt.get("id", "")
             if not evt_id:
                 continue
 
-            # Reverse-lookup the challenge_id for this event
             chal_id = None
             for k, v in self._challenge_event_map.items():
                 if v == evt_id:
@@ -648,8 +774,7 @@ class RpcDispatcher:
 
             ep = progress_by_event.get(evt_id)
             if not ep:
-                continue  # user has no stages completed in this event
-
+                continue
             completed_stages = ep.get("completed_stages", [])
             if not completed_stages:
                 continue
@@ -660,17 +785,8 @@ class RpcDispatcher:
                 and len(completed_stages) >= total_stages_in_event
             )
 
-            total_ms = ep.get("total_time_ms", 0)
-
-            # Compute percentile from stored rank (percentile computation
-            # is best-effort; leave at 0 until we track per-user rank)
-            percentile = 0
-
-            # Use the last completed stage's data for the Progress entry
             last_stage = completed_stages[-1]
             next_stage_idx = last_stage.get("stage_index", 0) + 1
-            # When all stages are done, cap StageIndex at the last completed
-            # stage and use State=2 (completed). Otherwise State=1 (in-progress).
             if all_done:
                 stage_index_out = total_stages_in_event - 1
                 state_out = 2
@@ -681,52 +797,26 @@ class RpcDispatcher:
             vehicle_id = last_stage.get("vehicle_id") or 0
             if not isinstance(vehicle_id, int):
                 vehicle_id = 0
-
-            # Use upstream-observed defaults where we don't have real data.
-            # LiveryId must belong to the vehicle — use the inventory mapping
-            # so we don't end up with a livery from a different car.
             livery_id = last_stage.get("livery_id", 0)
             if not livery_id:
                 livery_id = _LIVERY_FOR_VEHICLE.get(vehicle_id, 0)
-            nationality_id = last_stage.get("nationality_id", 0) or 0
-            meters_driven = last_stage.get("meters_driven", 0) or 0
-            has_repaired = bool(last_stage.get("has_repaired", False))
-            repair_penalty_ms = int(last_stage.get("repair_penalty_ms", 0) or 0)
-            tyre_compound = int(last_stage.get("tyre_compound", 0) or 7)
-            tyres_remaining = int(last_stage.get("tyres_remaining", 0) or 2)
-            damage = _damage_from_dict(last_stage.get("vehicle_damage") or {})
 
-            # Decode tuning setup from base64 back to bytes; use default
-            # valid blob when empty (game crashes on empty/malformed blobs)
-            tuning_b64 = last_stage.get("tuning_setup_b64", "") or ""
-            try:
-                tuning_bytes = base64.b64decode(tuning_b64) if tuning_b64 else b""
-            except Exception:
-                tuning_bytes = b""
-            if not tuning_bytes:
-                from .tuning import TuningBlob
-                tuning_bytes = TuningBlob.default_bytes()
-
-            progress.append({
-                "ChallengeID": chal_id,
-                "EventIndex": 0,
-                "StageIndex": stage_index_out,
-                "State": state_out,
-                "StageTimeMs": UInt32(0),
-                "VehicleInstId": Int64(0),
-                "VehicleId": UInt32(vehicle_id),
-                "LiveryId": UInt32(livery_id),
-                "MetersDriven": meters_driven,
-                "Percentile": percentile,
-                "ChampTimeMs": UInt32(total_ms),
-                "HasRepaired": has_repaired,
-                "RepairPenalty": UInt32(repair_penalty_ms),
-                "VehicleDamage": damage,
-                "TyreCompound": UInt32(tyre_compound),
-                "TyresRemaining": UInt32(tyres_remaining),
-                "TuningSetup": tuning_bytes,
-                "AttemptsLeft": 1,  # must match Challenge.AttemptsAllowed
-            })
+            progress.append(self._build_progress_dict(
+                challenge_id=chal_id,
+                target_stage_index=stage_index_out,
+                state=state_out,
+                vehicle_id=vehicle_id,
+                livery_id=livery_id,
+                meters_driven=last_stage.get("meters_driven", 0) or 0,
+                champ_time_ms=ep.get("total_time_ms", 0),
+                has_repaired=bool(last_stage.get("has_repaired", False)),
+                repair_penalty_ms=int(last_stage.get("repair_penalty_ms", 0) or 0),
+                vehicle_damage=self._damage_from_dict(last_stage.get("vehicle_damage")),
+                tyre_compound=int(last_stage.get("tyre_compound", 0) or 7),
+                tyres_remaining=int(last_stage.get("tyres_remaining", 0) or 2),
+                tuning_bytes=self._decode_tuning_b64(last_stage.get("tuning_setup_b64", "") or ""),
+                attempts_left=self._attempts_left_for(ep),
+            ))
 
         return progress
 
@@ -1261,6 +1351,53 @@ class RpcDispatcher:
     def _challenges(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": True, "Challenges": []}
 
+    def _resolve_event_id(self, challenge_id: int, label: str) -> Optional[str]:
+        """Map a numeric challenge_id back to a web event_id.
+
+        ``_challenge_event_map`` is in-memory only and gets reset when the
+        server restarts. If the game has a cached challenge_id from before
+        the restart, we won't find it on the first request — repopulate the
+        map by re-fetching the clubs list, then try again.
+
+        If the challenge_id still isn't found, return None instead of
+        falling back to a random event. Writing a stage submission to the
+        wrong event id silently corrupts that event's leaderboard and the
+        Progress/Tuning state for the actual event the player was in.
+        """
+        if self.api_client is None:
+            return None
+        event_id = self._challenge_event_map.get(challenge_id)
+        if event_id:
+            return event_id
+        print(f"[STAGE] {label} unknown challenge_id={challenge_id} "
+              f"(map has {len(self._challenge_event_map)} entries); "
+              f"refreshing from clubs API")
+        try:
+            self._clubs_from_api()
+        except Exception as exc:
+            print(f"[STAGE] {label} clubs refresh raised: {exc}")
+            return None
+        event_id = self._challenge_event_map.get(challenge_id)
+        if event_id:
+            print(f"[STAGE] {label} resolved after refresh: event_id={event_id}")
+            return event_id
+        print(f"[STAGE] {label} challenge_id={challenge_id} not in any known "
+              f"event after refresh; refusing to misroute submission")
+        return None
+
+    def _total_stages_for_event(self, event_id: str) -> int:
+        """Look up the configured stage count for an event. 0 if unknown."""
+        if self.api_client is None or not event_id:
+            return 0
+        try:
+            evt = self.api_client.get_event(event_id)
+        except Exception as exc:
+            print(f"[STAGE] get_event({event_id}) raised: {exc}")
+            return 0
+        if not evt:
+            return 0
+        return len(evt.get("stages", []) or [])
+
     def _stage_begin(self, params: Dict[str, Any]) -> Dict[str, Any]:
         import base64
         req = StageBeginRequest.from_egonet(params)
@@ -1268,36 +1405,60 @@ class RpcDispatcher:
               f"stage={req.stage_index} vehicle={req.vehicle_id} livery={req.livery_id} "
               f"tyres={req.tyres_remaining} compound={req.tyre_compound}")
 
-        if self.api_client is not None:
-            # Resolve event_id from challenge_id map, fall back to first active event
-            event_id = self._challenge_event_map.get(req.challenge_id)
-            if not event_id:
-                try:
-                    data = self.api_client.get_clubs()
-                    active_events = [e for e in data.get("events", []) if e.get("active")]
-                    if active_events:
-                        event_id = active_events[0].get("id", "")
-                        print(f"[STAGE] Begin fallback: using event_id={event_id}")
-                except Exception as exc:
-                    print(f"[STAGE] Begin fallback fetch failed: {exc}")
+        event_id = self._resolve_event_id(req.challenge_id, "Begin")
 
-            if event_id:
-                tuning_b64 = base64.b64encode(req.tuning_setup).decode("ascii") if req.tuning_setup else ""
-                try:
-                    self.api_client.submit_stage_begin(
-                        event_id=event_id,
-                        stage_index=req.stage_index,
-                        vehicle_id=req.vehicle_id if req.vehicle_id else None,
-                        livery_id=req.livery_id,
-                        tuning_setup_b64=tuning_b64,
-                        tyre_compound=req.tyre_compound,
-                        tyres_remaining=req.tyres_remaining,
-                        nationality_id=req.nationality_id,
-                    )
-                except Exception as exc:
-                    print(f"[STAGE] Begin api_client.submit_stage_begin() raised: {exc}")
+        # Persist the pre-stage setup so my-progress reflects it for later calls.
+        if event_id and self.api_client is not None:
+            tuning_b64 = base64.b64encode(req.tuning_setup).decode("ascii") if req.tuning_setup else ""
+            try:
+                self.api_client.submit_stage_begin(
+                    event_id=event_id,
+                    stage_index=req.stage_index,
+                    vehicle_id=req.vehicle_id if req.vehicle_id else None,
+                    livery_id=req.livery_id,
+                    tuning_setup_b64=tuning_b64,
+                    tyre_compound=req.tyre_compound,
+                    tyres_remaining=req.tyres_remaining,
+                    nationality_id=req.nationality_id,
+                )
+            except Exception as exc:
+                print(f"[STAGE] Begin api_client.submit_stage_begin() raised: {exc}")
 
-        return {"ok": True, "Accepted": True}
+        # Build the Progress block that will be relayed back to the client.
+        # The client uses this as the source of truth for the stage-start UI,
+        # so values must reflect the persisted state of prior completed stages
+        # (damage, ChampTimeMs) and echo the request for this stage's setup
+        # (Vehicle/Livery/Tyres/Tuning).
+        ep = self._user_progress_for_event(event_id) if event_id else None
+        completed_stages = (ep or {}).get("completed_stages", []) if ep else []
+        prior_completed = [s for s in completed_stages if s.get("stage_index", 0) < req.stage_index]
+        last_prior = prior_completed[-1] if prior_completed else None
+
+        if last_prior is not None:
+            vehicle_damage = self._damage_from_dict(last_prior.get("vehicle_damage"))
+            champ_time_ms = sum(int(s.get("time_ms", 0) or 0) for s in prior_completed)
+        else:
+            vehicle_damage = self._damage_from_dict(None)  # all zeros
+            champ_time_ms = 0
+
+        progress = self._build_progress_dict(
+            challenge_id=req.challenge_id,
+            target_stage_index=req.stage_index,
+            state=1,  # 1 = stage active/in-progress
+            vehicle_id=req.vehicle_id or 0,
+            livery_id=req.livery_id or 0,
+            meters_driven=0,  # fresh stage start
+            champ_time_ms=champ_time_ms,
+            has_repaired=False,
+            repair_penalty_ms=0,
+            vehicle_damage=vehicle_damage,
+            tyre_compound=req.tyre_compound,
+            tyres_remaining=req.tyres_remaining,
+            tuning_bytes=req.tuning_setup or self._decode_tuning_b64(""),
+            attempts_left=self._attempts_left_for(ep),
+        )
+
+        return {"ok": True, "Progress": progress, "ResultCode": 0}
 
     def _stage_complete(self, params: Dict[str, Any]) -> Dict[str, Any]:
         import dataclasses
@@ -1307,65 +1468,122 @@ class RpcDispatcher:
               f"distance={req.meters_driven}m status={req.race_status} "
               f"wheel={req.using_wheel} assists={req.using_assists}")
 
-        if self.api_client is not None:
-            # Look up the original web event_id from the numeric challenge_id
-            event_id = self._challenge_event_map.get(req.challenge_id)
-            if not event_id:
-                # Fallback: game may have cached an old challenge_id from a
-                # previous server session. Fetch current events and use the
-                # first active one as a best-effort match.
-                print(f"[STAGE] Unknown challenge_id={req.challenge_id} "
-                      f"(map has {len(self._challenge_event_map)} entries), "
-                      f"trying fallback to first active event...")
-                try:
-                    data = self.api_client.get_clubs()
-                    active_events = [e for e in data.get("events", []) if e.get("active")]
-                    if active_events:
-                        event_id = active_events[0].get("id", "")
-                        print(f"[STAGE] Fallback: using event_id={event_id}")
-                except Exception as exc:
-                    print(f"[STAGE] Fallback fetch failed: {exc}")
+        event_id = self._resolve_event_id(req.challenge_id, "Complete")
 
-            if not event_id:
-                print(f"[STAGE] Cannot submit — no event_id available")
-            elif req.race_status != 0:
-                print(f"[STAGE] Not submitting (race_status={req.race_status}, not finished)")
-            else:
-                time_ms = int(req.stage_time * 1000)
-                # Convert VehicleMud and CompDamage dataclasses to plain dicts
-                mud_dict = dataclasses.asdict(req.vehicle_mud)
-                dmg_dict = dataclasses.asdict(req.comp_damage)
-                # has_repaired: true if any quick_repairs used or comp_damage
-                # indicates repair was applied (RecovToService flag)
-                _qr = getattr(req.comp_damage.quick_repairs, "value", req.comp_damage.quick_repairs)
-                has_repaired = req.recov_to_service or _qr > 0
-                # Username comes from the authenticated token on the web side
-                try:
-                    ok = self.api_client.submit_stage(
-                        event_id=event_id,
-                        username="",  # server uses g.game_user from token
-                        stage_index=req.stage_index,
-                        time_ms=time_ms,
-                        vehicle_id=req.vehicle_id if req.vehicle_id else None,
-                        meters_driven=req.meters_driven,
-                        distance_driven=req.distance_driven,
-                        vehicle_mud=mud_dict,
-                        comp_damage=dmg_dict,
-                        using_wheel=req.using_wheel,
-                        using_assists=req.using_assists,
-                        race_status=req.race_status,
-                        nationality_id=req.nationality_id,
-                        livery_id=req.livery_id,
-                        has_repaired=has_repaired,
-                        repair_penalty_ms=0,  # game doesn't send this directly
-                    )
-                    if ok:
-                        print(f"[STAGE] Submitted to API: event={event_id} "
-                              f"stage={req.stage_index} time_ms={time_ms}")
-                except Exception as exc:
-                    print(f"[STAGE] api_client.submit_stage() raised: {exc}")
+        # Convert the request payloads back to plain dicts for the API call.
+        mud_dict = dataclasses.asdict(req.vehicle_mud)
+        dmg_dict = dataclasses.asdict(req.comp_damage)
+        _qr = getattr(req.comp_damage.quick_repairs, "value", req.comp_damage.quick_repairs)
+        has_repaired = req.recov_to_service or _qr > 0
+        time_ms = int(req.stage_time * 1000)
 
-        return {"ok": True, "Accepted": True}
+        # Persist if we have a target event AND the stage was finished cleanly.
+        # DNF/restart submissions (race_status != 0) are skipped for the
+        # leaderboard, but we still build a Progress response below.
+        if event_id and self.api_client is not None and req.race_status == 0:
+            try:
+                self.api_client.submit_stage(
+                    event_id=event_id,
+                    username="",  # server uses g.game_user from token
+                    stage_index=req.stage_index,
+                    time_ms=time_ms,
+                    vehicle_id=req.vehicle_id if req.vehicle_id else None,
+                    meters_driven=req.meters_driven,
+                    distance_driven=req.distance_driven,
+                    vehicle_mud=mud_dict,
+                    comp_damage=dmg_dict,
+                    using_wheel=req.using_wheel,
+                    using_assists=req.using_assists,
+                    race_status=req.race_status,
+                    nationality_id=req.nationality_id,
+                    livery_id=req.livery_id,
+                    has_repaired=has_repaired,
+                    repair_penalty_ms=0,  # client doesn't send this directly
+                )
+                print(f"[STAGE] Submitted to API: event={event_id} "
+                      f"stage={req.stage_index} time_ms={time_ms}")
+            except Exception as exc:
+                print(f"[STAGE] api_client.submit_stage() raised: {exc}")
+        elif req.race_status != 0:
+            print(f"[STAGE] Not submitting (race_status={req.race_status}, not finished)")
+        elif not event_id:
+            print(f"[STAGE] Cannot submit — no event_id available")
+
+        # Build the Progress block to relay back. Source-of-truth values:
+        #   - VehicleDamage / VehicleMud / Meters: this StageComplete request
+        #     (the just-submitted state IS the new persisted state)
+        #   - TuningSetup: the most recent stored setup for this event/user;
+        #     unchanged at stage end
+        #   - ChampTimeMs: sum of all completed-stage times (including this one
+        #     if persisted)
+        ep = self._user_progress_for_event(event_id) if event_id else None
+        completed_stages = (ep or {}).get("completed_stages", []) if ep else []
+        total_stages = self._total_stages_for_event(event_id) if event_id else 0
+
+        # The StageComplete request doesn't carry TuningSetup / TyreCompound /
+        # TyresRemaining — those were set at StageBegin and persisted by the
+        # web side under the in_progress key, then merged into the stage entry.
+        # Pull them from the latest completed stage entry (just-submitted on
+        # the happy path, prior stage on DNF). Fall back to defaults when the
+        # web fetch hasn't seen our submission yet.
+        latest = completed_stages[-1] if completed_stages else {}
+        tuning_bytes = self._decode_tuning_b64(latest.get("tuning_setup_b64", "") or "")
+        tyre_compound = int(latest.get("tyre_compound", 0) or 7)
+        tyres_remaining = int(latest.get("tyres_remaining", 0) or 2)
+
+        all_done = (
+            total_stages > 0
+            and len(completed_stages) >= total_stages
+        )
+        if all_done:
+            target_stage_index = total_stages - 1
+            state_out = 2  # event finished
+        else:
+            target_stage_index = req.stage_index + 1
+            state_out = 0  # between stages, ready for next StageBegin
+
+        # ChampTimeMs: prefer the web side's recomputed total when available,
+        # otherwise sum what we have locally (request value included).
+        if ep and "total_time_ms" in ep:
+            champ_time_ms = int(ep.get("total_time_ms", 0) or 0)
+        else:
+            champ_time_ms = sum(int(s.get("time_ms", 0) or 0) for s in completed_stages)
+            if req.race_status == 0:
+                champ_time_ms += time_ms
+
+        progress = self._build_progress_dict(
+            challenge_id=req.challenge_id,
+            target_stage_index=target_stage_index,
+            state=state_out,
+            vehicle_id=req.vehicle_id or 0,
+            livery_id=req.livery_id or 0,
+            meters_driven=req.meters_driven or 0,
+            champ_time_ms=champ_time_ms,
+            has_repaired=has_repaired,
+            repair_penalty_ms=0,
+            vehicle_damage=self._damage_from_dict(dmg_dict),
+            tyre_compound=tyre_compound,
+            tyres_remaining=tyres_remaining,
+            tuning_bytes=tuning_bytes,
+            attempts_left=self._attempts_left_for(ep),
+            vehicle_mud=self._mud_from_dict(mud_dict),
+        )
+
+        # Reward / research fields all zero — matches mid-event upstream shape.
+        # When the user completes the final stage of an event, real upstream
+        # presumably returns populated rewards; we have no capture of that yet,
+        # so we keep zeros for now (rewards UI will show empty post-event).
+        return {
+            "ok": True,
+            "Progress":        progress,
+            "EventReward":     self._zero_reward(),
+            "ChampReward":     self._zero_reward(),
+            "ResearchTarget":  UInt32(0),
+            "ResearchPercent": 0.0,
+            "OldResearchTgt":  UInt32(0),
+            "OldResearchPct":  0.0,
+            "ResultCode":      0,
+        }
 
     @staticmethod
     def _stage_splits(params: Dict[str, Any]) -> Dict[str, Any]:

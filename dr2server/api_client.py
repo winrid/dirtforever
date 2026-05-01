@@ -281,12 +281,18 @@ class DirtForeverClient:
         livery_id: int = 0,
         has_repaired: bool = False,
         repair_penalty_ms: int = 0,
-        tuning_setup_b64: str = "",
-        tyre_compound: int = 2,
-        tyres_remaining: int = 3,
+        tuning_setup_b64: Optional[str] = None,
+        tyre_compound: Optional[int] = None,
+        tyres_remaining: Optional[int] = None,
         **extra: Any,
     ) -> bool:
         """Submit a completed stage to the web API.
+
+        Fields that the StageComplete EgoNet request doesn't carry
+        (``tuning_setup_b64``, ``tyre_compound``, ``tyres_remaining``) default
+        to ``None`` here so they're omitted from the payload entirely. The web
+        side then falls back to the values stored at stage-begin time. Passing
+        an empty string would clobber the saved tuning.
 
         Returns True on success, False on any error.
         """
@@ -305,9 +311,6 @@ class DirtForeverClient:
             "livery_id": livery_id,
             "has_repaired": has_repaired,
             "repair_penalty_ms": repair_penalty_ms,
-            "tuning_setup_b64": tuning_setup_b64,
-            "tyre_compound": tyre_compound,
-            "tyres_remaining": tyres_remaining,
         }
         if vehicle_id is not None:
             payload["vehicle_id"] = vehicle_id
@@ -315,6 +318,12 @@ class DirtForeverClient:
             payload["vehicle_mud"] = vehicle_mud
         if comp_damage is not None:
             payload["comp_damage"] = comp_damage
+        if tuning_setup_b64 is not None:
+            payload["tuning_setup_b64"] = tuning_setup_b64
+        if tyre_compound is not None:
+            payload["tyre_compound"] = tyre_compound
+        if tyres_remaining is not None:
+            payload["tyres_remaining"] = tyres_remaining
         payload.update(extra)
 
         result = self._post("/api/game/stage-complete", payload)

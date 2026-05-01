@@ -1802,8 +1802,11 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
             'stages': pad,
             'total_time_ms': 0,
             'vehicle_id': vehicle_id,
+            'attempts_used': 0,
         }
         entries.append(existing)
+    else:
+        existing.setdefault('attempts_used', 0)
 
     # Merge in_progress fields as defaults — explicit data takes priority
     def _pick(key: str, default: Any = None) -> Any:
@@ -1837,6 +1840,12 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     while len(existing['stages']) <= stage_index:
         existing['stages'].append({'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None})
     existing['stages'][stage_index] = stage_entry
+
+    # Count a DNF/retired finish as a consumed attempt. race_status==0 ("UNKNOWN"
+    # in the game's enum) is what the client actually sends for a clean finish,
+    # per dispatcher.py's race_status==0 gate, so don't burn an attempt on that.
+    if stage_entry['race_status'] != 0:
+        existing['attempts_used'] = existing.get('attempts_used', 0) + 1
 
     # Recalculate total from all stages that have a real time
     existing['total_time_ms'] = sum(
@@ -1902,6 +1911,7 @@ def api_game_my_progress() -> Response:
             'event_id': evt_id,
             'completed_stages': completed,
             'total_time_ms': user_entry.get('total_time_ms', 0),
+            'attempts_used': user_entry.get('attempts_used', 0),
         })
 
     return jsonify({'ok': True, 'events': events_out})

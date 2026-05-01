@@ -956,6 +956,20 @@ _RACE_STATUS_LABELS: Dict[RaceStatus, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Reward source codes (from EventReward.Reason.Source / ChampReward.Reason.Source)
+# ---------------------------------------------------------------------------
+
+class RewardSource(IntEnum):
+    """Source codes observed in EgoNet Reward.Reason.Source.
+
+    Names are placeholders — real meaning is unknown until we capture more
+    upstream traffic. Echoing the observed value verbatim is required for
+    the game client to accept the response.
+    """
+    UNKNOWN_4 = 4  # observed in mid-event StageComplete responses
+
+
+# ---------------------------------------------------------------------------
 # Backward-compatible plain-dict aliases
 # ---------------------------------------------------------------------------
 # These preserve compatibility with any code that still accesses the old dicts
