@@ -1815,37 +1815,39 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     else:
         existing.setdefault('attempts_used', 0)
 
-    # Merge in_progress fields as defaults — explicit data takes priority
-    def _pick(key: str, default: Any = None) -> Any:
-        v = data.get(key)
-        if v is None:
-            v = in_progress_entry.get(key, default)
-        return v
-
-    stage_entry: dict[str, Any] = {
-        'time_ms': time_ms,
-        'penalties_ms': penalties_ms,
-        'submitted_at': datetime.now().isoformat(),
-        'meters_driven': int(data.get('meters_driven', 0)),
-        'distance_driven': int(data.get('distance_driven', 0)),
-        'using_wheel': bool(data.get('using_wheel', False)),
-        'using_assists': bool(data.get('using_assists', False)),
-        'race_status': int(data.get('race_status', 0)),
-        'has_repaired': bool(data.get('has_repaired', False)),
-        'repair_penalty_ms': int(data.get('repair_penalty_ms', 0)),
-        'vehicle_id': vehicle_id if vehicle_id is not None else in_progress_entry.get('vehicle_id'),
-        'livery_id': _pick('livery_id', 0),
-        'nationality_id': _pick('nationality_id', 0),
-        'tuning_setup_b64': _pick('tuning_setup_b64', ''),
-        'tyre_compound': _pick('tyre_compound', 2),
-        'tyres_remaining': _pick('tyres_remaining', 3),
-        'vehicle_mud': data.get('vehicle_mud') or {},
-        'comp_damage': data.get('comp_damage') or {},
-    }
-
-    # Extend or replace at the right index
+    # Extend padding to the target index so we can preserve any prior entry.
     while len(existing['stages']) <= stage_index:
         existing['stages'].append({'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None})
+    prev_stage_entry: dict[str, Any] = existing['stages'][stage_index] or {}
+
+    # Routing/identity fields the dispatcher sends in the JSON body but that
+    # don't belong inside a stage entry.
+    _routing_keys = {'event_id', 'username', 'stage_index'}
+
+    # Merge layers in oldest→newest order so newer wins:
+    #   1. prev_stage_entry  — preserves data from a previous submission
+    #   2. in_progress_entry — values captured at stage-begin (tuning, livery,
+    #      tyres, etc.) — these don't change during the stage run
+    #   3. data              — fields explicitly sent by this submission;
+    #      partial submissions (e.g. the leaderboard pre-persist that only
+    #      knows time_ms) leave most fields out, which is intentional —
+    #      missing → preserve, never overwrite with invented zeros.
+    stage_entry: dict[str, Any] = {
+        **prev_stage_entry,
+        **{k: v for k, v in (in_progress_entry or {}).items() if v is not None},
+        **{k: v for k, v in data.items()
+           if v is not None and k not in _routing_keys},
+    }
+    # Always-current bookkeeping
+    stage_entry['time_ms'] = time_ms
+    stage_entry['submitted_at'] = datetime.now().isoformat()
+    if vehicle_id is not None:
+        stage_entry['vehicle_id'] = vehicle_id
+    # Defaults for fields we still want to reason about even on a partial
+    # pre-persist call. setdefault preserves any prior real value.
+    stage_entry.setdefault('penalties_ms', 0)
+    stage_entry.setdefault('race_status', 0)
+
     existing['stages'][stage_index] = stage_entry
 
     # Count a DNF/retired finish as a consumed attempt. race_status==0 ("UNKNOWN"

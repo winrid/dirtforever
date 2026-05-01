@@ -1092,11 +1092,13 @@ class RpcDispatcher:
         # LeaderboardId is derived from challenge_id as chal_id+800000 (event-level)
         # or chal_id*10+N (stage-level). Try both schemes.
         event_id = None
+        stage_index_for_lb: Optional[int] = None  # stage-level only
         chal_id = lb_id - 800000 if lb_id >= 800000 else None
         if chal_id and chal_id in self._challenge_event_map:
             event_id = self._challenge_event_map[chal_id]
         elif (lb_id // 10) in self._challenge_event_map:
             event_id = self._challenge_event_map[lb_id // 10]
+            stage_index_for_lb = lb_id % 10
 
         # Fallback: game may have cached an old leaderboard_id. Use the
         # first active event.
@@ -1112,6 +1114,37 @@ class RpcDispatcher:
 
         if not event_id:
             event_id = str(lb_id)  # last resort
+
+        # Pre-persist the player's just-completed stage time, if any.
+        # The game queries this leaderboard AFTER the stage finishes but
+        # BEFORE RaceNetChallenges.StageComplete fires (the player views
+        # the standings before dismissing them, which is when StageComplete
+        # actually goes out). The request body carries PlayerBest (this
+        # stage's time, ms) and PlayerCumulBest (cumulative), so we can
+        # persist the time now and let the eventual StageComplete update
+        # the same entry with damage/mud. Pass only what we actually know
+        # — the rest of the stage entry is preserved by the web side from
+        # the stage-begin in_progress data.
+        player_best_ms = int(getattr(params.get("PlayerBest", 0), "value",
+                                     params.get("PlayerBest", 0)) or 0)
+        if (
+            player_best_ms > 0
+            and stage_index_for_lb is not None
+            and event_id
+        ):
+            try:
+                self.api_client.submit_stage(
+                    event_id=event_id,
+                    username="",  # web side resolves from token
+                    stage_index=stage_index_for_lb,
+                    time_ms=player_best_ms,
+                )
+                print(f"[LB] Pre-persisted player time from leaderboard query: "
+                      f"event={event_id} stage={stage_index_for_lb} "
+                      f"time_ms={player_best_ms}")
+            except Exception as exc:
+                print(f"[LB] Pre-persist raised: {exc}")
+
         try:
             entries = self.api_client.get_leaderboard(event_id)
         except Exception as exc:

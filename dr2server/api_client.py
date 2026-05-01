@@ -269,18 +269,18 @@ class DirtForeverClient:
         stage_index: int,
         time_ms: int,
         vehicle_id: Optional[int] = None,
-        penalties_ms: int = 0,
-        meters_driven: int = 0,
-        distance_driven: int = 0,
+        penalties_ms: Optional[int] = None,
+        meters_driven: Optional[int] = None,
+        distance_driven: Optional[int] = None,
         vehicle_mud: Optional[Dict[str, Any]] = None,
         comp_damage: Optional[Dict[str, Any]] = None,
-        using_wheel: bool = False,
-        using_assists: bool = False,
-        race_status: int = 0,
-        nationality_id: int = 0,
-        livery_id: int = 0,
-        has_repaired: bool = False,
-        repair_penalty_ms: int = 0,
+        using_wheel: Optional[bool] = None,
+        using_assists: Optional[bool] = None,
+        race_status: Optional[int] = None,
+        nationality_id: Optional[int] = None,
+        livery_id: Optional[int] = None,
+        has_repaired: Optional[bool] = None,
+        repair_penalty_ms: Optional[int] = None,
         tuning_setup_b64: Optional[str] = None,
         tyre_compound: Optional[int] = None,
         tyres_remaining: Optional[int] = None,
@@ -288,11 +288,12 @@ class DirtForeverClient:
     ) -> bool:
         """Submit a completed stage to the web API.
 
-        Fields that the StageComplete EgoNet request doesn't carry
-        (``tuning_setup_b64``, ``tyre_compound``, ``tyres_remaining``) default
-        to ``None`` here so they're omitted from the payload entirely. The web
-        side then falls back to the values stored at stage-begin time. Passing
-        an empty string would clobber the saved tuning.
+        Only ``event_id``, ``username``, ``stage_index``, and ``time_ms`` are
+        always sent. Every other field defaults to ``None`` and is omitted
+        from the payload when not provided — the web side preserves whatever
+        is already stored for that key (from a prior stage-begin or a previous
+        submission), so partial submissions during the leaderboard-view
+        window don't clobber real data.
 
         Returns True on success, False on any error.
         """
@@ -301,29 +302,27 @@ class DirtForeverClient:
             "username": username,
             "stage_index": stage_index,
             "time_ms": time_ms,
-            "penalties_ms": penalties_ms,
-            "meters_driven": meters_driven,
-            "distance_driven": distance_driven,
-            "using_wheel": using_wheel,
-            "using_assists": using_assists,
-            "race_status": race_status,
-            "nationality_id": nationality_id,
-            "livery_id": livery_id,
-            "has_repaired": has_repaired,
-            "repair_penalty_ms": repair_penalty_ms,
         }
-        if vehicle_id is not None:
-            payload["vehicle_id"] = vehicle_id
-        if vehicle_mud is not None:
-            payload["vehicle_mud"] = vehicle_mud
-        if comp_damage is not None:
-            payload["comp_damage"] = comp_damage
-        if tuning_setup_b64 is not None:
-            payload["tuning_setup_b64"] = tuning_setup_b64
-        if tyre_compound is not None:
-            payload["tyre_compound"] = tyre_compound
-        if tyres_remaining is not None:
-            payload["tyres_remaining"] = tyres_remaining
+        for key, value in (
+            ("vehicle_id",       vehicle_id),
+            ("penalties_ms",     penalties_ms),
+            ("meters_driven",    meters_driven),
+            ("distance_driven",  distance_driven),
+            ("vehicle_mud",      vehicle_mud),
+            ("comp_damage",      comp_damage),
+            ("using_wheel",      using_wheel),
+            ("using_assists",    using_assists),
+            ("race_status",      race_status),
+            ("nationality_id",   nationality_id),
+            ("livery_id",        livery_id),
+            ("has_repaired",     has_repaired),
+            ("repair_penalty_ms",repair_penalty_ms),
+            ("tuning_setup_b64", tuning_setup_b64),
+            ("tyre_compound",    tyre_compound),
+            ("tyres_remaining",  tyres_remaining),
+        ):
+            if value is not None:
+                payload[key] = value
         payload.update(extra)
 
         result = self._post("/api/game/stage-complete", payload)
