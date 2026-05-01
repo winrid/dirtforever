@@ -101,7 +101,7 @@ button { cursor: pointer; font-family: inherit; }
 /* ─── Layout ────────────────────────────────────────── */
 
 .container {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 0 1.5rem;
 }
@@ -121,7 +121,7 @@ button { cursor: pointer; font-family: inherit; }
 }
 
 .nav-inner {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 0 1.5rem;
     display: flex;
@@ -1971,7 +1971,7 @@ th.lb-setup, td.lb-setup { width: 120px; text-align: right; }
 }
 
 .footer-inner {
-    max-width: 1200px;
+    max-width: 1500px;
     margin: 0 auto;
     padding: 3rem 1.5rem;
     text-align: center;
