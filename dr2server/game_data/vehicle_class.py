@@ -25,7 +25,7 @@ class VehicleClass(IntEnum):
     NR4_R4         = 96
     CC_4WD         = 94
     R5             = 93
-    # RGT = 000
+    RGT            = 107
 
     # Rallycross
     RX_SUPER_1600  = 92
