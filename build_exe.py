@@ -21,6 +21,49 @@ ROOT = Path(__file__).parent
 IS_WIN = sys.platform == "win32"
 IS_LINUX = sys.platform == "linux"
 
+# Shared libs that ship with glibc / the dynamic loader. Never bundle these:
+# the binary must use the host's glibc, and bundling our build-host's copy
+# breaks on older targets ("version `GLIBC_2.XX' not found").
+_GLIBC_LIB_PREFIXES = (
+    "linux-vdso", "ld-linux", "libc.so", "libm.so", "libpthread.so",
+    "libdl.so", "librt.so", "libresolv.so", "libnsl.so", "libutil.so",
+)
+
+
+def _linux_tk_runtime_libs() -> list[str]:
+    """Resolve the X11/font shared libs that bundled libtk pulls in at runtime.
+
+    PyInstaller bundles libtk/libtcl/_tkinter automatically, but it does not
+    follow libtk's dynamic deps (libX11, libXft, libfontconfig, libfreetype,
+    libXss, libxcb, ...). On hosts without the distro `tk` package installed
+    those are missing and the GUI fails to start. Walk ldd against _tkinter.so
+    and bundle everything except glibc itself.
+    """
+    if not IS_LINUX:
+        return []
+    import _tkinter
+    target = _tkinter.__file__
+    proc = subprocess.run(
+        ["ldd", target], capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        print(f"[build] ldd {target} failed; skipping X11 dep bundling.")
+        return []
+    libs: list[str] = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if "=>" not in line:
+            continue
+        name, _, rest = line.partition("=>")
+        name = name.strip()
+        if any(name.startswith(p) for p in _GLIBC_LIB_PREFIXES):
+            continue
+        path = rest.strip().split(" ", 1)[0]
+        if not path or not Path(path).exists():
+            continue
+        libs.append(path)
+    return libs
+
 if IS_WIN:
     APP_NAME = "DirtForever"           # PyInstaller appends .exe
     OUTPUT_NAME = "DirtForever.exe"
@@ -111,6 +154,19 @@ def build() -> None:
     # Hidden imports
     for imp in hidden_imports:
         cmd += ["--hidden-import", imp]
+
+    # Linux: bundle libtk's X11/font dep chain so the binary runs on hosts
+    # that don't have the distro `tk` package installed (which would have
+    # otherwise pulled in libX11/libXft/libfontconfig/etc. transitively).
+    if IS_LINUX:
+        runtime_libs = _linux_tk_runtime_libs()
+        if runtime_libs:
+            print(f"[build] Bundling {len(runtime_libs)} Tk runtime libs:")
+            for lib in runtime_libs:
+                print(f"          {lib}")
+                cmd += ["--add-binary", f"{lib}{sep}."]
+        else:
+            print("[build] No Tk runtime libs detected to bundle.")
 
     # Optional icon
     icon_path = ROOT / "icon.ico"
