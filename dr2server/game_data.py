@@ -708,7 +708,7 @@ class Vehicle(IntEnum):
 
 _VEHICLE_META: Dict[Vehicle, dict] = {
     # H1 FWD
-        Vehicle.LANCIA_FULVIA_HF:           {"display_name": "Lancia Fulvia HF",              "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "ful"},
+    Vehicle.LANCIA_FULVIA_HF:           {"display_name": "Lancia Fulvia HF",              "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "ful"},
     Vehicle.MINI_COOPER_S:              {"display_name": "Mini Cooper S",                 "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "mcs"},
     Vehicle.CITROEN_DS_21:              {"display_name": "Citroen DS 21",                 "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "cds"},
 
