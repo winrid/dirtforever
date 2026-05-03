@@ -47,12 +47,29 @@
                             Your request to join
                             {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}a club{% endif %}
                             was declined.
+                        {% elif row.notif.type == 'club_invite' %}
+                            {% if row.from_user %}
+                                <strong>{{ row.from_user.display_name }}</strong>
+                            {% else %}
+                                <strong>{{ row.notif.from_username }}</strong>
+                            {% endif %}
+                            invited you to
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}a club{% endif %}.
                         {% else %}
                             {{ row.notif.type }}
                         {% endif %}
                         <span class="text-muted" style="margin-left:.5rem; font-size:.8rem;">{{ row.notif.created_at | timeago }}</span>
                     </div>
-                    {% if not row.notif.read %}
+                    {% if row.notif.type == 'club_invite' and row.club %}
+                    <form method="post" action="/clubs/{{ row.club.id }}/invite/accept" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary btn-sm">Accept</button>
+                    </form>
+                    <form method="post" action="/clubs/{{ row.club.id }}/invite/decline" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+                    </form>
+                    {% elif not row.notif.read %}
                     <form method="post" action="/notifications/{{ row.notif.id }}/read" style="margin:0;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-ghost btn-sm">Mark read</button>

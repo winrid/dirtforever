@@ -19,11 +19,29 @@
                 <p class="page-subtitle text-muted">{{ club.description }}</p>
             </div>
             {% if current_user %}
-                {% if is_member %}
+                {% if is_owner %}
+                <div style="display:flex; gap:.5rem;">
+                    <button type="button" class="btn btn-ghost btn-sm"
+                            onclick="document.getElementById('editClub').classList.toggle('hidden')">
+                        Edit Club
+                    </button>
+                </div>
+                {% elif is_member %}
                 <form method="post" action="/clubs/{{ club.id }}/leave">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-ghost btn-sm">Leave Club</button>
                 </form>
+                {% elif has_pending_invite %}
+                <div style="display:flex; gap:.5rem;">
+                    <form method="post" action="/clubs/{{ club.id }}/invite/accept" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-primary btn-sm">Accept Invite</button>
+                    </form>
+                    <form method="post" action="/clubs/{{ club.id }}/invite/decline" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+                    </form>
+                </div>
                 {% elif has_pending_request %}
                 <form method="post" action="/clubs/{{ club.id }}/request/cancel">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -47,6 +65,51 @@
 
 <div class="container club-detail-grid">
     <div class="club-detail-main">
+        {% if is_owner %}
+        <div id="editClub" class="card reveal hidden" style="margin-bottom:1rem;">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Edit Club</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/clubs/{{ club.id }}/edit">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_name" class="form-label">Club Name</label>
+                            <input type="text" id="edit_name" name="name" class="form-input" required
+                                   maxlength="40" value="{{ club.name }}">
+                        </div>
+                        <div class="form-group form-group-grow">
+                            <label for="edit_description" class="form-label">Description</label>
+                            <input type="text" id="edit_description" name="description" class="form-input"
+                                   value="{{ club.description }}">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="edit_visibility" class="form-label">Visibility</label>
+                            <select id="edit_visibility" name="visibility" class="form-input form-select">
+                                <option value="public" {% if visibility == 'public' %}selected{% endif %}>Public (listed on /clubs)</option>
+                                <option value="private" {% if visibility == 'private' %}selected{% endif %}>Private (hidden from non-members)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit_join_policy" class="form-label">Join policy</label>
+                            <select id="edit_join_policy" name="join_policy" class="form-input form-select">
+                                <option value="open" {% if join_policy == 'open' %}selected{% endif %}>Open (anyone can join)</option>
+                                <option value="approval" {% if join_policy == 'approval' %}selected{% endif %}>Approval required</option>
+                            </select>
+                        </div>
+                        <div class="form-group form-group-btn" style="display:flex; gap:.5rem; align-items:flex-end;">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            <button type="button" class="btn btn-ghost"
+                                    onclick="document.getElementById('editClub').classList.add('hidden')">Cancel</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
         <div class="card reveal">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Club Events</h2>
@@ -159,6 +222,57 @@
                         </form>
                     </div>
                     {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if is_owner %}
+        <div class="card reveal">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Invite members</h2>
+            </div>
+            <div class="card-body">
+                <form method="post" action="/clubs/{{ club.id }}/invite" style="display:flex; gap:.5rem; align-items:flex-end;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group" style="flex:1; margin:0;">
+                        <label for="invite_username" class="form-label">Username</label>
+                        <input type="text" id="invite_username" name="username" class="form-input" required maxlength="40" placeholder="exact username">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">Send invite</button>
+                </form>
+
+                {% if pending_invites %}
+                <div class="member-list" style="margin-top:1rem;">
+                    {% for p in pending_invites %}
+                    <div class="member-row" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                        <a href="/profile/{{ p.user.username }}" class="member-name" style="flex:1;">{{ p.user.display_name }}</a>
+                        <span class="member-country text-muted">{{ p.created_at | timeago }}</span>
+                        <form method="post" action="/clubs/{{ club.id }}/invites/{{ p.user.username }}/cancel" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm">Cancel</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div style="margin-top:1.25rem;">
+                    <p class="text-muted" style="font-size:.85rem; margin-bottom:.5rem;">Or share an invite link:</p>
+                    {% for link in invite_links %}
+                    <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem;">
+                        <input type="text" readonly class="form-input" style="flex:1; font-family:var(--font-mono); font-size:.8rem;"
+                               value="{{ site_url }}/clubs/{{ club.id }}/join/{{ link.token }}">
+                        <form method="post" action="/clubs/{{ club.id }}/invite-link/{{ link.token }}/revoke" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm">Revoke</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                    <form method="post" action="/clubs/{{ club.id }}/invite-link" style="margin-top:.25rem;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Generate new link</button>
+                    </form>
                 </div>
             </div>
         </div>

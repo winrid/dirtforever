@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Join {{ club.name }} - DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb"><a href="/clubs">Clubs</a> <span class="accent">/</span></p>
+                <h1 class="page-title">You're invited to <span class="accent">{{ club.name }}</span></h1>
+                {% if visibility == 'private' %}
+                <p class="page-subtitle text-muted">This is a private club. Use this link to join.</p>
+                {% else %}
+                <p class="page-subtitle text-muted">{{ club.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<div class="container">
+    <div class="card reveal" style="max-width: 540px; margin: 0 auto;">
+        <div class="card-body" style="text-align: center;">
+            {% if club.description %}
+            <p style="margin-bottom: 1.5rem;">{{ club.description }}</p>
+            {% endif %}
+            {% if current_user_obj %}
+                {% if current_user_obj.username in club.members %}
+                <p class="text-muted">You're already a member of this club.</p>
+                <a href="/clubs/{{ club.id }}" class="btn btn-primary">Go to club</a>
+                {% else %}
+                <form method="post" action="/clubs/{{ club.id }}/join/{{ token }}" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-primary">Join {{ club.name }}</button>
+                </form>
+                {% endif %}
+            {% else %}
+            <p class="text-muted" style="margin-bottom: 1rem;">Sign in or register to join this club.</p>
+            <div style="display: flex; gap: .5rem; justify-content: center;">
+                <a href="/login" class="btn btn-primary">Sign in</a>
+                <a href="/register" class="btn btn-ghost">Register</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

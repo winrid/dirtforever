@@ -313,6 +313,21 @@ def _send_join_denied_email(user: dict[str, Any], club: dict[str, Any]) -> bool:
     return _send_email(user['email'], f'Join request for {club["name"]} declined', body)
 
 
+def _send_invite_email(invitee: dict[str, Any], inviter: dict[str, Any],
+                       club: dict[str, Any]) -> bool:
+    if not invitee.get('email'):
+        return False
+    link = f'{SITE_URL}/clubs/{club["id"]}'
+    body = (
+        f'Hi {invitee.get("display_name") or invitee["username"]},\n\n'
+        f'{inviter.get("display_name") or inviter["username"]} invited you to '
+        f'join their club "{club["name"]}" on DirtForever.\n\n'
+        f'View the club and accept here:\n{link}\n\n'
+        f'- DirtForever'
+    )
+    return _send_email(invitee['email'], f'Invitation to join {club["name"]}', body)
+
+
 # ── Notifications ────────────────────────────────────────
 
 # Per-user notification cap. Once exceeded, oldest read entries are dropped
@@ -458,13 +473,32 @@ def club_is_visible_to(club: dict[str, Any], user: dict[str, Any] | None) -> boo
     if club_visibility(club) == 'public':
         return True
     uname = user.get('username') if user else None
-    return user_is_owner(club, uname) or user_is_member(club, uname)
+    return (
+        user_is_owner(club, uname)
+        or user_is_member(club, uname)
+        or user_has_invite(club, uname)
+    )
 
 
 def user_has_pending_request(club: dict[str, Any], username: str | None) -> bool:
     if not username:
         return False
     return any(r.get('username') == username for r in (club.get('pending_requests') or []))
+
+
+def user_has_invite(club: dict[str, Any], username: str | None) -> bool:
+    if not username:
+        return False
+    return any(i.get('username') == username for i in (club.get('invites') or []))
+
+
+def find_invite_link(club: dict[str, Any], token: str) -> dict[str, Any] | None:
+    if not token:
+        return None
+    for link in (club.get('invite_links') or []):
+        if link.get('token') == token and not link.get('revoked'):
+            return link
+    return None
 
 
 # ── Event ops ────────────────────────────────────────────
@@ -1646,6 +1680,41 @@ def create_club() -> Response:
     return redirect(url_for('club_detail', club_id=cid))
 
 
+@app.route('/clubs/<club_id>/edit', methods=['POST'])
+@verified_required
+def edit_club(club_id: str) -> Response:
+    """Owner edits the club name, description, visibility, and join policy."""
+    me = current_user()
+    assert me is not None
+    name = (request.form.get('name') or '').strip()
+    desc = (request.form.get('description') or '').strip()
+    visibility = (request.form.get('visibility') or 'public').strip().lower()
+    join_policy = (request.form.get('join_policy') or 'open').strip().lower()
+    if visibility not in ('public', 'private'):
+        visibility = 'public'
+    if join_policy not in ('open', 'approval'):
+        join_policy = 'open'
+    if not name:
+        flash('Club name is required.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+    if len(name) > 40:
+        flash('Club name must be under 40 characters.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club['name'] = name
+        club['description'] = desc
+        club['visibility'] = visibility
+        club['join_policy'] = join_policy
+    flash('Club updated.', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
 @app.route('/clubs/<club_id>')
 def club_detail(club_id: str) -> str:
     club = get_club(club_id)
@@ -1663,15 +1732,31 @@ def club_detail(club_id: str) -> str:
             pu = get_user(r.get('username', ''))
             if pu:
                 pending_users.append({'user': pu, 'requested_at': r.get('requested_at', '')})
+    pending_invites = []
+    if user_is_owner(club, uname):
+        for inv in club.get('invites', []) or []:
+            iu = get_user(inv.get('username', ''))
+            if iu:
+                pending_invites.append({'user': iu, 'created_at': inv.get('created_at', '')})
+    invite_links = []
+    if user_is_owner(club, uname):
+        for link in (club.get('invite_links') or []):
+            if link.get('revoked'):
+                continue
+            invite_links.append(link)
     return render_template(
         'club_detail.html', club=club, members=members, events=events,
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
         is_owner=user_is_owner(club, uname),
         is_member=user_is_member(club, uname),
         has_pending_request=user_has_pending_request(club, uname),
+        has_pending_invite=user_has_invite(club, uname),
         pending_users=pending_users,
+        pending_invites=pending_invites,
+        invite_links=invite_links,
         visibility=club_visibility(club),
         join_policy=club_join_policy(club),
+        site_url=SITE_URL,
     )
 
 
@@ -1958,6 +2043,286 @@ def leave_club(club_id: str) -> Response:
             if club_id in (u.get('clubs') or []):
                 u['clubs'].remove(club_id)
         flash(f'Left {club_name}.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+# ── Club invites (direct + shareable link) ──────────────
+
+@app.route('/clubs/<club_id>/invite', methods=['POST'])
+@verified_required
+def invite_to_club(club_id: str) -> Response:
+    """Owner invites a specific user by username."""
+    me = current_user()
+    assert me is not None
+    invitee_name = (request.form.get('username') or '').strip()
+    if not invitee_name:
+        flash('Username is required.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+    try:
+        _validate_id(invitee_name)
+    except Exception:
+        flash('Invalid username.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+    invitee = get_user(invitee_name)
+    if not invitee:
+        flash(f'No user named {invitee_name}.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
+
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    outcome = ''
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club_name = club['name']
+        if invitee_name == me['username']:
+            outcome = 'self'
+        elif invitee_name in (club.get('members') or []):
+            outcome = 'already_member'
+        elif user_has_invite(club, invitee_name):
+            outcome = 'already_invited'
+        else:
+            club.setdefault('invites', []).append({
+                'username': invitee_name,
+                'invited_by': me['username'],
+                'created_at': _now_iso(),
+            })
+            # An invite is owner-driven, so any prior cooldown the user had
+            # (from a self-cancel or deny) is moot — clear it so the invitee
+            # can act on the invite immediately.
+            _clear_cooldown(club, invitee_name)
+            outcome = 'invited'
+    if outcome == 'invited':
+        notif = add_notification(invitee_name, {
+            'type': 'club_invite',
+            'club_id': club_id,
+            'from_username': me['username'],
+        })
+        if notif is not None:
+            try:
+                _send_invite_email(invitee, me, {'id': club_id, 'name': club_name})
+            except Exception:
+                log.exception('failed to send invite email')
+        flash(f'Invited {invitee_name}.', 'success')
+    elif outcome == 'self':
+        flash('You cannot invite yourself.', 'warning')
+    elif outcome == 'already_member':
+        flash(f'{invitee_name} is already a member.', 'info')
+    elif outcome == 'already_invited':
+        flash(f'{invitee_name} has already been invited.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+def _clear_invite_notification(invitee_username: str, club_id: str) -> None:
+    """Drop the invitee's `club_invite` notification when the invite is no
+    longer pending (canceled, accepted, or declined)."""
+    path = _user_path(invitee_username)
+    if not os.path.exists(path):
+        return
+    with _atomic_update(path) as user:
+        notifs = user.get('notifications') or []
+        kept = [
+            n for n in notifs
+            if not (n.get('type') == 'club_invite' and n.get('club_id') == club_id)
+        ]
+        if len(kept) != len(notifs):
+            user['notifications'] = kept
+
+
+@app.route('/clubs/<club_id>/invites/<username>/cancel', methods=['POST'])
+@verified_required
+def cancel_invite(club_id: str, username: str) -> Response:
+    """Owner withdraws a pending invite."""
+    me = current_user()
+    assert me is not None
+    try:
+        _validate_id(username)
+    except Exception:
+        abort(400)
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    canceled = False
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        invites = club.get('invites') or []
+        new_invites = [i for i in invites if i.get('username') != username]
+        if len(new_invites) != len(invites):
+            club['invites'] = new_invites
+            canceled = True
+    if canceled:
+        _clear_invite_notification(username, club_id)
+        flash(f'Invite to {username} canceled.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/invite/accept', methods=['POST'])
+@verified_required
+def accept_invite(club_id: str) -> Response:
+    """Invitee accepts the invitation and is added to the club."""
+    me = current_user()
+    assert me is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    accepted = False
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_has_invite(club, me['username']):
+            flash('You do not have a pending invite to this club.', 'warning')
+            return redirect(url_for('club_detail', club_id=club_id))
+        club_name = club['name']
+        club['invites'] = [
+            i for i in (club.get('invites') or [])
+            if i.get('username') != me['username']
+        ]
+        # If the user previously requested to join, drop that too.
+        club['pending_requests'] = [
+            r for r in (club.get('pending_requests') or [])
+            if r.get('username') != me['username']
+        ]
+        _clear_cooldown(club, me['username'])
+        if me['username'] not in (club.get('members') or []):
+            club.setdefault('members', []).append(me['username'])
+        accepted = True
+    if accepted:
+        with _atomic_update(_user_path(me['username'])) as u:
+            if club_id not in (u.get('clubs') or []):
+                u.setdefault('clubs', []).append(club_id)
+        _clear_invite_notification(me['username'], club_id)
+        flash(f'Joined {club_name}.', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/invite/decline', methods=['POST'])
+@verified_required
+def decline_invite(club_id: str) -> Response:
+    """Invitee declines the invitation."""
+    me = current_user()
+    assert me is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    declined = False
+    with _atomic_update(path) as club:
+        invites = club.get('invites') or []
+        new_invites = [i for i in invites if i.get('username') != me['username']]
+        if len(new_invites) != len(invites):
+            club['invites'] = new_invites
+            declined = True
+    if declined:
+        _clear_invite_notification(me['username'], club_id)
+        flash('Invite declined.', 'info')
+    return redirect(url_for('clubs'))
+
+
+@app.route('/clubs/<club_id>/invite-link', methods=['POST'])
+@verified_required
+def create_invite_link(club_id: str) -> Response:
+    """Owner generates a new shareable invite link."""
+    me = current_user()
+    assert me is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    token = secrets.token_urlsafe(24)
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club.setdefault('invite_links', []).append({
+            'token': token,
+            'created_by': me['username'],
+            'created_at': _now_iso(),
+            'revoked': False,
+        })
+    flash('Invite link created.', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/invite-link/<token>/revoke', methods=['POST'])
+@verified_required
+def revoke_invite_link(club_id: str, token: str) -> Response:
+    """Owner revokes an invite link. We mark it revoked rather than dropping
+    the row so the audit history (who created it, when) is preserved."""
+    me = current_user()
+    assert me is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    revoked = False
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        for link in (club.get('invite_links') or []):
+            if link.get('token') == token and not link.get('revoked'):
+                link['revoked'] = True
+                link['revoked_at'] = _now_iso()
+                revoked = True
+                break
+    if revoked:
+        flash('Invite link revoked.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/join/<token>', methods=['GET', 'POST'])
+def join_via_invite_link(club_id: str, token: str) -> Any:
+    """Public landing for a shareable invite link.
+
+    GET renders a simple "you've been invited to <name>" page so the recipient
+    can see the club name even when the club is private. POST accepts and
+    joins. Login is required to actually join (we redirect to /login first if
+    they're not logged in)."""
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    link = find_invite_link(club, token)
+    if not link:
+        abort(404)
+    user = current_user()
+    if request.method == 'GET':
+        return render_template(
+            'club_invite_landing.html', club=club, token=token,
+            current_user_obj=user,
+            visibility=club_visibility(club),
+        )
+    # POST: accept
+    if not user:
+        flash('Please sign in to accept the invite.', 'warning')
+        return redirect(url_for('login'))
+    if not user.get('email_verified'):
+        flash('Please verify your email before joining clubs.', 'warning')
+        return redirect(url_for('verify_prompt'))
+    path = _club_path(club_id)
+    joined = False
+    club_name = ''
+    with _atomic_update(path) as cl:
+        link2 = find_invite_link(cl, token)
+        if not link2:
+            abort(404)
+        club_name = cl['name']
+        if user['username'] not in (cl.get('members') or []):
+            cl.setdefault('members', []).append(user['username'])
+            joined = True
+        # An accepted token-link join supersedes any prior request/cooldown.
+        cl['pending_requests'] = [
+            r for r in (cl.get('pending_requests') or [])
+            if r.get('username') != user['username']
+        ]
+        cl['invites'] = [
+            i for i in (cl.get('invites') or [])
+            if i.get('username') != user['username']
+        ]
+        _clear_cooldown(cl, user['username'])
+    if joined:
+        with _atomic_update(_user_path(user['username'])) as u:
+            if club_id not in (u.get('clubs') or []):
+                u.setdefault('clubs', []).append(club_id)
+        flash(f'Joined {club_name}.', 'success')
+    else:
+        flash('You are already a member of this club.', 'info')
     return redirect(url_for('club_detail', club_id=club_id))
 
 
