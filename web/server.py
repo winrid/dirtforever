@@ -495,7 +495,8 @@ def user_has_invite(club: dict[str, Any], username: str | None) -> bool:
 def find_invite_link(club: dict[str, Any], token: str) -> dict[str, Any] | None:
     if not token:
         return None
-    for link in (club.get('invite_links') or []):
+    links: list[dict[str, Any]] = club.get('invite_links') or []
+    for link in links:
         if link.get('token') == token and not link.get('revoked'):
             return link
     return None
@@ -2031,14 +2032,22 @@ def leave_club(club_id: str) -> Response:
         abort(404)
     left = False
     club_name = ''
+    is_owner_attempt = False
     with _atomic_update(path) as club:
         club_name = club['name']
-        members = club.get('members') or []
-        if user['username'] in members:
-            members.remove(user['username'])
-            club['members'] = members
-            left = True
-    if left:
+        if user_is_owner(club, user['username']):
+            # An owner leaving would orphan the club. Block it; we don't have
+            # an ownership-transfer or delete flow yet.
+            is_owner_attempt = True
+        else:
+            members = club.get('members') or []
+            if user['username'] in members:
+                members.remove(user['username'])
+                club['members'] = members
+                left = True
+    if is_owner_attempt:
+        flash("You can't leave a club you own.", 'warning')
+    elif left:
         with _atomic_update(_user_path(user['username'])) as u:
             if club_id in (u.get('clubs') or []):
                 u['clubs'].remove(club_id)
