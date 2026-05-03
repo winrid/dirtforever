@@ -44,6 +44,22 @@
                         <input type="text" id="description" name="description" class="form-input"
                                placeholder="What's your club about?">
                     </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="visibility" class="form-label">Visibility</label>
+                        <select id="visibility" name="visibility" class="form-input form-select">
+                            <option value="public" selected>Public (listed on /clubs)</option>
+                            <option value="private">Private (hidden from non-members)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="join_policy" class="form-label">Join policy</label>
+                        <select id="join_policy" name="join_policy" class="form-input form-select">
+                            <option value="open" selected>Open (anyone can join)</option>
+                            <option value="approval">Approval required</option>
+                        </select>
+                    </div>
                     <div class="form-group form-group-btn">
                         <button type="submit" class="btn btn-primary">Create</button>
                     </div>

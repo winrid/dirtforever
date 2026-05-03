@@ -13,6 +13,7 @@ import smtplib
 import uuid
 import random
 from collections.abc import Callable
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
@@ -118,6 +119,43 @@ def _save(path: str, data: Any) -> None:
             json.dump(data, f, indent=2)
         finally:
             fcntl.flock(f, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _atomic_update(path: str) -> Any:
+    """Hold LOCK_EX across read+mutate+write to close the load-modify-save race.
+
+    Yields the parsed JSON. On context exit, whatever the caller mutated is
+    written back under the same lock. Two concurrent callers on the same path
+    serialize: the second one sees the first's writes before reading.
+
+    Critically we flush+fsync BEFORE releasing the lock — otherwise another
+    waiter can acquire the lock and read a half-written file because Python's
+    buffered write hasn't reached the kernel yet.
+    """
+    with open(path, 'r+') as f:
+        fcntl.flock(f, fcntl.LOCK_EX)
+        try:
+            f.seek(0)
+            data = json.load(f)
+            yield data
+            f.seek(0)
+            f.truncate()
+            json.dump(data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
+
+
+def _user_path(username: str) -> str:
+    _validate_id(username)
+    return os.path.join(USERS_DIR, f'{username}.json')
+
+
+def _club_path(cid: str) -> str:
+    _validate_id(cid)
+    return os.path.join(CLUBS_DIR, f'{cid}.json')
 
 
 def _list_json(directory: str) -> list[Any]:
@@ -237,6 +275,149 @@ def send_reset_email(user: dict[str, Any]) -> bool:
     return _send_email(user['email'], 'Reset your DirtForever password', body)
 
 
+def _send_join_request_email(owner: dict[str, Any], requester: dict[str, Any],
+                             club: dict[str, Any]) -> bool:
+    if not owner.get('email'):
+        return False
+    link = f'{SITE_URL}/clubs/{club["id"]}'
+    body = (
+        f'Hi {owner.get("display_name") or owner["username"]},\n\n'
+        f'{requester.get("display_name") or requester["username"]} has requested '
+        f'to join your club "{club["name"]}".\n\n'
+        f'Review and approve or deny the request here:\n{link}\n\n'
+        f'- DirtForever'
+    )
+    return _send_email(owner['email'], f'Join request for {club["name"]}', body)
+
+
+def _send_join_approved_email(user: dict[str, Any], club: dict[str, Any]) -> bool:
+    if not user.get('email'):
+        return False
+    link = f'{SITE_URL}/clubs/{club["id"]}'
+    body = (
+        f'Hi {user.get("display_name") or user["username"]},\n\n'
+        f'Your request to join "{club["name"]}" was approved. You can now '
+        f'submit times to its events.\n\n{link}\n\n- DirtForever'
+    )
+    return _send_email(user['email'], f'You joined {club["name"]}', body)
+
+
+def _send_join_denied_email(user: dict[str, Any], club: dict[str, Any]) -> bool:
+    if not user.get('email'):
+        return False
+    body = (
+        f'Hi {user.get("display_name") or user["username"]},\n\n'
+        f'Your request to join "{club["name"]}" was declined.\n\n'
+        f'- DirtForever'
+    )
+    return _send_email(user['email'], f'Join request for {club["name"]} declined', body)
+
+
+# ── Notifications ────────────────────────────────────────
+
+# Per-user notification cap. Once exceeded, oldest read entries are dropped
+# first; if all are unread we drop oldest unread to keep the list bounded.
+MAX_NOTIFICATIONS = 200
+
+# Cooldown windows for re-requesting club membership after a self-cancel or
+# owner-deny. Keeps the request/cancel/request loop from spamming the owner.
+COOLDOWN_AFTER_CANCEL = timedelta(minutes=10)
+COOLDOWN_AFTER_DENY = timedelta(hours=1)
+
+
+def _trim_notifications(notifs: list[dict[str, Any]]) -> None:
+    """In-place trim of notifs to MAX_NOTIFICATIONS, dropping read entries
+    first (oldest first), then oldest unread if still over."""
+    while len(notifs) > MAX_NOTIFICATIONS:
+        idx = next((i for i, n in enumerate(notifs) if n.get('read')), 0)
+        del notifs[idx]
+
+
+def add_notification(username: str, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Append a notification to the user under an exclusive lock.
+
+    Returns the new notification, or None if it was suppressed (de-duped).
+    For ``club_join_request``, an existing unread notification from the same
+    requester for the same club suppresses re-add — this stops the request /
+    cancel / request loop from spamming the owner inbox.
+    """
+    path = _user_path(username)
+    if not os.path.exists(path):
+        return None
+    with _atomic_update(path) as user:
+        notifs = user.setdefault('notifications', [])
+        if payload.get('type') == 'club_join_request':
+            for n in notifs:
+                if (n.get('type') == 'club_join_request'
+                        and n.get('club_id') == payload.get('club_id')
+                        and n.get('from_username') == payload.get('from_username')
+                        and not n.get('read')):
+                    return None
+        notif = {
+            'id': f'ntf-{secrets.token_hex(8)}',
+            'created_at': datetime.now().isoformat(),
+            'read': False,
+            **payload,
+        }
+        notifs.append(notif)
+        _trim_notifications(notifs)
+        return notif
+
+
+def mark_notification_read(username: str, ntf_id: str) -> bool:
+    path = _user_path(username)
+    if not os.path.exists(path):
+        return False
+    with _atomic_update(path) as user:
+        for n in user.get('notifications', []) or []:
+            if n.get('id') == ntf_id and not n.get('read'):
+                n['read'] = True
+                return True
+    return False
+
+
+def mark_all_notifications_read(username: str) -> int:
+    path = _user_path(username)
+    if not os.path.exists(path):
+        return 0
+    count = 0
+    with _atomic_update(path) as user:
+        for n in user.get('notifications', []) or []:
+            if not n.get('read'):
+                n['read'] = True
+                count += 1
+    return count
+
+
+def unread_notification_count(user: dict[str, Any] | None) -> int:
+    if not user:
+        return 0
+    return sum(1 for n in (user.get('notifications') or []) if not n.get('read'))
+
+
+def clear_join_request_notification(owner_username: str, club_id: str,
+                                    requester_username: str) -> None:
+    """Remove an owner's pending join_request notification when the underlying
+    request is resolved (canceled / approved / denied). We drop it entirely
+    rather than mark-read so the inbox doesn't carry a stale row that points at
+    a request that no longer exists."""
+    path = _user_path(owner_username)
+    if not os.path.exists(path):
+        return
+    with _atomic_update(path) as owner:
+        notifs = owner.get('notifications') or []
+        kept = [
+            n for n in notifs
+            if not (
+                n.get('type') == 'club_join_request'
+                and n.get('club_id') == club_id
+                and n.get('from_username') == requester_username
+            )
+        ]
+        if len(kept) != len(notifs):
+            owner['notifications'] = kept
+
+
 # ── Club ops ─────────────────────────────────────────────
 
 def get_club(cid: str) -> dict[str, Any] | None:
@@ -253,6 +434,37 @@ def save_club(c: dict[str, Any]) -> None:
 def get_all_clubs() -> list[Any]:
     # Yes I know this is bad, we'll switch to a real database with indexes if anyone ends up using this
     return _list_json(CLUBS_DIR)
+
+
+def club_visibility(club: dict[str, Any]) -> str:
+    return club.get('visibility') or 'public'
+
+
+def club_join_policy(club: dict[str, Any]) -> str:
+    return club.get('join_policy') or 'open'
+
+
+def user_is_member(club: dict[str, Any], username: str | None) -> bool:
+    if not username:
+        return False
+    return username in (club.get('members') or [])
+
+
+def user_is_owner(club: dict[str, Any], username: str | None) -> bool:
+    return bool(username) and club.get('created_by') == username
+
+
+def club_is_visible_to(club: dict[str, Any], user: dict[str, Any] | None) -> bool:
+    if club_visibility(club) == 'public':
+        return True
+    uname = user.get('username') if user else None
+    return user_is_owner(club, uname) or user_is_member(club, uname)
+
+
+def user_has_pending_request(club: dict[str, Any], username: str | None) -> bool:
+    if not username:
+        return False
+    return any(r.get('username') == username for r in (club.get('pending_requests') or []))
 
 
 # ── Event ops ────────────────────────────────────────────
@@ -329,7 +541,11 @@ def current_user() -> dict[str, Any] | None:
 
 @app.context_processor
 def inject_globals() -> dict[str, Any]:
-    return dict(current_user=current_user())
+    user = current_user()
+    return dict(
+        current_user=user,
+        unread_notifications=unread_notification_count(user),
+    )
 
 
 @app.template_filter('rally_time')
@@ -1145,6 +1361,58 @@ def dashboard() -> str:
     )
 
 
+NOTIFICATIONS_PAGE_SIZE = 50
+
+
+@app.route('/notifications')
+@login_required
+def notifications_inbox() -> str:
+    user = current_user()
+    assert user is not None
+    notifs = list(user.get('notifications', []) or [])
+    notifs.sort(key=lambda n: n.get('created_at', ''), reverse=True)
+    total = len(notifs)
+    total_pages = max(1, (total + NOTIFICATIONS_PAGE_SIZE - 1) // NOTIFICATIONS_PAGE_SIZE)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * NOTIFICATIONS_PAGE_SIZE
+    window = notifs[start:start + NOTIFICATIONS_PAGE_SIZE]
+    rows = []
+    for n in window:
+        cid = n.get('club_id') or ''
+        club = get_club(cid) if cid else None
+        from_user = get_user(n.get('from_username', '')) if n.get('from_username') else None
+        rows.append({'notif': n, 'club': club, 'from_user': from_user})
+    return render_template(
+        'notifications.html', rows=rows,
+        page=page, total_pages=total_pages, total=total,
+        page_size=NOTIFICATIONS_PAGE_SIZE,
+    )
+
+
+@app.route('/notifications/<ntf_id>/read', methods=['POST'])
+@login_required
+def notifications_mark_read(ntf_id: str) -> Response:
+    user = current_user()
+    assert user is not None
+    mark_notification_read(user['username'], ntf_id)
+    return redirect(url_for('notifications_inbox'))
+
+
+@app.route('/notifications/read-all', methods=['POST'])
+@login_required
+def notifications_mark_all_read() -> Response:
+    user = current_user()
+    assert user is not None
+    n = mark_all_notifications_read(user['username'])
+    if n:
+        flash(f'Marked {n} notification(s) as read.', 'info')
+    return redirect(url_for('notifications_inbox'))
+
+
 @app.route('/leaderboards')
 def leaderboards() -> str | Response:
     tab = request.args.get('tab', 'events')
@@ -1330,7 +1598,8 @@ def leaderboards() -> str | Response:
 
 @app.route('/clubs')
 def clubs() -> str:
-    all_clubs = get_all_clubs()
+    user = current_user()
+    all_clubs = [c for c in get_all_clubs() if club_is_visible_to(c, user)]
     query = request.args.get('q', '').strip()
     if query:
         q = query.lower()
@@ -1343,6 +1612,12 @@ def clubs() -> str:
 def create_club() -> Response:
     name = request.form.get('name', '').strip()
     desc = request.form.get('description', '').strip()
+    visibility = request.form.get('visibility', 'public').strip().lower()
+    join_policy = request.form.get('join_policy', 'open').strip().lower()
+    if visibility not in ('public', 'private'):
+        visibility = 'public'
+    if join_policy not in ('open', 'approval'):
+        join_policy = 'open'
     if not name:
         flash('Club name is required.', 'error')
         return redirect(url_for('clubs'))
@@ -1360,6 +1635,9 @@ def create_club() -> Response:
         'created_by': user['username'],
         'created_at': datetime.now().isoformat(),
         'members': [user['username']],
+        'visibility': visibility,
+        'join_policy': join_policy,
+        'pending_requests': [],
     }
     save_club(club)
     user.setdefault('clubs', []).append(cid)
@@ -1373,46 +1651,313 @@ def club_detail(club_id: str) -> str:
     club = get_club(club_id)
     if not club:
         abort(404)
+    user = current_user()
+    if not club_is_visible_to(club, user):
+        abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
     events = [e for e in get_all_events() if e.get('club_id') == club_id]
+    uname = user['username'] if user else None
+    pending_users = []
+    if user_is_owner(club, uname):
+        for r in club.get('pending_requests', []) or []:
+            pu = get_user(r.get('username', ''))
+            if pu:
+                pending_users.append({'user': pu, 'requested_at': r.get('requested_at', '')})
     return render_template(
         'club_detail.html', club=club, members=members, events=events,
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+        is_owner=user_is_owner(club, uname),
+        is_member=user_is_member(club, uname),
+        has_pending_request=user_has_pending_request(club, uname),
+        pending_users=pending_users,
+        visibility=club_visibility(club),
+        join_policy=club_join_policy(club),
     )
+
+
+# Sentinel results from atomic-update club mutators so the route handler can
+# pick the right flash message and decide whether to fire emails / notifs.
+_REQ_OK = 'requested'
+_REQ_ALREADY_MEMBER = 'already_member'
+_REQ_ALREADY_PENDING = 'already_pending'
+_REQ_COOLDOWN = 'cooldown'
+
+
+def _now_iso() -> str:
+    return datetime.now().isoformat()
+
+
+def _cooldown_remaining(club: dict[str, Any], username: str) -> timedelta | None:
+    raw = (club.get('cooldowns') or {}).get(username)
+    if not raw:
+        return None
+    try:
+        until = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    delta = until - datetime.now()
+    return delta if delta.total_seconds() > 0 else None
+
+
+def _set_cooldown(club: dict[str, Any], username: str, window: timedelta) -> None:
+    cd = club.setdefault('cooldowns', {})
+    cd[username] = (datetime.now() + window).isoformat()
+
+
+def _clear_cooldown(club: dict[str, Any], username: str) -> None:
+    cd = club.get('cooldowns') or {}
+    if username in cd:
+        del cd[username]
 
 
 @app.route('/clubs/<club_id>/join', methods=['POST'])
 @verified_required
 def join_club(club_id: str) -> Response:
-    club = get_club(club_id)
-    if not club:
-        abort(404)
     user = current_user()
     assert user is not None
-    if user['username'] not in club['members']:
-        club['members'].append(user['username'])
-        save_club(club)
-        user.setdefault('clubs', []).append(club_id)
-        save_user(user)
-        flash(f'Joined {club["name"]}!', 'success')
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    outcome: str = ''
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not club_is_visible_to(club, user):
+            abort(404)
+        club_name = club['name']
+        if (club_join_policy(club) == 'approval'
+                and not user_is_owner(club, user['username'])):
+            outcome = _enqueue_request(club, user['username'])
+        else:
+            if user['username'] not in (club.get('members') or []):
+                club.setdefault('members', []).append(user['username'])
+                outcome = 'joined'
+            else:
+                outcome = 'already_member'
+    if outcome == 'joined':
+        with _atomic_update(_user_path(user['username'])) as u:
+            if club_id not in (u.get('clubs') or []):
+                u.setdefault('clubs', []).append(club_id)
+        flash(f'Joined {club_name}!', 'success')
+    elif outcome == _REQ_OK:
+        _post_request_notify(club_id, user['username'], club_name)
+        flash(f'Requested to join {club_name}. The owner will review your request.', 'success')
+    elif outcome == _REQ_ALREADY_MEMBER or outcome == 'already_member':
+        flash('You are already a member of this club.', 'info')
+    elif outcome == _REQ_ALREADY_PENDING:
+        flash('Your request is already pending approval.', 'info')
+    elif outcome == _REQ_COOLDOWN:
+        flash('Please wait before requesting to join again.', 'warning')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+def _enqueue_request(club: dict[str, Any], username: str) -> str:
+    """Mutates ``club`` in place to add a pending request. Caller must hold the
+    club's atomic lock. Returns one of the _REQ_* sentinels."""
+    if username in (club.get('members') or []):
+        return _REQ_ALREADY_MEMBER
+    pending = club.setdefault('pending_requests', [])
+    if any(r.get('username') == username for r in pending):
+        return _REQ_ALREADY_PENDING
+    if _cooldown_remaining(club, username):
+        return _REQ_COOLDOWN
+    pending.append({'username': username, 'requested_at': _now_iso()})
+    return _REQ_OK
+
+
+def _post_request_notify(club_id: str, requester_username: str,
+                         club_name: str) -> None:
+    """After a request was successfully enqueued, notify + email the owner.
+    Email is only sent when add_notification actually wrote a fresh row, so a
+    request/cancel/request loop produces at most one alert per cycle."""
+    club = get_club(club_id)
+    if not club:
+        return
+    owner_username = club.get('created_by', '')
+    if not owner_username:
+        return
+    notif = add_notification(owner_username, {
+        'type': 'club_join_request',
+        'club_id': club_id,
+        'from_username': requester_username,
+    })
+    if notif is None:
+        return  # de-duped — owner already has an unread alert for this requester
+    owner = get_user(owner_username)
+    requester = get_user(requester_username)
+    if not owner or not requester:
+        return
+    try:
+        _send_join_request_email(owner, requester, {'id': club_id, 'name': club_name})
+    except Exception:
+        log.exception('failed to send join-request email')
+
+
+@app.route('/clubs/<club_id>/request', methods=['POST'])
+@verified_required
+def request_join_club(club_id: str) -> Response:
+    user = current_user()
+    assert user is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    outcome = ''
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not club_is_visible_to(club, user):
+            abort(404)
+        if user_is_owner(club, user['username']):
+            flash('You already own this club.', 'info')
+            return redirect(url_for('club_detail', club_id=club_id))
+        club_name = club['name']
+        outcome = _enqueue_request(club, user['username'])
+    if outcome == _REQ_OK:
+        _post_request_notify(club_id, user['username'], club_name)
+        flash(f'Requested to join {club_name}. The owner will review your request.', 'success')
+    elif outcome == _REQ_ALREADY_MEMBER:
+        flash('You are already a member of this club.', 'info')
+    elif outcome == _REQ_ALREADY_PENDING:
+        flash('Your request is already pending approval.', 'info')
+    elif outcome == _REQ_COOLDOWN:
+        flash('Please wait before requesting to join again.', 'warning')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/request/cancel', methods=['POST'])
+@verified_required
+def cancel_join_request(club_id: str) -> Response:
+    user = current_user()
+    assert user is not None
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    canceled = False
+    owner_username = ''
+    with _atomic_update(path) as club:
+        owner_username = club.get('created_by', '') or ''
+        pending = club.get('pending_requests', []) or []
+        new_pending = [r for r in pending if r.get('username') != user['username']]
+        if len(new_pending) != len(pending):
+            club['pending_requests'] = new_pending
+            _set_cooldown(club, user['username'], COOLDOWN_AFTER_CANCEL)
+            canceled = True
+    if canceled:
+        if owner_username:
+            clear_join_request_notification(owner_username, club_id, user['username'])
+        flash('Join request canceled.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/requests/<username>/approve', methods=['POST'])
+@verified_required
+def approve_join_request(club_id: str, username: str) -> Response:
+    me = current_user()
+    assert me is not None
+    try:
+        _validate_id(username)
+    except Exception:
+        abort(400)
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    approved = False
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club_name = club['name']
+        pending = club.get('pending_requests', []) or []
+        if not any(r.get('username') == username for r in pending):
+            flash('No pending request from that user.', 'warning')
+            return redirect(url_for('club_detail', club_id=club_id))
+        club['pending_requests'] = [r for r in pending if r.get('username') != username]
+        if username not in (club.get('members') or []):
+            club.setdefault('members', []).append(username)
+        _clear_cooldown(club, username)
+        approved = True
+    if approved:
+        requester_path = _user_path(username)
+        if os.path.exists(requester_path):
+            with _atomic_update(requester_path) as requester:
+                if club_id not in (requester.get('clubs') or []):
+                    requester.setdefault('clubs', []).append(club_id)
+            add_notification(username, {
+                'type': 'club_join_approved',
+                'club_id': club_id,
+            })
+            requester_obj = get_user(username)
+            if requester_obj:
+                try:
+                    _send_join_approved_email(requester_obj, {'id': club_id, 'name': club_name})
+                except Exception:
+                    log.exception('failed to send join-approved email')
+        clear_join_request_notification(me['username'], club_id, username)
+        flash(f'Approved {username}.', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/requests/<username>/deny', methods=['POST'])
+@verified_required
+def deny_join_request(club_id: str, username: str) -> Response:
+    me = current_user()
+    assert me is not None
+    try:
+        _validate_id(username)
+    except Exception:
+        abort(400)
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    denied = False
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club_name = club['name']
+        pending = club.get('pending_requests', []) or []
+        if not any(r.get('username') == username for r in pending):
+            flash('No pending request from that user.', 'warning')
+            return redirect(url_for('club_detail', club_id=club_id))
+        club['pending_requests'] = [r for r in pending if r.get('username') != username]
+        _set_cooldown(club, username, COOLDOWN_AFTER_DENY)
+        denied = True
+    if denied:
+        add_notification(username, {
+            'type': 'club_join_denied',
+            'club_id': club_id,
+        })
+        requester = get_user(username)
+        if requester:
+            try:
+                _send_join_denied_email(requester, {'id': club_id, 'name': club_name})
+            except Exception:
+                log.exception('failed to send join-denied email')
+        clear_join_request_notification(me['username'], club_id, username)
+        flash(f'Denied request from {username}.', 'info')
     return redirect(url_for('club_detail', club_id=club_id))
 
 
 @app.route('/clubs/<club_id>/leave', methods=['POST'])
 @verified_required
 def leave_club(club_id: str) -> Response:
-    club = get_club(club_id)
-    if not club:
-        abort(404)
     user = current_user()
     assert user is not None
-    if user['username'] in club['members']:
-        club['members'].remove(user['username'])
-        save_club(club)
-        if club_id in user.get('clubs', []):
-            user['clubs'].remove(club_id)
-            save_user(user)
-        flash(f'Left {club["name"]}.', 'info')
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    left = False
+    club_name = ''
+    with _atomic_update(path) as club:
+        club_name = club['name']
+        members = club.get('members') or []
+        if user['username'] in members:
+            members.remove(user['username'])
+            club['members'] = members
+            left = True
+    if left:
+        with _atomic_update(_user_path(user['username'])) as u:
+            if club_id in (u.get('clubs') or []):
+                u['clubs'].remove(club_id)
+        flash(f'Left {club_name}.', 'info')
     return redirect(url_for('club_detail', club_id=club_id))
 
 
@@ -1687,9 +2232,32 @@ def api_game_token_test() -> Response:
 @csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
 def api_game_clubs() -> Response:
-    """Return all clubs and their active events for the game server."""
-    clubs = get_all_clubs()
-    events = [e for e in get_all_events() if e.get('active')]
+    """Return the authenticated user's clubs and their active events.
+
+    Only clubs the caller is a member of are returned, along with active events
+    owned by those clubs. This prevents leaking other users' (especially
+    private) clubs to the game client.
+    """
+    user = get_user(g.game_user) or {}
+    my_club_ids = list(user.get('clubs', []) or [])
+    # Direct lookup by ID — O(member_clubs) instead of scanning every club file.
+    clubs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for cid in my_club_ids:
+        if cid in seen:
+            continue
+        seen.add(cid)
+        c = get_club(cid)
+        if c:
+            clubs.append(c)
+    if not seen:
+        return jsonify({'ok': True, 'clubs': [], 'events': []})
+    # Events still need a directory scan — there's no club->events index yet.
+    # When the project moves to a real DB, add an index on event.club_id.
+    events = [
+        e for e in get_all_events()
+        if e.get('active') and e.get('club_id') in seen
+    ]
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
 
 
@@ -1744,6 +2312,16 @@ def api_game_stage_begin() -> Response | tuple[Response, int]:
     except Exception:
         return _api_error('invalid event_id')
 
+    event = get_event(event_id)
+    if not event:
+        return _api_error('event not found', 404)
+
+    event_club_id = event.get('club_id')
+    if event_club_id:
+        user = get_user(username) or {}
+        if event_club_id not in (user.get('clubs') or []):
+            return _api_error('not a member of this club', 403)
+
     stage_index = int(data.get('stage_index', 0))
 
     results = get_results(event_id)
@@ -1781,6 +2359,12 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     event = get_event(event_id)
     if not event:
         return _api_error('event not found', 404)
+
+    event_club_id = event.get('club_id')
+    if event_club_id:
+        user = get_user(username) or {}
+        if event_club_id not in (user.get('clubs') or []):
+            return _api_error('not a member of this club', 403)
 
     stage_index = int(data.get('stage_index', 0))
     time_ms = int(data.get('time_ms', 0))

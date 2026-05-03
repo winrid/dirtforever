@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Notifications - DirtForever{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <h1 class="page-title"><span class="accent">//</span> Notifications</h1>
+                <p class="page-subtitle text-muted">Club join requests and replies show up here.</p>
+            </div>
+            {% if rows %}
+            <form method="post" action="/notifications/read-all" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-ghost btn-sm">Mark all read</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</section>
+
+<div class="container">
+    {% if rows %}
+    <div class="card reveal">
+        <div class="card-body">
+            <p class="text-muted" style="margin-bottom:.75rem; font-size:.85rem;">
+                Showing {{ ((page - 1) * page_size) + 1 }}&ndash;{{ ((page - 1) * page_size) + rows|length }}
+                of {{ total }}.
+            </p>
+            <div class="member-list">
+                {% for row in rows %}
+                <div class="member-row" style="display:flex; align-items:center; gap:.75rem; {% if not row.notif.read %}background:var(--bg-deep);{% endif %} padding:.65rem .85rem;">
+                    <div style="flex:1;">
+                        {% if row.notif.type == 'club_join_request' %}
+                            {% if row.from_user %}
+                                <strong>{{ row.from_user.display_name }}</strong>
+                            {% else %}
+                                <strong>{{ row.notif.from_username }}</strong>
+                            {% endif %}
+                            requested to join
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}an unknown club{% endif %}.
+                        {% elif row.notif.type == 'club_join_approved' %}
+                            Your request to join
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}a club{% endif %}
+                            was <span class="accent">approved</span>.
+                        {% elif row.notif.type == 'club_join_denied' %}
+                            Your request to join
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}a club{% endif %}
+                            was declined.
+                        {% else %}
+                            {{ row.notif.type }}
+                        {% endif %}
+                        <span class="text-muted" style="margin-left:.5rem; font-size:.8rem;">{{ row.notif.created_at | timeago }}</span>
+                    </div>
+                    {% if not row.notif.read %}
+                    <form method="post" action="/notifications/{{ row.notif.id }}/read" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Mark read</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% if total_pages > 1 %}
+            <div style="display:flex; gap:.5rem; align-items:center; justify-content:flex-end; margin-top:1rem;">
+                {% if page > 1 %}
+                <a class="btn btn-ghost btn-sm" href="/notifications?page={{ page - 1 }}">&larr; Newer</a>
+                {% endif %}
+                <span class="text-muted" style="font-size:.85rem;">Page {{ page }} of {{ total_pages }}</span>
+                {% if page < total_pages %}
+                <a class="btn btn-ghost btn-sm" href="/notifications?page={{ page + 1 }}">Older &rarr;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-state-box">
+        <p class="text-muted">No notifications yet.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

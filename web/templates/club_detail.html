@@ -7,14 +7,32 @@
         <div class="page-header-content">
             <div>
                 <p class="page-breadcrumb"><a href="/clubs">Clubs</a> <span class="accent">/</span></p>
-                <h1 class="page-title">{{ club.name }}</h1>
+                <h1 class="page-title">
+                    {{ club.name }}
+                    {% if visibility == 'private' %}
+                    <span class="badge badge-muted" style="font-size:.55em; vertical-align:middle; margin-left:.5rem;">Private</span>
+                    {% endif %}
+                    {% if join_policy == 'approval' %}
+                    <span class="badge badge-muted" style="font-size:.55em; vertical-align:middle; margin-left:.25rem;">Approval required</span>
+                    {% endif %}
+                </h1>
                 <p class="page-subtitle text-muted">{{ club.description }}</p>
             </div>
             {% if current_user %}
-                {% if current_user.username in club.members %}
+                {% if is_member %}
                 <form method="post" action="/clubs/{{ club.id }}/leave">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-ghost btn-sm">Leave Club</button>
+                </form>
+                {% elif has_pending_request %}
+                <form method="post" action="/clubs/{{ club.id }}/request/cancel">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-ghost btn-sm">Cancel Request</button>
+                </form>
+                {% elif join_policy == 'approval' %}
+                <form method="post" action="/clubs/{{ club.id }}/request">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Request to Join</button>
                 </form>
                 {% else %}
                 <form method="post" action="/clubs/{{ club.id }}/join">
@@ -120,6 +138,31 @@
     </div>
 
     <div class="club-detail-side">
+        {% if is_owner and pending_users %}
+        <div class="card reveal">
+            <div class="card-header">
+                <h2 class="card-title"><span class="accent">//</span> Pending requests <span class="text-muted">({{ pending_users | length }})</span></h2>
+            </div>
+            <div class="card-body">
+                <div class="member-list">
+                    {% for p in pending_users %}
+                    <div class="member-row" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                        <a href="/profile/{{ p.user.username }}" class="member-name" style="flex:1;">{{ p.user.display_name }}</a>
+                        <span class="member-country text-muted">{{ p.requested_at | timeago }}</span>
+                        <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/approve" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-primary btn-sm">Approve</button>
+                        </form>
+                        <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/deny" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm">Deny</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
         <div class="card reveal" style="animation-delay:.1s">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Members <span class="text-muted">({{ members | length }})</span></h2>

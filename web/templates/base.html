@@ -27,6 +27,9 @@
                 <a href="/about" class="nav-link {% if request.path == '/about' %}active{% endif %}">About / FAQ</a>
                 {% if current_user %}
                 <a href="/dashboard" class="nav-link {% if request.path == '/dashboard' %}active{% endif %}">Dashboard</a>
+                <a href="/notifications" class="nav-link {% if request.path.startswith('/notifications') %}active{% endif %}" title="Notifications">
+                    Inbox{% if unread_notifications %} <span class="accent">({{ unread_notifications }})</span>{% endif %}
+                </a>
                 <a href="/account" class="nav-link {% if request.path == '/account' %}active{% endif %}">Account</a>
                 <div class="nav-user">
                     <a href="/profile/{{ current_user.username }}" class="nav-link nav-username">{{ current_user.country | country_flag }} {{ current_user.display_name }}</a>
