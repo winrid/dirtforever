@@ -71,21 +71,19 @@
                 <h2 class="card-title"><span class="accent">//</span> Edit Club</h2>
             </div>
             <div class="card-body">
-                <form method="post" action="/clubs/{{ club.id }}/edit">
+                <form method="post" action="/clubs/{{ club.id }}/edit" class="create-event-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="form-row">
+                    <div class="create-event-grid">
                         <div class="form-group">
                             <label for="edit_name" class="form-label">Club Name</label>
                             <input type="text" id="edit_name" name="name" class="form-input" required
                                    maxlength="40" value="{{ club.name }}">
                         </div>
-                        <div class="form-group form-group-grow">
+                        <div class="form-group">
                             <label for="edit_description" class="form-label">Description</label>
                             <input type="text" id="edit_description" name="description" class="form-input"
                                    value="{{ club.description }}">
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label for="edit_visibility" class="form-label">Visibility</label>
                             <select id="edit_visibility" name="visibility" class="form-input form-select">
@@ -100,11 +98,11 @@
                                 <option value="approval" {% if join_policy == 'approval' %}selected{% endif %}>Approval required</option>
                             </select>
                         </div>
-                        <div class="form-group form-group-btn" style="display:flex; gap:.5rem; align-items:flex-end;">
-                            <button type="submit" class="btn btn-primary">Save</button>
-                            <button type="button" class="btn btn-ghost"
-                                    onclick="document.getElementById('editClub').classList.add('hidden')">Cancel</button>
-                        </div>
+                    </div>
+                    <div class="create-event-actions">
+                        <button type="submit" class="btn btn-primary">Save</button>
+                        <button type="button" class="btn btn-ghost"
+                                onclick="document.getElementById('editClub').classList.add('hidden')">Cancel</button>
                     </div>
                 </form>
             </div>
