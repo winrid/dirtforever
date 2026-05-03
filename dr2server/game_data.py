@@ -716,7 +716,7 @@ class Vehicle(IntEnum):
     FORD_FIESTA_R5             = 529
     PEUGEOT_208_R5_T16         = 530
     MITSUBISHI_SPACE_STAR_R5   = 527
-    SKODA_FABIA_R5             = 556
+    SKODA_FABIA_R5             = 560
     CITROEN_C3_R5              = 561
     VW_POLO_R5                 = 562
     FORD_FIESTA_R5_MK2         = 600
