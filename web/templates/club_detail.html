@@ -207,17 +207,21 @@
             <div class="card-body">
                 <div class="member-list">
                     {% for p in pending_users %}
-                    <div class="member-row" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
-                        <a href="/profile/{{ p.user.username }}" class="member-name" style="flex:1;">{{ p.user.display_name }}</a>
-                        <span class="member-country text-muted">{{ p.requested_at | timeago }}</span>
-                        <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/approve" style="margin:0;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-primary btn-sm">Approve</button>
-                        </form>
-                        <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/deny" style="margin:0;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-ghost btn-sm">Deny</button>
-                        </form>
+                    <div class="member-row" style="display:flex; flex-direction:column; gap:.4rem; align-items:stretch;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                            <a href="/profile/{{ p.user.username }}" class="member-name">{{ p.user.display_name }}</a>
+                            <span class="member-country text-muted">{{ p.requested_at | timeago }}</span>
+                        </div>
+                        <div style="display:flex; gap:.4rem;">
+                            <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/approve" style="margin:0; flex:1;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Approve</button>
+                            </form>
+                            <form method="post" action="/clubs/{{ club.id }}/requests/{{ p.user.username }}/deny" style="margin:0; flex:1;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;">Deny</button>
+                            </form>
+                        </div>
                     </div>
                     {% endfor %}
                 </div>
@@ -243,12 +247,14 @@
                 {% if pending_invites %}
                 <div class="member-list" style="margin-top:1rem;">
                     {% for p in pending_invites %}
-                    <div class="member-row" style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
-                        <a href="/profile/{{ p.user.username }}" class="member-name" style="flex:1;">{{ p.user.display_name }}</a>
-                        <span class="member-country text-muted">{{ p.created_at | timeago }}</span>
+                    <div class="member-row" style="display:flex; flex-direction:column; gap:.4rem; align-items:stretch;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:.5rem;">
+                            <a href="/profile/{{ p.user.username }}" class="member-name">{{ p.user.display_name }}</a>
+                            <span class="member-country text-muted">{{ p.created_at | timeago }}</span>
+                        </div>
                         <form method="post" action="/clubs/{{ club.id }}/invites/{{ p.user.username }}/cancel" style="margin:0;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-ghost btn-sm">Cancel</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;">Cancel invite</button>
                         </form>
                     </div>
                     {% endfor %}
