@@ -598,12 +598,12 @@ class VehicleClass(IntEnum):
     RGT            = 107
 
     # Rallycross
-    RX_SUPER_1600  = 92
-    CROSS_KART     = 95
-    GROUP_B_RX     = 89
-    RX2            = 102
-    RX_SUPERCARS   = 78
-    # RX_SUPERCARS_2019   = 000
+    RX_SUPER_1600     = 92
+    CROSS_KART        = 95
+    GROUP_B_RX        = 89
+    RX2               = 102
+    RX_SUPERCARS      = 78
+    RX_SUPERCARS_2019 = 108
 
     @property
     def label(self) -> str:
@@ -635,7 +635,7 @@ _VEHICLE_CLASS_LABELS: Dict[VehicleClass, str] = {
     VehicleClass.GROUP_B_RX:    "Group B Rallycross",
     VehicleClass.RX2:           "RX2",
     VehicleClass.RX_SUPERCARS:  "RX Supercars",
-    # VehicleClass.RX_SUPERCARS_2019: "RX Supercars 2019",
+    VehicleClass.RX_SUPERCARS_2019: "RX Supercars 2019",
 }
 
 
@@ -647,7 +647,7 @@ class Vehicle(IntEnum):
     """Vehicle IDs (VehicleId in the EgoNet protocol)."""
     # H1 FWD
     MINI_COOPER_S              = 385
-    CITROEN_DS_21              = 572
+    DS_DS_21                   = 572
     LANCIA_FULVIA_HF           = 468
 
     # H2 FWD
@@ -728,6 +728,43 @@ class Vehicle(IntEnum):
     FORD_MUSTANG_GT4           = 556
     ASTON_MARTIN_V8            = 554
 
+    # RX Super 1600
+    VW_POLO_S1600              = 543
+    RENAULT_CLIO_RS_S1600      = 514
+    OPEL_CORSA_SUPER_1600      = 513
+
+    # Cross Kart
+    SPEEDCAR_XTREM             = 535
+
+    # Group B Rallycross
+    LANCIA_DELTA_S4_RX         = 548
+    FORD_RS200_EVO             = 550
+    PEUGEOT_205_T16_RX         = 511
+    MG_METRO_6R4_RX            = 547
+
+    # RX2
+    FORD_FIESTA_OMSE_SUPERCAR_LITES = 541
+
+    # RX Supercars
+    VW_POLO_R_SUPERCAR         = 570
+    AUDI_S1_EKS_RX_QUATTRO     = 566
+    PEUGEOT_208_WRX            = 502
+    RENAULT_MEGANE_RS_RX       = 569
+    FORD_FIESTA_RX_MK8         = 567
+    FORD_FIESTA_RX_MK7         = 504
+    SUBARU_WRX_STI_RX          = 571
+
+    # RX Supercars 2019
+    RENAULT_MEGANE_RS_RX_2019   = 579
+    PEUGEOT_208_WRX_2019        = 580
+    AUDI_S1_EKS_RX_QUATTRO_2019 = 581
+    RENAULT_CLIO_RS_RX_2019     = 585
+    FORD_FIESTA_RXS_EVO_5_2019  = 586
+    FORD_FIESTA_RX_MK8_2019     = 587
+    MINI_COOPER_SX1_2019        = 588
+    FORD_FIESTA_RX_STARD_2019   = 589
+    SEAT_IBIOZA_RX_2019         = 590
+
     @property
     def display_name(self) -> str:
         return _VEHICLE_META[self]["display_name"]
@@ -746,87 +783,124 @@ class Vehicle(IntEnum):
 
 _VEHICLE_META: Dict[Vehicle, dict] = {
     # H1 FWD
-    Vehicle.LANCIA_FULVIA_HF:           {"display_name": "Lancia Fulvia HF",              "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "ful"},
-    Vehicle.MINI_COOPER_S:              {"display_name": "Mini Cooper S",                 "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "mcs"},
-    Vehicle.CITROEN_DS_21:              {"display_name": "Citroen DS 21",                 "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "cds"},
+    Vehicle.MINI_COOPER_S:              {"display_name": "Mini Cooper S",                 "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "h1_mini"},
+    Vehicle.DS_DS_21:                   {"display_name": "DS Automobiles DS 21",          "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "h1_ds"},
+    Vehicle.LANCIA_FULVIA_HF:           {"display_name": "Lancia Fulvia HF",              "vehicle_class": VehicleClass.H1_FWD,      "abbrev": "h1_fulvia"},
 
     # H2 FWD
-    Vehicle.VW_GOLF_GTI_16V:            {"display_name": "Volkswagen Golf GTI 16V",       "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "gti"},
-    Vehicle.PEUGEOT_205_GTI:            {"display_name": "Peugeot 205 GTI",               "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "p5g"},
+    Vehicle.VW_GOLF_GTI_16V:            {"display_name": "Volkswagen Golf GTI 16V",       "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "h2f_golf"},
+    Vehicle.PEUGEOT_205_GTI:            {"display_name": "Peugeot 205 GTI",               "vehicle_class": VehicleClass.H2_FWD,      "abbrev": "h2f_205"},
 
     # H2 RWD
-    Vehicle.FORD_ESCORT_MK2:            {"display_name": "Ford Escort Mk II",             "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "mr5"},
-    Vehicle.ALPINE_A110_1600S:          {"display_name": "Alpine A110 1600 S",            "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "alp"},
-    Vehicle.FIAT_131_ABARTH_RALLY:      {"display_name": "Fiat 131 Abarth Rally",         "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "131"},
-    Vehicle.OPEL_KADETT_C_GTE:          {"display_name": "Opel Kadett C GT/E",            "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "kad"},
+    Vehicle.FORD_ESCORT_MK2:            {"display_name": "Ford Escort Mk II",             "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "h2r_escort"},
+    Vehicle.ALPINE_A110_1600S:          {"display_name": "Alpine A110 1600 S",            "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "h2r_a110"},
+    Vehicle.FIAT_131_ABARTH_RALLY:      {"display_name": "Fiat 131 Abarth Rally",         "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "h2r_131"},
+    Vehicle.OPEL_KADETT_C_GTE:          {"display_name": "Opel Kadett C GT/E",            "vehicle_class": VehicleClass.H2_RWD,      "abbrev": "h2r_kadett"},
 
     # H3 RWD
-    Vehicle.BMW_E30_M3_EVO_RALLY:       {"display_name": "BMW E30 M3 Evo Rally",          "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "e30"},
-    Vehicle.OPEL_ASCONA_400:            {"display_name": "Opel Ascona 400",               "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "asc"},
-    Vehicle.LANCIA_STRATOS:             {"display_name": "Lancia Stratos",                "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "str"},
-    Vehicle.DATSUN_240Z:                {"display_name": "Datsun 240Z",                   "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "240"},
-    Vehicle.RENAULT_5_TURBO:            {"display_name": "Renault 5 Turbo",               "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "r5t"},
-    Vehicle.FORD_SIERRA_COSWORTH_RS500: {"display_name": "Ford Sierra Cosworth RS500",    "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "rs5"},
+    Vehicle.BMW_E30_M3_EVO_RALLY:       {"display_name": "BMW E30 M3 Evo Rally",          "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_e30"},
+    Vehicle.OPEL_ASCONA_400:            {"display_name": "Opel Ascona 400",               "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_ascona"},
+    Vehicle.LANCIA_STRATOS:             {"display_name": "Lancia Stratos",                "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_stratos"},
+    Vehicle.DATSUN_240Z:                {"display_name": "Datsun 240Z",                   "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_240z"},
+    Vehicle.RENAULT_5_TURBO:            {"display_name": "Renault 5 Turbo",               "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_5"},
+    Vehicle.FORD_SIERRA_COSWORTH_RS500: {"display_name": "Ford Sierra Cosworth RS500",    "vehicle_class": VehicleClass.H3_RWD,      "abbrev": "h3r_sierra"},
 
     # F2 Kit Car
-    Vehicle.PEUGEOT_306_MAXI:           {"display_name": "Peugeot 306 Maxi",              "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "306"},
-    Vehicle.SEAT_IBIZA_KIT_CAR:         {"display_name": "Seat Ibiza Kit Car",            "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "ibz"},
-    Vehicle.VW_GOLF_KIT_CAR:            {"display_name": "Volkswagen Golf Kit Car",       "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "gkc"},
+    Vehicle.PEUGEOT_306_MAXI:           {"display_name": "Peugeot 306 Maxi",              "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "f2_306"},
+    Vehicle.SEAT_IBIZA_KIT_CAR:         {"display_name": "Seat Ibiza Kit Car",            "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "f2_ibiza"},
+    Vehicle.VW_GOLF_KIT_CAR:            {"display_name": "Volkswagen Golf KitCar",        "vehicle_class": VehicleClass.F2_KIT_CAR,  "abbrev": "f2_golf"},
 
     # Group B RWD
-    Vehicle.LANCIA_037_EVO2:            {"display_name": "Lancia 037 Evo 2",              "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "037"},
-    Vehicle.OPEL_MANTA_400:             {"display_name": "Opel Manta 400",                "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "mnt"},
-    Vehicle.BMW_M1_PROCAR_RALLY:        {"display_name": "BMW M1 Procar Rally",           "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "m1p"},
-    Vehicle.PORSCHE_911_SC_RS:          {"display_name": "Porsche 911 SC RS",             "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "911"},
+    Vehicle.LANCIA_037_EVO2:            {"display_name": "Lancia 037 Evo 2",              "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "gbr_037"},
+    Vehicle.OPEL_MANTA_400:             {"display_name": "Opel Manta 400",                "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "gbr_manta"},
+    Vehicle.BMW_M1_PROCAR_RALLY:        {"display_name": "BMW M1 Procar Rally",           "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "gbr_m1"},
+    Vehicle.PORSCHE_911_SC_RS:          {"display_name": "Porsche 911 SC RS",             "vehicle_class": VehicleClass.GROUP_B_RWD, "abbrev": "gbr_911"},
 
     # Group B 4WD
-    Vehicle.AUDI_SPORT_QUATTRO_S1_E2:   {"display_name": "Audi Sport Quattro S1 E2",      "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "aqe"},
-    Vehicle.PEUGOT_205_T16_EVO2:        {"display_name": "Peugeot 205 T16 Evo 2",         "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "t16"},
-    Vehicle.LANCIA_DELTA_S4:            {"display_name": "Lancia Delta S4",               "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "s4"},
-    Vehicle.FORD_RS200:                 {"display_name": "Ford RS200",                    "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "rs2"},
-    Vehicle.MG_METRO_6R4:               {"display_name": "MG Metro 6R4",                  "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "6r4"},
+    Vehicle.AUDI_SPORT_QUATTRO_S1_E2:   {"display_name": "Audi Sport Quattro S1 E2",      "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "gb4_quattro"},
+    Vehicle.PEUGOT_205_T16_EVO2:        {"display_name": "Peugeot 205 T16 Evo 2",         "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "gb4_205"},
+    Vehicle.LANCIA_DELTA_S4:            {"display_name": "Lancia Delta S4",               "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "gb4_delta"},
+    Vehicle.FORD_RS200:                 {"display_name": "Ford RS200",                    "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "gb4_rs200"},
+    Vehicle.MG_METRO_6R4:               {"display_name": "MG Metro 6R4",                  "vehicle_class": VehicleClass.GROUP_B_4WD, "abbrev": "gb4_metro"},
 
     # R2
-    Vehicle.FORD_FIESTA_R2:             {"display_name": "Ford Fiesta R2",                "vehicle_class": VehicleClass.R2,          "abbrev": "fr2"},
-    Vehicle.OPEL_ADAM_R2:               {"display_name": "Opel Adam R2",                  "vehicle_class": VehicleClass.R2,          "abbrev": "ar2"},
-    Vehicle.PEUGEOT_208_R2:             {"display_name": "Peugeot 208 R2",                "vehicle_class": VehicleClass.R2,          "abbrev": "p2r"},
+    Vehicle.FORD_FIESTA_R2:             {"display_name": "Ford Fiesta R2",                "vehicle_class": VehicleClass.R2,          "abbrev": "r2_fiesta"},
+    Vehicle.OPEL_ADAM_R2:               {"display_name": "Opel Adam R2",                  "vehicle_class": VehicleClass.R2,          "abbrev": "r2_adam"},
+    Vehicle.PEUGEOT_208_R2:             {"display_name": "Peugeot 208 R2",                "vehicle_class": VehicleClass.R2,          "abbrev": "r2_208"},
 
     # Group A
-    Vehicle.MITSUBISHI_LANCER_EVO6:     {"display_name": "Mitsubishi Lancer Evo VI",      "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ev6"},
-    Vehicle.SUBARU_IMPREZA_1995:        {"display_name": "Subaru Impreza 1995",           "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "s95"},
-    Vehicle.SUBARU_LEGACY_RS:           {"display_name": "Subaru Legacy RS",              "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "lrs"},
-    Vehicle.LANCIA_DELTA_HF_INTEGRALE:  {"display_name": "Lancia Delta HF Integrale",     "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "dhi"},
-    Vehicle.FORD_ESCORT_RS_COSWORTH:    {"display_name": "Ford Escort RS Cosworth",       "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "erc"},
+    Vehicle.MITSUBISHI_LANCER_EVO6:     {"display_name": "Mitsubishi Lancer Evolution VI", "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ga_evo6"},
+    Vehicle.SUBARU_IMPREZA_1995:        {"display_name": "Subaru Impreza 1995",           "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ga_imprez"},
+    Vehicle.SUBARU_LEGACY_RS:           {"display_name": "Subaru Legacy RS",              "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ga_legacy"},
+    Vehicle.LANCIA_DELTA_HF_INTEGRALE:  {"display_name": "Lancia Delta HF Integrale",     "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ga_delta"},
+    Vehicle.FORD_ESCORT_RS_COSWORTH:    {"display_name": "Ford Escort RS Cosworth",       "vehicle_class": VehicleClass.GROUP_A,     "abbrev": "ga_escort"},
 
     # NR4/R4
-    Vehicle.SUBARU_WRX_STI_NR4:         {"display_name": "Subaru WRX STI NR4",            "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "swr"},
-    Vehicle.MITSUBISHI_LANCER_EVOX:     {"display_name": "Mitsubishi Lancer Evo X",       "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "evx"},
+    Vehicle.SUBARU_WRX_STI_NR4:         {"display_name": "Subaru WRX STI NR4",            "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "nr4_wrx"},
+    Vehicle.MITSUBISHI_LANCER_EVOX:     {"display_name": "Mitsubishi Lancer Evolution X", "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "nr4_evo"},
 
     # 2000cc 4WD
-    Vehicle.FORD_FOCUS_RS_RALLY_2001:   {"display_name": "Ford Focus RS Rally 2001",      "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "ffr"},
-    Vehicle.CITROEN_C4_RALLY:           {"display_name": "Citroen C4 Rally",              "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "c4r"},
-    Vehicle.SKODA_FABIA_RALLY:          {"display_name": "Skoda Fabia Rally",             "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "sfr"},
-    Vehicle.SUBARU_IMPREZA_S4:          {"display_name": "Subaru Impreza S4 Rally",       "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "srs_05"},
-    Vehicle.SUBARU_IMPREZA_2001:        {"display_name": "Subaru Impreza 2001",           "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "srs"},
-    Vehicle.FORD_FOCUS_RS_RALLY_2007:   {"display_name": "Ford Focus RS Rally 2007",      "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "ffr_07"},
-    Vehicle.SUBARU_IMPREZA:             {"display_name": "Subaru Impreza",                "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "sri"},
-    Vehicle.PEUGEOT_206_RALLY:          {"display_name": "Peugeot 206 Rally",             "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "pgr"},
+    Vehicle.FORD_FOCUS_RS_RALLY_2001:   {"display_name": "Ford Focus RS Rally 2001",      "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_f01"},
+    Vehicle.CITROEN_C4_RALLY:           {"display_name": "Citroen C4 Rally",              "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_c4"},
+    Vehicle.SKODA_FABIA_RALLY:          {"display_name": "Skoda Fabia Rally",             "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_fab"},
+    Vehicle.SUBARU_IMPREZA_S4:          {"display_name": "Subaru Impreza S4 Rally",       "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_imps4"},
+    Vehicle.SUBARU_IMPREZA_2001:        {"display_name": "Subaru Impreza (2001)",         "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_imp01"},
+    Vehicle.FORD_FOCUS_RS_RALLY_2007:   {"display_name": "Ford Focus RS Rally 2007",      "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_f07"},
+    Vehicle.SUBARU_IMPREZA:             {"display_name": "Subaru Impreza",                "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_imp"},
+    Vehicle.PEUGEOT_206_RALLY:          {"display_name": "Peugeot 206 Rally",             "vehicle_class": VehicleClass.CC_4WD,      "abbrev": "2k_206"},
 
     # R5
-    Vehicle.FORD_FIESTA_R5:             {"display_name": "Ford Fiesta R5",                "vehicle_class": VehicleClass.R5,          "abbrev": "fr5"},
-    Vehicle.PEUGEOT_208_R5_T16:         {"display_name": "Peugeot 208 R5 T16",            "vehicle_class": VehicleClass.R5,          "abbrev": "p5t"},
-    Vehicle.MITSUBISHI_SPACE_STAR_R5:   {"display_name": "Mitsubishi Space Star R5",      "vehicle_class": VehicleClass.R5,          "abbrev": "msr"},
-    Vehicle.SKODA_FABIA_R5:             {"display_name": "Skoda Fabia R5",                "vehicle_class": VehicleClass.R5,          "abbrev": "sr5"},
-    Vehicle.CITROEN_C3_R5:              {"display_name": "Citroen C3 R5",                 "vehicle_class": VehicleClass.R5,          "abbrev": "c3r"},
-    Vehicle.VW_POLO_R5:                 {"display_name": "Volkswagen Polo R5",            "vehicle_class": VehicleClass.R5,          "abbrev": "pr5"},
-    Vehicle.FORD_FIESTA_R5_MK2:         {"display_name": "Ford Fiesta R5 Mk2",            "vehicle_class": VehicleClass.R5,          "abbrev": "fr5m"},
+    Vehicle.FORD_FIESTA_R5:             {"display_name": "Ford Fiesta R5",                "vehicle_class": VehicleClass.R5,          "abbrev": "r5_fiesta"},
+    Vehicle.PEUGEOT_208_R5_T16:         {"display_name": "Peugeot 208 R5 T16",            "vehicle_class": VehicleClass.R5,          "abbrev": "r5_208"},
+    Vehicle.MITSUBISHI_SPACE_STAR_R5:   {"display_name": "Mitsubishi Space Star R5",      "vehicle_class": VehicleClass.R5,          "abbrev": "r5_star"},
+    Vehicle.SKODA_FABIA_R5:             {"display_name": "Skoda Fabia R5",                "vehicle_class": VehicleClass.R5,          "abbrev": "r5_fab"},
+    Vehicle.CITROEN_C3_R5:              {"display_name": "Citroen C3 R5",                 "vehicle_class": VehicleClass.R5,          "abbrev": "r5_c3"},
+    Vehicle.VW_POLO_R5:                 {"display_name": "Volkswagen Polo GTI R5",        "vehicle_class": VehicleClass.R5,          "abbrev": "r5_polo"},
+    Vehicle.FORD_FIESTA_R5_MK2:         {"display_name": "Ford Fiesta R5 MkII",           "vehicle_class": VehicleClass.R5,          "abbrev": "r5_fiesta2"},
 
     # Rally GT
-    Vehicle.BMW_M2_COMPETITION:         {"display_name": "BMW M2 Competition",            "vehicle_class": VehicleClass.RGT,         "abbrev": "m2c"},
-    Vehicle.CHEVROLET_CAMARO_GT4_R:     {"display_name": "Chevrolet Camaro GT4.R",        "vehicle_class": VehicleClass.RGT,         "abbrev": "ccg"},
-    Vehicle.PORSCHE_911_RGT:            {"display_name": "Porsche 911 RGT Rally",         "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "99r"},
-    Vehicle.FORD_MUSTANG_GT4:           {"display_name": "Ford Mustang GT4",              "vehicle_class": VehicleClass.RGT,         "abbrev": "fmg"},
-    Vehicle.ASTON_MARTIN_V8:            {"display_name": "Aston Martin V8 Vantage",       "vehicle_class": VehicleClass.NR4_R4,      "abbrev": "amr"},
+    Vehicle.BMW_M2_COMPETITION:         {"display_name": "BMW M2 Competition",            "vehicle_class": VehicleClass.RGT,         "abbrev": "rgt_m2"},
+    Vehicle.CHEVROLET_CAMARO_GT4_R:     {"display_name": "Chevrolet Camaro GT4.R",        "vehicle_class": VehicleClass.RGT,         "abbrev": "rgt_cam"},
+    Vehicle.PORSCHE_911_RGT:            {"display_name": "Porsche 911 RGT Rally Spec",    "vehicle_class": VehicleClass.RGT,         "abbrev": "rgt_911"},
+    Vehicle.FORD_MUSTANG_GT4:           {"display_name": "Ford Mustang GT4",              "vehicle_class": VehicleClass.RGT,         "abbrev": "rgt_stang"},
+    Vehicle.ASTON_MARTIN_V8:            {"display_name": "Aston Martin V8 Vantage GT4",   "vehicle_class": VehicleClass.RGT,         "abbrev": "rgt_vantage"},
+
+    # RX Super 1600
+    Vehicle.VW_POLO_S1600:              {"display_name": "Volkswagen Polo S1600",         "vehicle_class": VehicleClass.RX_SUPER_1600, "abbrev": "rx16_polo"},
+    Vehicle.RENAULT_CLIO_RS_S1600:      {"display_name": "Renault Sport Clio R.S. S1600", "vehicle_class": VehicleClass.RX_SUPER_1600, "abbrev": "rx16_clio"},
+    Vehicle.OPEL_CORSA_SUPER_1600:      {"display_name": "Opel Corsa Super 1600",         "vehicle_class": VehicleClass.RX_SUPER_1600, "abbrev": "rx16_corsa"},
+
+    # Cross Kart
+    Vehicle.SPEEDCAR_XTREM:            {"display_name": "SpeedCar Xtrem",                 "vehicle_class": VehicleClass.CROSS_KART, "abbrev": "kart"},
+
+    # Group B Rallycross
+    Vehicle.LANCIA_DELTA_S4_RX:       {"display_name": "Lancia Delta S4 Rallycross",      "vehicle_class": VehicleClass.GROUP_B_RX, "abbrev": "gbrx_delta"},
+    Vehicle.FORD_RS200_EVO:           {"display_name": "Ford RS200 Evolution",            "vehicle_class": VehicleClass.GROUP_B_RX, "abbrev": "gbrx_rs200"},
+    Vehicle.PEUGEOT_205_T16_RX:       {"display_name": "Peugeot 205 T16 Rallycross",      "vehicle_class": VehicleClass.GROUP_B_RX, "abbrev": "gbrx_205"},
+    Vehicle.MG_METRO_6R4_RX:          {"display_name": "MG Metro 6R4 Rallycross",         "vehicle_class": VehicleClass.GROUP_B_RX, "abbrev": "gbrx_metro"},
+
+    # RX2
+    Vehicle.FORD_FIESTA_OMSE_SUPERCAR_LITES: {"display_name": "Ford Fiesta OMSE Supercar Lites", "vehicle_class": VehicleClass.RX2, "abbrev": "rx2_fiesta"},
+
+    # RX Supercars
+    Vehicle.VW_POLO_R_SUPERCAR:       {"display_name": "Volkswagen Polo R Supercar",      "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_polo"},
+    Vehicle.AUDI_S1_EKS_RX_QUATTRO:   {"display_name": "Audi S1 EKS RX Quattro",          "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_s1"},
+    Vehicle.PEUGEOT_208_WRX:          {"display_name": "Peugeot 208 WRX",                 "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_208"},
+    Vehicle.RENAULT_MEGANE_RS_RX:     {"display_name": "Renault Megane RS RX",            "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_megane"},
+    Vehicle.FORD_FIESTA_RX_MK8:       {"display_name": "Ford Fiesta Rallycross Mk8",      "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_fiesta8"},
+    Vehicle.FORD_FIESTA_RX_MK7:       {"display_name": "Ford Fiesta Rallycross Mk7",      "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_fiesta7"},
+    Vehicle.SUBARU_WRX_STI_RX:        {"display_name": "Subaru WRX STI Rallycross",       "vehicle_class": VehicleClass.RX_SUPERCARS, "abbrev": "rx_wrx"},
+
+    # RX Supercars 2019
+    Vehicle.RENAULT_MEGANE_RS_RX_2019:   {"display_name": "Renault Megane R.S. RX",         "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_megane"},
+    Vehicle.PEUGEOT_208_WRX_2019:        {"display_name": "Peugeot 208 WRX",                "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_208"},
+    Vehicle.AUDI_S1_EKS_RX_QUATTRO_2019: {"display_name": "Audi S1 EKS RX Quattro",         "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_s1"},
+    Vehicle.RENAULT_CLIO_RS_RX_2019:     {"display_name": "Renault Clio R.S. RX",           "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_clio"},
+    Vehicle.FORD_FIESTA_RXS_EVO_5_2019:  {"display_name": "Ford Fiesta RXS Evo 5",          "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_fiesta5"},
+    Vehicle.FORD_FIESTA_RX_MK8_2019:     {"display_name": "Ford Fiesta RX (Mk8)",           "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_fiesta8"},
+    Vehicle.MINI_COOPER_SX1_2019:        {"display_name": "Mini Cooper SX1",                "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_mini"},
+    Vehicle.FORD_FIESTA_RX_STARD_2019:   {"display_name": "Ford Fiesta Rallycross (Stard)", "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_fiesta"},
+    Vehicle.SEAT_IBIOZA_RX_2019:         {"display_name": "Seat Ibioza RX",                 "vehicle_class": VehicleClass.RX_SUPERCARS_2019, "abbrev": "rx19_ibiza"},
 }
 
 
