@@ -1,0 +1,59 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetChallenges.StageBegin",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Progress": {
+        "AttemptsLeft": 1,
+        "ChallengeID": 262345,
+        "ChampTimeMs": 488708,
+        "EventIndex": 0,
+        "HasRepaired": false,
+        "LiveryId": 3291,
+        "MetersDriven": 0,
+        "Percentile": 0,
+        "RepairPenalty": 0,
+        "StageIndex": 1,
+        "StageTimeMs": 0,
+        "State": 1,
+        "TuningSetup": {
+          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+          "size": 142
+        },
+        "TyreCompound": 1,
+        "TyresRemaining": 4,
+        "VehicleDamage": {
+          "Bodywork": 34241,
+          "Brakes": 84215045,
+          "Clutch": 0.012432359158992767,
+          "Dampers": 67372036,
+          "DiffImpact": 159585957,
+          "DiffWear": 197379,
+          "Engine": 0.010001235641539097,
+          "Exhaust": 0.3388039171695709,
+          "Gearbox": 170265324,
+          "Lights": 0.23780548572540283,
+          "QuickRepairs": 0,
+          "Radiator": 0.1176636815071106,
+          "Springs": 67372293,
+          "Turbo": 69930428,
+          "WheelsImpact": 522069547,
+          "WheelsWear": 993481041
+        },
+        "VehicleId": 478,
+        "VehicleInstId": 0
+      },
+      "ResultCode": 0
+    },
+    "headers": {
+      "Content-Length": "812",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

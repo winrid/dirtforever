@@ -1,0 +1,106 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetChallenges.StageComplete",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "ChampReward": {
+        "GarageSlots": 0,
+        "Id": 0,
+        "IsGlobalBoosted": false,
+        "Items": [],
+        "Message": "",
+        "Reason": {
+          "FinishPosition": 0,
+          "FinishTimeMs": 0,
+          "Source": 4,
+          "SourceEntityId": 0,
+          "SourceName": "",
+          "Type": 0
+        },
+        "SoftCurrency": 0
+      },
+      "EventReward": {
+        "GarageSlots": 0,
+        "Id": 0,
+        "IsGlobalBoosted": false,
+        "Items": [],
+        "Message": "",
+        "Reason": {
+          "FinishPosition": 0,
+          "FinishTimeMs": 0,
+          "Source": 4,
+          "SourceEntityId": 0,
+          "SourceName": "",
+          "Type": 0
+        },
+        "SoftCurrency": 0
+      },
+      "OldResearchPct": 0.0,
+      "OldResearchTgt": 0,
+      "Progress": {
+        "AttemptsLeft": 1,
+        "ChallengeID": 262345,
+        "ChampTimeMs": 1001885,
+        "EventIndex": 0,
+        "HasRepaired": false,
+        "LiveryId": 3291,
+        "MetersDriven": 27505,
+        "Percentile": 0,
+        "RepairPenalty": 0,
+        "StageIndex": 0,
+        "StageTimeMs": 0,
+        "State": 2,
+        "TuningSetup": {
+          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+          "size": 142
+        },
+        "TyreCompound": 1,
+        "TyresRemaining": 4,
+        "VehicleDamage": {
+          "Bodywork": 42637,
+          "Brakes": 202050572,
+          "Clutch": 0.027832886204123497,
+          "Dampers": 151587081,
+          "DiffImpact": 929967409,
+          "DiffWear": 460551,
+          "Engine": 0.14560268819332123,
+          "Exhaust": 0.48648491501808167,
+          "Gearbox": 340925003,
+          "Lights": 0.859268307685852,
+          "QuickRepairs": 0,
+          "Radiator": 0.32176998257637024,
+          "Springs": 134679050,
+          "Turbo": 147209009,
+          "WheelsImpact": 711921467,
+          "WheelsWear": 1313564262
+        },
+        "VehicleId": 478,
+        "VehicleInstId": 0,
+        "VehicleMud": {
+          "CleanDirt": 1.0,
+          "CleanHeight": 0.0,
+          "CleanMud": 1.0,
+          "Dirt": 0.75,
+          "Mud": 0.800000011920929,
+          "WheelMud0": 1.0,
+          "WheelMud1": 1.0,
+          "WheelMud2": 1.0,
+          "WheelMud3": 1.0
+        }
+      },
+      "ResearchPercent": 0.0,
+      "ResearchTarget": 0,
+      "ResultCode": 0
+    },
+    "headers": {
+      "Content-Length": "1596",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

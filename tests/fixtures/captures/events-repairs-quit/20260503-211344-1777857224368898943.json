@@ -1,0 +1,121 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "989",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr\u001b\u0000\u0000\u0000uuidѓ�.\u001cDFO�\u0018��\u0006�,�uuid���N\u000e�yG��#��zfui32\u0000\u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\"\u0000\u0000\u0000ui32�\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000si64�������ui32\u0000\u0000\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32v\u0000\u0000\u0000si32\\�\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00004db6020bd8d26e0d2c1488a6512e36casi32�\u0004\u0000\u0000si64���i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr\u001b\u0000\u0000\u0000dstr\u0017\u0000\u0000\u0000journey_championship_iddstr\u0010\u0000\u0000\u0000journey_event_iddstr\b\u0000\u0000\u0000event_iddstr\u000b\u0000\u0000\u0000event_indexdstr\u000b\u0000\u0000\u0000event_countdstr\u000f\u0000\u0000\u0000championship_iddstr\u0010\u0000\u0000\u0000mode_instance_iddstr\r\u0000\u0000\u0000discipline_iddstr\u000b\u0000\u0000\u0000scenario_iddstr\u000b\u0000\u0000\u0000location_iddstr\b\u0000\u0000\u0000track_iddstr\u0007\u0000\u0000\u0000team_iddstr\u0010\u0000\u0000\u0000vehicle_class_iddstr\n\u0000\u0000\u0000vehicle_iddstr\u0013\u0000\u0000\u0000vehicle_instance_iddstr\u0011\u0000\u0000\u0000vehicle_livery_iddstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\f\u0000\u0000\u0000EventStarted",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyGwAAAHV1aWTRk/4uHERGT7EYubUGniyNdXVpZLqmnE4OvnlHuX+mI93EemZ1aTMyAAAAAHNpMzIAAAAAc2kzMgEAAAB1aTMyAAAAAHVpMzIOAAAAdWkzMgEAAAB1aTMyAAAAAHVpMzIiAAAAdWkzMqMAAAB1aTMyAAAAAHVpMzIAAAAAdWkzMgAAAABzaTY0/////////391aTMyAAAAAGRzdHICAAAAVVN1aTMyaPkTAHNpMzJ2AAAAc2kzMlyZDQBzaTMy6AAAAGRzdHIgAAAANGRiNjAyMGJkOGQyNmUwZDJjMTQ4OGE2NTEyZTM2Y2FzaTMyxgQAAHNpNjTI8vdpAAAAAHVpMzIPAAAAYm9vbABib29sAARrZXlzdnZ0chsAAABkc3RyFwAAAGpvdXJuZXlfY2hhbXBpb25zaGlwX2lkZHN0chAAAABqb3VybmV5X2V2ZW50X2lkZHN0cggAAABldmVudF9pZGRzdHILAAAAZXZlbnRfaW5kZXhkc3RyCwAAAGV2ZW50X2NvdW50ZHN0cg8AAABjaGFtcGlvbnNoaXBfaWRkc3RyEAAAAG1vZGVfaW5zdGFuY2VfaWRkc3RyDQAAAGRpc2NpcGxpbmVfaWRkc3RyCwAAAHNjZW5hcmlvX2lkZHN0cgsAAABsb2NhdGlvbl9pZGRzdHIIAAAAdHJhY2tfaWRkc3RyBwAAAHRlYW1faWRkc3RyEAAAAHZlaGljbGVfY2xhc3NfaWRkc3RyCgAAAHZlaGljbGVfaWRkc3RyEwAAAHZlaGljbGVfaW5zdGFuY2VfaWRkc3RyEQAAAHZlaGljbGVfbGl2ZXJ5X2lkZHN0cg4AAABnX2NvdW50cnlfY29kZWRzdHIMAAAAZ19nYW1lX2J1aWxkZHN0chwAAABnX3NlcGFyYXRlX2RheXNfcGxheWVkX2NvdW50ZHN0chYAAABnX3RvdGFsX3NlY29uZHNfcGxheWVkZHN0cg8AAABnX3Nlc3Npb25fY291bnRkc3RyDAAAAGdfc2Vzc2lvbl9pZGRzdHIWAAAAZ19zZWNvbmRzX2ludG9fc2Vzc2lvbmRzdHIPAAAAZ191dGNfdGltZXN0YW1wZHN0chIAAABnX3NlYXNvbl9wYXNzX2JpdHNkc3RyEgAAAGdfaXNfdHJpYWxfdmVyc2lvbmRzdHIPAAAAZ19pc19pbnN0YWxsaW5nBWV2ZW50ZHN0cgwAAABFdmVudFN0YXJ0ZWQ=",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          {
+            "unsupported_type": "uid"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "."
+          },
+          {
+            "unsupported_marker": "\u001c"
+          },
+          {
+            "unsupported_marker": "D"
+          },
+          {
+            "unsupported_marker": "F"
+          },
+          {
+            "unsupported_marker": "O"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0018"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0006"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": ","
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_type": "uid"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "N"
+          },
+          {
+            "unsupported_marker": "\u000e"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "y"
+          },
+          {
+            "unsupported_marker": "G"
+          },
+          {
+            "unsupported_marker": "�"
+          }
+        ],
+        "�#��zfui32\u0000\u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\"\u0000\u0000\u0000ui32�\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000si64�������ui32\u0000\u0000\u0000\u0000dstr\u0002": {
+          "unsupported_marker": "\u0000"
+        },
+        "": {
+          "unsupported_marker": "\u0000"
+        }
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

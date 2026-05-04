@@ -1,0 +1,21 @@
+{
+  "request_summary": {
+    "egonet_function": "Login.Login",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "AccountId": "<ACCOUNT_ID>",
+      "Flags": 0
+    },
+    "headers": {
+      "Content-Length": "44",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-SessionID": "<SESSION_ID>"
+    },
+    "status": 200
+  }
+}

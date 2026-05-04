@@ -1,0 +1,87 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "964",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr\u0019\u0000\u0000\u0000dstr\u0005\u0000\u0000\u0000steamdstr#\u0000\u0000\u0000Microsoft Windows 10  (Build 19045)dstr#\u0000\u0000\u0000AMD64 Family 25 Model 97 Stepping 2si32`\u0010\u0000\u0000ui16\u0010\u0000si32Ĉ�\u0001si32�\u0010\u0000\u0000si32\u0003(\u0000\u0000dstr\u001e\u0000\u0000\u0000NVIDIA GeForce RTX 4060 Ti 8GBsi32\u0000�\u0000ui08\u0001ui16�\u0007ui168\u0004ui08\u0001dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32u\u0000\u0000\u0000si32�\"\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00003b6029e2e82cf5aeba3c9fa37736d4c1si32\u0000\u0000\u0000\u0000si648��i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr\u0019\u0000\u0000\u0000dstr\u0010\u0000\u0000\u0000platform_servicedstr\n\u0000\u0000\u0000os_versiondstr\b\u0000\u0000\u0000cpu_namedstr\t\u0000\u0000\u0000cpu_speeddstr\t\u0000\u0000\u0000cpu_coresdstr\u0003\u0000\u0000\u0000ramdstr\r\u0000\u0000\u0000gpu_vendor_iddstr\r\u0000\u0000\u0000gpu_device_iddstr\f\u0000\u0000\u0000gpu_model_iddstr\n\u0000\u0000\u0000gpu_memorydstr\u000e\u0000\u0000\u0000number_of_gpusdstr\f\u0000\u0000\u0000resolution_wdstr\f\u0000\u0000\u0000resolution_hdstr\u000f\u0000\u0000\u0000number_monitorsdstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\n\u0000\u0000\u0000AppStarted",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyGQAAAGRzdHIFAAAAc3RlYW1kc3RyIwAAAE1pY3Jvc29mdCBXaW5kb3dzIDEwICAoQnVpbGQgMTkwNDUpZHN0ciMAAABBTUQ2NCBGYW1pbHkgMjUgTW9kZWwgOTcgU3RlcHBpbmcgMnNpMzJgEAAAdWkxNhAAc2kzMsSI5wFzaTMy3hAAAHNpMzIDKAAAZHN0ch4AAABOVklESUEgR2VGb3JjZSBSVFggNDA2MCBUaSA4R0JzaTMyAPB/AHVpMDgBdWkxNoAHdWkxNjgEdWkwOAFkc3RyAgAAAFVTdWkzMmj5EwBzaTMydQAAAHNpMzKcIg0Ac2kzMtsAAABkc3RyIAAAADNiNjAyOWUyZTgyY2Y1YWViYTNjOWZhMzc3MzZkNGMxc2kzMgAAAABzaTY0OPvzaQAAAAB1aTMyDwAAAGJvb2wAYm9vbAAEa2V5c3Z2dHIZAAAAZHN0chAAAABwbGF0Zm9ybV9zZXJ2aWNlZHN0cgoAAABvc192ZXJzaW9uZHN0cggAAABjcHVfbmFtZWRzdHIJAAAAY3B1X3NwZWVkZHN0cgkAAABjcHVfY29yZXNkc3RyAwAAAHJhbWRzdHINAAAAZ3B1X3ZlbmRvcl9pZGRzdHINAAAAZ3B1X2RldmljZV9pZGRzdHIMAAAAZ3B1X21vZGVsX2lkZHN0cgoAAABncHVfbWVtb3J5ZHN0cg4AAABudW1iZXJfb2ZfZ3B1c2RzdHIMAAAAcmVzb2x1dGlvbl93ZHN0cgwAAAByZXNvbHV0aW9uX2hkc3RyDwAAAG51bWJlcl9tb25pdG9yc2RzdHIOAAAAZ19jb3VudHJ5X2NvZGVkc3RyDAAAAGdfZ2FtZV9idWlsZGRzdHIcAAAAZ19zZXBhcmF0ZV9kYXlzX3BsYXllZF9jb3VudGRzdHIWAAAAZ190b3RhbF9zZWNvbmRzX3BsYXllZGRzdHIPAAAAZ19zZXNzaW9uX2NvdW50ZHN0cgwAAABnX3Nlc3Npb25faWRkc3RyFgAAAGdfc2Vjb25kc19pbnRvX3Nlc3Npb25kc3RyDwAAAGdfdXRjX3RpbWVzdGFtcGRzdHISAAAAZ19zZWFzb25fcGFzc19iaXRzZHN0chIAAABnX2lzX3RyaWFsX3ZlcnNpb25kc3RyDwAAAGdfaXNfaW5zdGFsbGluZwVldmVudGRzdHIKAAAAQXBwU3RhcnRlZA==",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          "steam",
+          "Microsoft Windows 10  (Build 19045)",
+          "AMD64 Family 25 Model 97 Stepping 2",
+          4192,
+          16,
+          31951044,
+          4318,
+          10243,
+          "NVIDIA GeForce RTX 4060 Ti 8GB",
+          8384512,
+          1,
+          1920,
+          1080,
+          1,
+          "US",
+          1309032,
+          117,
+          860828,
+          219,
+          "3b6029e2e82cf5aeba3c9fa37736d4c1",
+          0,
+          1777597240,
+          15,
+          false,
+          false
+        ],
+        "keys": [
+          "platform_service",
+          "os_version",
+          "cpu_name",
+          "cpu_speed",
+          "cpu_cores",
+          "ram",
+          "gpu_vendor_id",
+          "gpu_device_id",
+          "gpu_model_id",
+          "gpu_memory",
+          "number_of_gpus",
+          "resolution_w",
+          "resolution_h",
+          "number_monitors",
+          "g_country_code",
+          "g_game_build",
+          "g_separate_days_played_count",
+          "g_total_seconds_played",
+          "g_session_count",
+          "g_session_id",
+          "g_seconds_into_session",
+          "g_utc_timestamp",
+          "g_season_pass_bits",
+          "g_is_trial_version",
+          "g_is_installing"
+        ],
+        "event": "AppStarted"
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "RaceNetChallenges.StageBegin",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "355",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\n\u0000\u0000\u0000\tVehicleIdui32�\u0001\u0000\u0000\rVehicleInstIdsi64��������\bLiveryIdui32�\f\u0000\u0000\nStageIndexsi32\u0000\u0000\u0000\u0000\nEventIndexsi32\u0000\u0000\u0000\u0000\u000bTuningSetupblob�\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0010\u0000\u0000\u0000�\u0000\u0000\u0000\u0000\u0000\u0000\u0000x�cf```d\u0000��)��Ӌ\u0018v208�3\u001c\u0010q\u0005\u000b24�A�\tG\u0006\f��1-홝��f0����2�n��u�]˅�\u0019�9�\u0003���tx�G�q]W�Y�`�;X !�\r(�\u000f�\u0004������;�\u0001��\u001fٶY3%�\u0019�\u0000Lq�}\u0000��&x\u000bChallengeIdsi32�\u0000\u0004\u0000\rNationalityIdui32\u0002\u0000\u0000\u0000\u000eTyresRemainingui32\u0005\u0000\u0000\u0000\fTyreCompoundui32\u0002\u0000\u0000\u0000",
+  "body_base64": "dmRpYwoAAAAJVmVoaWNsZUlkdWkzMt4BAAANVmVoaWNsZUluc3RJZHNpNjT8/////////whMaXZlcnlJZHVpMzLbDAAAClN0YWdlSW5kZXhzaTMyAAAAAApFdmVudEluZGV4c2kzMgAAAAALVHVuaW5nU2V0dXBibG9ijgAAAAEAAAAQAAAA3gAAAAAAAAB4nGNmYGBgZACBiymr7NOLGHYyMDjYMxwQcQULMjTYQfAJRwYMsMAxLe2ZnbHxZjCGqaneMstuqdV1u13LhewZjjnbA/Xbw3R4uEfbcV1Xtln1YIM7WCAhyw0ovw/EBIn3rK+BiDvMAdrvsB/ZtlkzJe0ZsABMcYR9APCOJngLQ2hhbGxlbmdlSWRzaTMyyQAEAA1OYXRpb25hbGl0eUlkdWkzMgIAAAAOVHlyZXNSZW1haW5pbmd1aTMyBQAAAAxUeXJlQ29tcG91bmR1aTMyAgAAAA==",
+  "decoded_body": {
+    "VehicleId": 478,
+    "VehicleInstId": -4,
+    "LiveryId": 3291,
+    "StageIndex": 0,
+    "EventIndex": 0,
+    "TuningSetup": {
+      "blob_base64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYdjIwONgzHBBxBQsyNNhB8AlHBgywwDEt7ZmdsfFmMIapqd4yy26p1XW7XcuF7BmOOdsD9dvDdHi4R9txXVe2WfVggztYICHLDSi/D8QEifesr4GIO8wB2u+wH9m2WTMl7RmwAExxhH0A8I4meA==",
+      "size": 142
+    },
+    "ChallengeId": 262345,
+    "NationalityId": 2,
+    "TyresRemaining": 5,
+    "TyreCompound": 2
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Progress": {
+        "ChallengeID": 262345,
+        "EventIndex": 0,
+        "StageIndex": 0,
+        "State": 1,
+        "StageTimeMs": 0,
+        "VehicleInstId": 0,
+        "VehicleId": 478,
+        "LiveryId": 3291,
+        "MetersDriven": 0,
+        "Percentile": 0,
+        "ChampTimeMs": 0,
+        "HasRepaired": false,
+        "RepairPenalty": 0,
+        "VehicleDamage": {
+          "WheelsWear": 0,
+          "Turbo": 0,
+          "Springs": 0,
+          "Radiator": 0.0,
+          "Lights": 0.0,
+          "Gearbox": 0,
+          "WheelsImpact": 0,
+          "Exhaust": 0.0,
+          "DiffImpact": 0,
+          "DiffWear": 0,
+          "Dampers": 0,
+          "Clutch": 0.0,
+          "Brakes": 0,
+          "Bodywork": 0,
+          "Engine": 0.0,
+          "QuickRepairs": 0
+        },
+        "TyreCompound": 2,
+        "TyresRemaining": 5,
+        "TuningSetup": {
+          "blob_base64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYdjIwONgzHBBxBQsyNNhB8AlHBgywwDEt7ZmdsfFmMIapqd4yy26p1XW7XcuF7BmOOdsD9dvDdHi4R9txXVe2WfVggztYICHLDSi/D8QEifesr4GIO8wB2u+wH9m2WTMl7RmwAExxhH0A8I4meA==",
+          "size": 142
+        },
+        "AttemptsLeft": 1
+      },
+      "ResultCode": 0
+    }
+  }
+}

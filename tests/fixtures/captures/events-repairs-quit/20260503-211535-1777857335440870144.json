@@ -1,0 +1,47 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "Clubs.GetChampionshipLeaderboard",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "59",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0003\u0000\u0000\u0000\u0005Limitsi322\u0000\u0000\u0000\u0006ClubIdsi64Q�\u0000\u0000\u0000\u0000\u0000\u0000\tStartRanksi32\u0000\u0000\u0000\u0000",
+  "body_base64": "dmRpYwMAAAAFTGltaXRzaTMyMgAAAAZDbHViSWRzaTY0UZYAAAAAAAAJU3RhcnRSYW5rc2kzMgAAAAA=",
+  "decoded_body": {
+    "Limit": 50,
+    "ClubId": 38481,
+    "StartRank": 0
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "TotalEntries": 1,
+      "Entries": [
+        {
+          "Presence": {
+            "Name": "sgt",
+            "IsCrossPlatform": true,
+            "NetworkId": 0,
+            "EgoNetId": 4857398522365813364,
+            "AccountRef": 4857398522365813364
+          },
+          "Points": 0,
+          "Rank": 1,
+          "IsVIP": false,
+          "Nationality": 0
+        }
+      ],
+      "PlayerRank": 1
+    }
+  }
+}

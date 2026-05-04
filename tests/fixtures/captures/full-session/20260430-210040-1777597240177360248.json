@@ -1,0 +1,28 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "Login.GetCurrentVersion",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "21",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\u0006GameIdsi16\r\u0000",
+  "body_base64": "dmRpYwEAAAAGR2FtZUlkc2kxNg0A",
+  "decoded_body": {
+    "GameId": 13
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Version": 1309032
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "RaceNetChallenges.StageBegin",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "355",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\n\u0000\u0000\u0000\tVehicleIdui32\u0018\u0002\u0000\u0000\rVehicleInstIdsi64��������\bLiveryIdui32^\u000b\u0000\u0000\nStageIndexsi32\u0000\u0000\u0000\u0000\nEventIndexsi32\u0000\u0000\u0000\u0000\u000bTuningSetupblob�\u0000\u0000\u0000\u0001\u0000\u0000\u0000\u0010\u0000\u0000\u0000�\u0000\u0000\u0000\u0000\u0000\u0000\u0000x�cf```d\u0000���;o�\u00171�W���3(\u0018���fΜi���\u0000�\u001f\u001c\u00190��#65�[����;��������� {��=H.Ʒю뺲�e�rw�\u0011\n�n@s��� ���)\u0010�\u0003���7�G�m�LI{L7`\u0013o��\u0001��%�\u000bChallengeIdsi32)�\u0003\u0000\rNationalityIdui32\u0002\u0000\u0000\u0000\u000eTyresRemainingui32\u0001\u0000\u0000\u0000\fTyreCompoundui32\u0002\u0000\u0000\u0000",
+  "body_base64": "dmRpYwoAAAAJVmVoaWNsZUlkdWkzMhgCAAANVmVoaWNsZUluc3RJZHNpNjT8/////////whMaXZlcnlJZHVpMzJeCwAAClN0YWdlSW5kZXhzaTMyAAAAAApFdmVudEluZGV4c2kzMgAAAAALVHVuaW5nU2V0dXBibG9ijgAAAAEAAAAQAAAA3gAAAAAAAAB4nGNmYGBgZACByeY7b6cXMbRXi+jZMygYuYLEZs6cacfA0ADEHxwZMICDIzY16lum29XwnrY7s4zF/qG+pr3kkiB7oLw9SC7Gt9GO67qyrWXUcnewEQrebkBz9oOYIPHd+ikQ8QO3gPY37Ee2bdZMSXtMN2ATb4DzAbuUJeYLQ2hhbGxlbmdlSWRzaTMyKawDAA1OYXRpb25hbGl0eUlkdWkzMgIAAAAOVHlyZXNSZW1haW5pbmd1aTMyAQAAAAxUeXJlQ29tcG91bmR1aTMyAgAAAA==",
+  "decoded_body": {
+    "VehicleId": 536,
+    "VehicleInstId": -4,
+    "LiveryId": 2910,
+    "StageIndex": 0,
+    "EventIndex": 0,
+    "TuningSetup": {
+      "blob_base64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIHJ5jtvpxcxtFeL6NkzKBi5gsRmzpxpx8DQAMQfHBkwgIMjNjXqW6bb1fCetjuzjMX+ob6mveSSIHugvD1ILsa30Y7rurKtZdRyd7ARCt5uQHP2g5gg8d36KRDxA7eA9jfsR7Zt1kxJe0w3YBNvgPMBu5Ql5g==",
+      "size": 142
+    },
+    "ChallengeId": 240681,
+    "NationalityId": 2,
+    "TyresRemaining": 1,
+    "TyreCompound": 2
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "704",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr\u0011\u0000\u0000\u0000dstr\u000f\u0000\u0000\u0000lib_pad_virtualdstr\u000b\u0000\u0000\u0000pad_virtualdstr\u0000\u0000\u0000\u0000si08\u0001si08\u0001ui64\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32u\u0000\u0000\u0000si32�\"\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00003b6029e2e82cf5aeba3c9fa37736d4c1si32\u0000\u0000\u0000\u0000si648��i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr\u0011\u0000\u0000\u0000dstr\n\u0000\u0000\u0000library_iddstr\u0012\u0000\u0000\u0000device_hardware_iddstr\u000b\u0000\u0000\u0000driver_namedstr\u000b\u0000\u0000\u0000device_typedstr\u0012\u0000\u0000\u0000device_driver_typedstr\u000f\u0000\u0000\u0000device_instancedstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\u0014\u0000\u0000\u0000InputDeviceConnected",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyEQAAAGRzdHIPAAAAbGliX3BhZF92aXJ0dWFsZHN0cgsAAABwYWRfdmlydHVhbGRzdHIAAAAAc2kwOAFzaTA4AXVpNjQAAAAAAAAAAGRzdHICAAAAVVN1aTMyaPkTAHNpMzJ1AAAAc2kzMpwiDQBzaTMy2wAAAGRzdHIgAAAAM2I2MDI5ZTJlODJjZjVhZWJhM2M5ZmEzNzczNmQ0YzFzaTMyAAAAAHNpNjQ4+/NpAAAAAHVpMzIPAAAAYm9vbABib29sAARrZXlzdnZ0chEAAABkc3RyCgAAAGxpYnJhcnlfaWRkc3RyEgAAAGRldmljZV9oYXJkd2FyZV9pZGRzdHILAAAAZHJpdmVyX25hbWVkc3RyCwAAAGRldmljZV90eXBlZHN0chIAAABkZXZpY2VfZHJpdmVyX3R5cGVkc3RyDwAAAGRldmljZV9pbnN0YW5jZWRzdHIOAAAAZ19jb3VudHJ5X2NvZGVkc3RyDAAAAGdfZ2FtZV9idWlsZGRzdHIcAAAAZ19zZXBhcmF0ZV9kYXlzX3BsYXllZF9jb3VudGRzdHIWAAAAZ190b3RhbF9zZWNvbmRzX3BsYXllZGRzdHIPAAAAZ19zZXNzaW9uX2NvdW50ZHN0cgwAAABnX3Nlc3Npb25faWRkc3RyFgAAAGdfc2Vjb25kc19pbnRvX3Nlc3Npb25kc3RyDwAAAGdfdXRjX3RpbWVzdGFtcGRzdHISAAAAZ19zZWFzb25fcGFzc19iaXRzZHN0chIAAABnX2lzX3RyaWFsX3ZlcnNpb25kc3RyDwAAAGdfaXNfaW5zdGFsbGluZwVldmVudGRzdHIUAAAASW5wdXREZXZpY2VDb25uZWN0ZWQ=",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          "lib_pad_virtual",
+          "pad_virtual",
+          "",
+          1,
+          1,
+          0,
+          "US",
+          1309032,
+          117,
+          860828,
+          219,
+          "3b6029e2e82cf5aeba3c9fa37736d4c1",
+          0,
+          1777597240,
+          15,
+          false,
+          false
+        ],
+        "keys": [
+          "library_id",
+          "device_hardware_id",
+          "driver_name",
+          "device_type",
+          "device_driver_type",
+          "device_instance",
+          "g_country_code",
+          "g_game_build",
+          "g_separate_days_played_count",
+          "g_total_seconds_played",
+          "g_session_count",
+          "g_session_id",
+          "g_seconds_into_session",
+          "g_utc_timestamp",
+          "g_season_pass_bits",
+          "g_is_trial_version",
+          "g_is_installing"
+        ],
+        "event": "InputDeviceConnected"
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

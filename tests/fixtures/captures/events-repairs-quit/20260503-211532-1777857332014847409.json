@@ -1,0 +1,29 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "RaceNetChallenges.GetChallengeRecap",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "28",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\u000bChallengeIdsi32�\u0000\u0004\u0000",
+  "body_base64": "dmRpYwEAAAALQ2hhbGxlbmdlSWRzaTMyyQAEAA==",
+  "decoded_body": {
+    "ChallengeId": 262345
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "1",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

@@ -1,0 +1,160 @@
+{
+  "request_summary": {
+    "egonet_function": "Clubs.GetClubs",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Challenges": [
+        {
+          "AllowAssists": true,
+          "AttemptsAllowed": 1,
+          "Category": 4,
+          "ChallengeID": 240681,
+          "ChallengeType": 2,
+          "ClubId": 45312,
+          "DifficultyLevel": 0,
+          "DirtPlusSeason": 0,
+          "EntryWindow": {
+            "End": "<EPOCH>",
+            "LastEntry": "<EPOCH>",
+            "Start": "<EPOCH>",
+            "Visible": "<EPOCH>"
+          },
+          "EsportsMonthId": 0,
+          "Events": [
+            {
+              "DisciplineId": 1,
+              "EventId": 240681,
+              "LeaderboardId": 1140681,
+              "LocationId": 13,
+              "NumberClasses": 1,
+              "NumberEntrants": 0,
+              "NumberRestarts": 0,
+              "Stages": [
+                {
+                  "AmbientTemp": 0.0,
+                  "DeltaTime": 0.0,
+                  "DryingTime": 3600,
+                  "HasServiceArea": true,
+                  "LeaderboardId": 2406810,
+                  "NumberLaps": 0,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "StageId": 0,
+                  "StageType": 0,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "SvcSettingsId": 2,
+                  "TimeOfDayId": 4,
+                  "TrackModelId": 511,
+                  "TrackTemp": 0.0,
+                  "WeatherPresetId": 1
+                }
+              ]
+            }
+          ],
+          "ExteriorCams": true,
+          "IsHardcore": true,
+          "IsPromo": false,
+          "LeaderboardId": 1040681,
+          "MaxEventCredits": 10000,
+          "MinEventCredits": 0,
+          "Mode": 1,
+          "Name": "evt-000271a6",
+          "NumEntrants": 0,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 74
+            }
+          ],
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "BarrierTime": 0.0,
+                "Item": {
+                  "Booster": {
+                    "BoosterId": 0,
+                    "Id": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "ItemType": 0,
+                  "Livery": {
+                    "Id": 0,
+                    "LiveryId": 0
+                  },
+                  "Upgrade": {
+                    "Id": 0,
+                    "UpgradeId": 0
+                  },
+                  "Vehicle": {
+                    "DistanceDriven": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Id": 0,
+                    "IsLocked": false,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "LiveryId": 0,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "LockReason": 0,
+                    "Podiums": 0,
+                    "ResearchPercent": 0.0,
+                    "ResearchTarget": 0,
+                    "SellPrice": 0,
+                    "Terminals": 0,
+                    "TuningId": 0,
+                    "TuningPurchased": 0,
+                    "TuningReady": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "VehicleId": 0
+                  }
+                },
+                "MaxSoftCurrency": 0,
+                "MinSoftCurrency": 0,
+                "PercentLimit": 10
+              }
+            ]
+          },
+          "ScoringType": 2,
+          "State": 0,
+          "UnxpectdMoments": true,
+          "UseInvVehicle": false
+        }
+      ],
+      "Clubs": [
+        {
+          "AmountOfEvents": 1,
+          "CreatorName": "sgt",
+          "EventIndex": 0,
+          "HasStandings": true,
+          "Id": 45312,
+          "IsOtherPlatform": false,
+          "IsUpcoming": false,
+          "Name": "test-club"
+        }
+      ],
+      "Progress": []
+    },
+    "headers": {
+      "Content-Length": "2255",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

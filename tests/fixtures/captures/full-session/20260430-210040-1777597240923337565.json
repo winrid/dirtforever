@@ -1,0 +1,32 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "Announcements.GetAnnouncements",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "65",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0004\u0000\u0000\u0000\u0005Limitui32\n\u0000\u0000\u0000\u0006Deletebool\u0001\u0007IsTrialbool\u0000\tTerritorysi32\u0001\u0000\u0000\u0000",
+  "body_base64": "dmRpYwQAAAAFTGltaXR1aTMyCgAAAAZEZWxldGVib29sAQdJc1RyaWFsYm9vbAAJVGVycml0b3J5c2kzMgEAAAA=",
+  "decoded_body": {
+    "Limit": 10,
+    "Delete": true,
+    "IsTrial": false,
+    "Territory": 1
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Announcements": []
+    }
+  }
+}

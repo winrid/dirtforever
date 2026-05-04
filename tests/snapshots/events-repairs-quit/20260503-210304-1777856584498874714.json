@@ -1,0 +1,41 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetLeaderboard.GetLeaderboardEntries",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Entries": [
+        {
+          "CumulativeBest": 488708,
+          "GhostAvailable": false,
+          "IsFounder": false,
+          "IsVIP": false,
+          "LiveryId": 0,
+          "Nationality": 0,
+          "PersonalBest": 488708,
+          "Presence": {
+            "AccountRef": 4857398522365813364,
+            "EgoNetId": 4857398522365813364,
+            "IsCrossPlatform": false,
+            "Name": "sgt",
+            "NetworkId": 0
+          },
+          "Rank": 1,
+          "TimeDiff": 0,
+          "VehicleId": 0
+        }
+      ],
+      "PlayerRank": 1,
+      "TotalEntries": 1
+    },
+    "headers": {
+      "Content-Length": "379",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

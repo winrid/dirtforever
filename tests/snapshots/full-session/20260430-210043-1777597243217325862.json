@@ -1,0 +1,19 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNet.CheckAccountLinked",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "IsLinked": true
+    },
+    "headers": {
+      "Content-Length": "22",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

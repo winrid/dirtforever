@@ -1,0 +1,19 @@
+{
+  "request_summary": {
+    "egonet_function": "Login.GetCurrentVersion",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Version": 1309032
+    },
+    "headers": {
+      "Content-Length": "24",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

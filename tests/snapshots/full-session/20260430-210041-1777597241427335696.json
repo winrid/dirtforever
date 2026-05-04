@@ -1,0 +1,20 @@
+{
+  "request_summary": {
+    "egonet_function": "Esports.SeasonActivityCheck",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "IsActive": false,
+      "Type": 0
+    },
+    "headers": {
+      "Content-Length": "35",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "Esports.SeasonActivityCheck",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "8",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0000\u0000\u0000\u0000",
+  "body_base64": "dmRpYwAAAAA=",
+  "decoded_body": {},
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "IsActive": false,
+      "Type": 0
+    }
+  }
+}
