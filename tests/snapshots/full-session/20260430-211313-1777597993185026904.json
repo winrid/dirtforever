@@ -1,0 +1,167 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetChallenges.StageComplete",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "ChampReward": {
+        "GarageSlots": 0,
+        "Id": 0,
+        "IsGlobalBoosted": false,
+        "Items": [],
+        "Message": "",
+        "Reason": {
+          "FinishPosition": 0,
+          "FinishTimeMs": 0,
+          "Source": 4,
+          "SourceEntityId": 0,
+          "SourceName": "",
+          "Type": 0
+        },
+        "SoftCurrency": 0
+      },
+      "EventReward": {
+        "GarageSlots": 0,
+        "Id": 0,
+        "IsGlobalBoosted": false,
+        "Items": [],
+        "Message": "",
+        "Reason": {
+          "FinishPosition": 0,
+          "FinishTimeMs": 0,
+          "Source": 4,
+          "SourceEntityId": 0,
+          "SourceName": "",
+          "Type": 0
+        },
+        "SoftCurrency": 0
+      },
+      "OldResearchPct": 0.0,
+      "OldResearchTgt": 0,
+      "Progress": {
+        "AttemptsLeft": 1,
+        "ChallengeID": 240681,
+        "ChampTimeMs": 368372,
+        "EventIndex": 0,
+        "HasRepaired": false,
+        "LiveryId": 2910,
+        "MetersDriven": 12190,
+        "Percentile": 0,
+        "RepairPenalty": 0,
+        "StageIndex": 1,
+        "StageTimeMs": 0,
+        "State": 0,
+        "TuningSetup": {
+          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGc+PQ9JbkMDG8CLewZFERcQWJpac/sZs6cacfAoODEQCR4sXS23ZmDl+1eynDb/28xsLcPiLBnYGiwB8mFJkjYcV1fvKfkI7cHRHGDGwPDg/0gJkicS2GNO1g8RQxIL9g/a6akHbH2IgDELhAAALoQI5w=",
+          "size": 140
+        },
+        "TyreCompound": 7,
+        "TyresRemaining": 2,
+        "VehicleDamage": {
+          "Bodywork": 47462,
+          "Brakes": 33686018,
+          "Clutch": 0.0070341527462005615,
+          "Dampers": 33686018,
+          "DiffImpact": 126484480,
+          "DiffWear": 131586,
+          "Engine": 0.006909476593136787,
+          "Exhaust": 0.0,
+          "Gearbox": 88148322,
+          "Lights": 0.2788468301296234,
+          "QuickRepairs": 0,
+          "Radiator": 0.10506943613290787,
+          "Springs": 33686019,
+          "Turbo": 38605158,
+          "WheelsImpact": 320667658,
+          "WheelsWear": 808855594
+        },
+        "VehicleId": 536,
+        "VehicleInstId": 0,
+        "VehicleMud": {
+          "CleanDirt": 1.0,
+          "CleanHeight": 0.0,
+          "CleanMud": 1.0,
+          "Dirt": 0.75,
+          "Mud": 0.800000011920929,
+          "WheelMud0": 1.0,
+          "WheelMud1": 1.0,
+          "WheelMud2": 1.0,
+          "WheelMud3": 1.0
+        }
+      },
+      "ResearchPercent": 0.0,
+      "ResearchTarget": 0,
+      "ResultCode": 0
+    },
+    "headers": {
+      "Content-Length": "1594",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": [
+    {
+      "method": "POST",
+      "path": "/api/game/stage-complete",
+      "payload": {
+        "comp_damage": {
+          "bodywork": 47462,
+          "brakes": 33686018,
+          "clutch": 0.0070341527462005615,
+          "dampers": 33686018,
+          "diff_impact": 126484480,
+          "diff_wear": 131586,
+          "engine": 0.006909476593136787,
+          "exhaust": 0.0,
+          "gearbox": 88148322,
+          "lights": 0.2788468301296234,
+          "quick_repairs": 0,
+          "radiator": 0.10506943613290787,
+          "springs": 33686019,
+          "turbo": 38605158,
+          "wheels_impact": 320667658,
+          "wheels_wear": 808855594
+        },
+        "distance_driven": 6687,
+        "event_id": "test-event-240681",
+        "has_repaired": false,
+        "livery_id": 2910,
+        "meters_driven": 12190,
+        "nationality_id": 2,
+        "race_status": 0,
+        "repair_penalty_ms": 0,
+        "stage_index": 0,
+        "time_ms": 368372,
+        "username": "",
+        "using_assists": true,
+        "using_wheel": false,
+        "vehicle_id": 536,
+        "vehicle_mud": {
+          "clean_dirt": 1.0,
+          "clean_height": 0.0,
+          "clean_mud": 1.0,
+          "dirt": 0.75,
+          "mud": 0.800000011920929,
+          "wheel_mud_0": 1.0,
+          "wheel_mud_1": 1.0,
+          "wheel_mud_2": 1.0,
+          "wheel_mud_3": 1.0
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/game/my-progress",
+      "payload": null
+    },
+    {
+      "method": "GET",
+      "path": "/api/game/events/test-event-240681",
+      "payload": null
+    }
+  ]
+}

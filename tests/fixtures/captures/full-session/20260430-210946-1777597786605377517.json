@@ -1,0 +1,39 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "RaceNetLeaderboard.GetLeaderboardEntries",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "198",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\t\u0000\u0000\u0000\u0005Limitsi322\u0000\u0000\u0000\u000fUseRaceNetNamesbool\u0001\nPlayerBestsi64��\u0005\u0000\u0000\u0000\u0000\u0000\u000bFilterFlagssi32\u0004\u0000\u0000\u0000\u000eSinglePlatformbool\u0000\tStartRanksi32\u0000\u0000\u0000\u0000\rLeaderboardIdsi64��$\u0000\u0000\u0000\u0000\u0000\u000fPlayerCumulBestsi64\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u000eSortCumulativebool\u0001",
+  "body_base64": "dmRpYwkAAAAFTGltaXRzaTMyMgAAAA9Vc2VSYWNlTmV0TmFtZXNib29sAQpQbGF5ZXJCZXN0c2k2NPSeBQAAAAAAC0ZpbHRlckZsYWdzc2kzMgQAAAAOU2luZ2xlUGxhdGZvcm1ib29sAAlTdGFydFJhbmtzaTMyAAAAAA1MZWFkZXJib2FyZElkc2k2NJq5JAAAAAAAD1BsYXllckN1bXVsQmVzdHNpNjQAAAAAAAAAAA5Tb3J0Q3VtdWxhdGl2ZWJvb2wB",
+  "decoded_body": {
+    "Limit": 50,
+    "UseRaceNetNames": true,
+    "PlayerBest": 368372,
+    "FilterFlags": 4,
+    "SinglePlatform": false,
+    "StartRank": 0,
+    "LeaderboardId": 2406810,
+    "PlayerCumulBest": 0,
+    "SortCumulative": true
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "TotalEntries": 0,
+      "Entries": [],
+      "PlayerRank": 0
+    }
+  }
+}

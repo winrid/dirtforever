@@ -1,0 +1,33 @@
+{
+  "GET /api/game/token-test": {
+    "ok": true,
+    "username": "sgt"
+  },
+  "GET /api/game/clubs": {
+    "ok": true,
+    "clubs": [],
+    "events": []
+  },
+  "GET /api/game/my-progress": {
+    "ok": true,
+    "events": []
+  },
+  "GET /api/game/profile": {
+    "ok": true,
+    "username": "sgt",
+    "display_name": "sgt",
+    "country": "us",
+    "soft_currency": 500000,
+    "hard_currency": 0,
+    "garage_slots": 100
+  },
+  "POST /api/game/stage-begin": {"ok": true},
+  "POST /api/game/stage-complete": {"ok": true},
+  "POST /api/game/time-trial-submit": {"ok": true},
+  "_defaults": {
+    "/api/game/leaderboard": {"ok": true, "entries": []},
+    "/api/game/events": {"ok": true, "event": null},
+    "/api/game/time-trial-leaderboard-id": {"ok": true, "leaderboard_id": 1},
+    "/api/game/time-trial-leaderboard": {"ok": true, "entries": []}
+  }
+}

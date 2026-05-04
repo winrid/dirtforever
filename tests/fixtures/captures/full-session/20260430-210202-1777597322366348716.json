@@ -1,0 +1,899 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "Clubs.GetClubs",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "45",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0002\u0000\u0000\u0000\tClubLimitsi32(\u0000\u0000\u0000\rInclCrossPlatbool\u0001",
+  "body_base64": "dmRpYwIAAAAJQ2x1YkxpbWl0c2kzMigAAAANSW5jbENyb3NzUGxhdGJvb2wB",
+  "decoded_body": {
+    "ClubLimit": 40,
+    "InclCrossPlat": true
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Challenges": [
+        {
+          "Name": "First Event",
+          "ChallengeType": 2,
+          "ScoringType": 2,
+          "ChallengeID": 240681,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 72
+            }
+          ],
+          "Events": [
+            {
+              "EventId": 240681,
+              "LocationId": 37,
+              "DisciplineId": 1,
+              "NumberRestarts": 0,
+              "NumberEntrants": 0,
+              "NumberClasses": 1,
+              "Stages": [
+                {
+                  "StageId": 0,
+                  "TrackModelId": 626,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2406810,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                }
+              ],
+              "LeaderboardId": 1140681
+            }
+          ],
+          "NumEntrants": 0,
+          "DifficultyLevel": 0,
+          "EntryWindow": {
+            "Visible": 1777424522,
+            "Start": 1777510922,
+            "LastEntry": 1777683722,
+            "End": 1777683722
+          },
+          "State": 0,
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "Item": {
+                  "ItemType": 0,
+                  "Booster": {
+                    "BoosterId": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0,
+                    "Id": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "Livery": {
+                    "LiveryId": 0,
+                    "Id": 0
+                  },
+                  "Upgrade": {
+                    "UpgradeId": 0,
+                    "Id": 0
+                  },
+                  "Vehicle": {
+                    "VehicleId": 0,
+                    "LiveryId": 0,
+                    "TuningId": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "TuningReady": 0,
+                    "TuningPurchased": 0,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "SellPrice": 0,
+                    "ResearchTarget": 0,
+                    "ResearchPercent": 0.0,
+                    "IsLocked": false,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockReason": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "DistanceDriven": 0,
+                    "Podiums": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Terminals": 0,
+                    "Id": 0
+                  }
+                },
+                "MinSoftCurrency": 0,
+                "MaxSoftCurrency": 0,
+                "PercentLimit": 10,
+                "BarrierTime": 0.0
+              }
+            ]
+          },
+          "MinEventCredits": 0,
+          "MaxEventCredits": 10000,
+          "LeaderboardId": 1040681,
+          "IsHardcore": true,
+          "ExteriorCams": true,
+          "AllowAssists": true,
+          "UnxpectdMoments": true,
+          "DirtPlusSeason": 0,
+          "IsPromo": false,
+          "Category": 4,
+          "Mode": 1,
+          "UseInvVehicle": false,
+          "ClubId": 38483,
+          "EsportsMonthId": 0,
+          "AttemptsAllowed": 1
+        },
+        {
+          "Name": "Test 2",
+          "ChallengeType": 2,
+          "ScoringType": 2,
+          "ChallengeID": 252632,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 74
+            }
+          ],
+          "Events": [
+            {
+              "EventId": 252632,
+              "LocationId": 13,
+              "DisciplineId": 1,
+              "NumberRestarts": 0,
+              "NumberEntrants": 0,
+              "NumberClasses": 1,
+              "Stages": [
+                {
+                  "StageId": 0,
+                  "TrackModelId": 511,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2526320,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 1,
+                  "TrackModelId": 512,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2526321,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                }
+              ],
+              "LeaderboardId": 1152632
+            }
+          ],
+          "NumEntrants": 0,
+          "DifficultyLevel": 0,
+          "EntryWindow": {
+            "Visible": 1777424522,
+            "Start": 1777510922,
+            "LastEntry": 1777683722,
+            "End": 1777683722
+          },
+          "State": 0,
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "Item": {
+                  "ItemType": 0,
+                  "Booster": {
+                    "BoosterId": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0,
+                    "Id": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "Livery": {
+                    "LiveryId": 0,
+                    "Id": 0
+                  },
+                  "Upgrade": {
+                    "UpgradeId": 0,
+                    "Id": 0
+                  },
+                  "Vehicle": {
+                    "VehicleId": 0,
+                    "LiveryId": 0,
+                    "TuningId": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "TuningReady": 0,
+                    "TuningPurchased": 0,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "SellPrice": 0,
+                    "ResearchTarget": 0,
+                    "ResearchPercent": 0.0,
+                    "IsLocked": false,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockReason": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "DistanceDriven": 0,
+                    "Podiums": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Terminals": 0,
+                    "Id": 0
+                  }
+                },
+                "MinSoftCurrency": 0,
+                "MaxSoftCurrency": 0,
+                "PercentLimit": 10,
+                "BarrierTime": 0.0
+              }
+            ]
+          },
+          "MinEventCredits": 0,
+          "MaxEventCredits": 10000,
+          "LeaderboardId": 1052632,
+          "IsHardcore": true,
+          "ExteriorCams": true,
+          "AllowAssists": true,
+          "UnxpectdMoments": true,
+          "DirtPlusSeason": 0,
+          "IsPromo": false,
+          "Category": 4,
+          "Mode": 1,
+          "UseInvVehicle": false,
+          "ClubId": 64215,
+          "EsportsMonthId": 0,
+          "AttemptsAllowed": 1
+        },
+        {
+          "Name": "Test Event",
+          "ChallengeType": 2,
+          "ScoringType": 2,
+          "ChallengeID": 264137,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 97
+            }
+          ],
+          "Events": [
+            {
+              "EventId": 264137,
+              "LocationId": 2,
+              "DisciplineId": 1,
+              "NumberRestarts": 0,
+              "NumberEntrants": 0,
+              "NumberClasses": 1,
+              "Stages": [
+                {
+                  "StageId": 0,
+                  "TrackModelId": 462,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2641370,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 1,
+                  "TrackModelId": 464,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2641371,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 2,
+                  "TrackModelId": 467,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2641372,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                }
+              ],
+              "LeaderboardId": 1164137
+            }
+          ],
+          "NumEntrants": 0,
+          "DifficultyLevel": 0,
+          "EntryWindow": {
+            "Visible": 1777424522,
+            "Start": 1777510922,
+            "LastEntry": 1777683722,
+            "End": 1777683722
+          },
+          "State": 0,
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "Item": {
+                  "ItemType": 0,
+                  "Booster": {
+                    "BoosterId": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0,
+                    "Id": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "Livery": {
+                    "LiveryId": 0,
+                    "Id": 0
+                  },
+                  "Upgrade": {
+                    "UpgradeId": 0,
+                    "Id": 0
+                  },
+                  "Vehicle": {
+                    "VehicleId": 0,
+                    "LiveryId": 0,
+                    "TuningId": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "TuningReady": 0,
+                    "TuningPurchased": 0,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "SellPrice": 0,
+                    "ResearchTarget": 0,
+                    "ResearchPercent": 0.0,
+                    "IsLocked": false,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockReason": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "DistanceDriven": 0,
+                    "Podiums": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Terminals": 0,
+                    "Id": 0
+                  }
+                },
+                "MinSoftCurrency": 0,
+                "MaxSoftCurrency": 0,
+                "PercentLimit": 10,
+                "BarrierTime": 0.0
+              }
+            ]
+          },
+          "MinEventCredits": 0,
+          "MaxEventCredits": 10000,
+          "LeaderboardId": 1064137,
+          "IsHardcore": true,
+          "ExteriorCams": true,
+          "AllowAssists": true,
+          "UnxpectdMoments": true,
+          "DirtPlusSeason": 0,
+          "IsPromo": false,
+          "Category": 4,
+          "Mode": 1,
+          "UseInvVehicle": false,
+          "ClubId": 64215,
+          "EsportsMonthId": 0,
+          "AttemptsAllowed": 1
+        },
+        {
+          "Name": "Test",
+          "ChallengeType": 2,
+          "ScoringType": 2,
+          "ChallengeID": 234469,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 72
+            }
+          ],
+          "Events": [
+            {
+              "EventId": 234469,
+              "LocationId": 34,
+              "DisciplineId": 1,
+              "NumberRestarts": 0,
+              "NumberEntrants": 0,
+              "NumberClasses": 1,
+              "Stages": [
+                {
+                  "StageId": 0,
+                  "TrackModelId": 570,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2344690,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 1,
+                  "TrackModelId": 571,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2344691,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 2,
+                  "TrackModelId": 594,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2344692,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                }
+              ],
+              "LeaderboardId": 1134469
+            }
+          ],
+          "NumEntrants": 0,
+          "DifficultyLevel": 0,
+          "EntryWindow": {
+            "Visible": 1777424522,
+            "Start": 1777510922,
+            "LastEntry": 1777683722,
+            "End": 1777683722
+          },
+          "State": 0,
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "Item": {
+                  "ItemType": 0,
+                  "Booster": {
+                    "BoosterId": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0,
+                    "Id": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "Livery": {
+                    "LiveryId": 0,
+                    "Id": 0
+                  },
+                  "Upgrade": {
+                    "UpgradeId": 0,
+                    "Id": 0
+                  },
+                  "Vehicle": {
+                    "VehicleId": 0,
+                    "LiveryId": 0,
+                    "TuningId": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "TuningReady": 0,
+                    "TuningPurchased": 0,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "SellPrice": 0,
+                    "ResearchTarget": 0,
+                    "ResearchPercent": 0.0,
+                    "IsLocked": false,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockReason": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "DistanceDriven": 0,
+                    "Podiums": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Terminals": 0,
+                    "Id": 0
+                  }
+                },
+                "MinSoftCurrency": 0,
+                "MaxSoftCurrency": 0,
+                "PercentLimit": 10,
+                "BarrierTime": 0.0
+              }
+            ]
+          },
+          "MinEventCredits": 0,
+          "MaxEventCredits": 10000,
+          "LeaderboardId": 1034469,
+          "IsHardcore": true,
+          "ExteriorCams": true,
+          "AllowAssists": true,
+          "UnxpectdMoments": true,
+          "DirtPlusSeason": 0,
+          "IsPromo": false,
+          "Category": 4,
+          "Mode": 1,
+          "UseInvVehicle": false,
+          "ClubId": 70266,
+          "EsportsMonthId": 0,
+          "AttemptsAllowed": 1
+        },
+        {
+          "Name": "Round 1 - New Zealand",
+          "ChallengeType": 2,
+          "ScoringType": 2,
+          "ChallengeID": 218462,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 93
+            }
+          ],
+          "Events": [
+            {
+              "EventId": 218462,
+              "LocationId": 34,
+              "DisciplineId": 1,
+              "NumberRestarts": 0,
+              "NumberEntrants": 0,
+              "NumberClasses": 1,
+              "Stages": [
+                {
+                  "StageId": 0,
+                  "TrackModelId": 570,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184620,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 1,
+                  "TrackModelId": 571,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184621,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 2,
+                  "TrackModelId": 594,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184622,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 3,
+                  "TrackModelId": 595,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184623,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 4,
+                  "TrackModelId": 596,
+                  "HasServiceArea": true,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184624,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                },
+                {
+                  "StageId": 5,
+                  "TrackModelId": 597,
+                  "HasServiceArea": false,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "WeatherPresetId": 1,
+                  "TimeOfDayId": 4,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "AmbientTemp": 0.0,
+                  "TrackTemp": 0.0,
+                  "DryingTime": 3600,
+                  "StageType": 0,
+                  "NumberLaps": 0,
+                  "LeaderboardId": 2184625,
+                  "DeltaTime": 0.0,
+                  "SvcSettingsId": 2
+                }
+              ],
+              "LeaderboardId": 1118462
+            }
+          ],
+          "NumEntrants": 0,
+          "DifficultyLevel": 0,
+          "EntryWindow": {
+            "Visible": 1777424522,
+            "Start": 1777510922,
+            "LastEntry": 1777683722,
+            "End": 1777683722
+          },
+          "State": 0,
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "Item": {
+                  "ItemType": 0,
+                  "Booster": {
+                    "BoosterId": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0,
+                    "Id": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "Livery": {
+                    "LiveryId": 0,
+                    "Id": 0
+                  },
+                  "Upgrade": {
+                    "UpgradeId": 0,
+                    "Id": 0
+                  },
+                  "Vehicle": {
+                    "VehicleId": 0,
+                    "LiveryId": 0,
+                    "TuningId": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "TuningReady": 0,
+                    "TuningPurchased": 0,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "SellPrice": 0,
+                    "ResearchTarget": 0,
+                    "ResearchPercent": 0.0,
+                    "IsLocked": false,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockReason": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "DistanceDriven": 0,
+                    "Podiums": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Terminals": 0,
+                    "Id": 0
+                  }
+                },
+                "MinSoftCurrency": 0,
+                "MaxSoftCurrency": 0,
+                "PercentLimit": 10,
+                "BarrierTime": 0.0
+              }
+            ]
+          },
+          "MinEventCredits": 0,
+          "MaxEventCredits": 10000,
+          "LeaderboardId": 1018462,
+          "IsHardcore": true,
+          "ExteriorCams": true,
+          "AllowAssists": true,
+          "UnxpectdMoments": true,
+          "DirtPlusSeason": 0,
+          "IsPromo": false,
+          "Category": 4,
+          "Mode": 1,
+          "UseInvVehicle": false,
+          "ClubId": 17634,
+          "EsportsMonthId": 0,
+          "AttemptsAllowed": 1
+        }
+      ],
+      "Progress": [],
+      "Clubs": [
+        {
+          "Id": 38483,
+          "CreatorName": "sgt",
+          "Name": "sgt rally club",
+          "HasStandings": true,
+          "IsOtherPlatform": false,
+          "AmountOfEvents": 1,
+          "EventIndex": 0,
+          "IsUpcoming": false
+        },
+        {
+          "Id": 64215,
+          "CreatorName": "HappyHydra",
+          "Name": "Devon Test",
+          "HasStandings": true,
+          "IsOtherPlatform": false,
+          "AmountOfEvents": 2,
+          "EventIndex": 0,
+          "IsUpcoming": false
+        },
+        {
+          "Id": 70266,
+          "CreatorName": "Fangha",
+          "Name": "G4N",
+          "HasStandings": true,
+          "IsOtherPlatform": false,
+          "AmountOfEvents": 1,
+          "EventIndex": 0,
+          "IsUpcoming": false
+        },
+        {
+          "Id": 17634,
+          "CreatorName": "ritwht",
+          "Name": "LARL Rally Series",
+          "HasStandings": true,
+          "IsOtherPlatform": false,
+          "AmountOfEvents": 1,
+          "EventIndex": 0,
+          "IsUpcoming": false
+        }
+      ]
+    }
+  }
+}

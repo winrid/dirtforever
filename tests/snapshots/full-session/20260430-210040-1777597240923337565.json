@@ -1,0 +1,20 @@
+{
+  "request_summary": {
+    "egonet_function": "Announcements.GetAnnouncements",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Announcements": []
+    },
+    "headers": {
+      "Content-Length": "30",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": []
+}

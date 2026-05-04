@@ -1,0 +1,18 @@
+{
+  "request_summary": {
+    "egonet_function": "Status.GetNextStatusEvent",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {},
+    "headers": {
+      "Content-Length": "8",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "1"
+    },
+    "status": 200
+  },
+  "upstream_calls": []
+}

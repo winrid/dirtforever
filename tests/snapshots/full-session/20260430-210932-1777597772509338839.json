@@ -1,0 +1,38 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetLeaderboard.GetLeaderboardEntries",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Entries": [],
+      "PlayerRank": 0,
+      "TotalEntries": 0
+    },
+    "headers": {
+      "Content-Length": "64",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": [
+    {
+      "method": "POST",
+      "path": "/api/game/stage-complete",
+      "payload": {
+        "event_id": "test-event-240681",
+        "stage_index": 0,
+        "time_ms": 368372,
+        "username": ""
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/game/leaderboard/test-event-240681",
+      "payload": null
+    }
+  ]
+}

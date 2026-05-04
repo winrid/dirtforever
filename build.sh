@@ -14,3 +14,8 @@ uv sync --frozen --no-install-project --group dev
 
 echo "Running type checks..."
 uv run mypy server.py
+
+echo "Running dr2server e2e replay tests..."
+cd "$SCRIPT_DIR"
+uv sync --frozen --group dev
+uv run pytest tests/ -v

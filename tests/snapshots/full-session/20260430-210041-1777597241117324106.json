@@ -1,0 +1,114 @@
+{
+  "request_summary": {
+    "egonet_function": "Staff.GetStaff",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "ChiefEngineer": {
+        "ChiefEngineerId": 1,
+        "DiagUpCost": 0,
+        "DiagnosticLevel": 4,
+        "ResearchLevel": 4,
+        "ResearchUpCost": 0
+      },
+      "CoDriver": {
+        "CoDriverId": 5,
+        "LogisticsLevel": 4,
+        "LogisticsUpCost": 0,
+        "RepairLevel": 1,
+        "RepairUpCost": 0,
+        "WheelLevel": 4,
+        "WheelUpCost": 0
+      },
+      "Engineers": [
+        {
+          "ChassisLevel": 4,
+          "ChassisUpCost": 0,
+          "DriveUpCost": 0,
+          "DrivetrainLevel": 4,
+          "EngineLevel": 4,
+          "EngineUpCost": 0,
+          "EngineerId": 1,
+          "Repair4wdUpCost": 0,
+          "RepairFwdUpCost": 0,
+          "RepairLevel4wd": 4,
+          "RepairLevelFwd": 4,
+          "RepairLevelRwd": 4,
+          "RepairRwdUpCost": 0
+        },
+        {
+          "ChassisLevel": 4,
+          "ChassisUpCost": 0,
+          "DriveUpCost": 0,
+          "DrivetrainLevel": 4,
+          "EngineLevel": 4,
+          "EngineUpCost": 0,
+          "EngineerId": 13,
+          "Repair4wdUpCost": 0,
+          "RepairFwdUpCost": 0,
+          "RepairLevel4wd": 4,
+          "RepairLevelFwd": 4,
+          "RepairLevelRwd": 4,
+          "RepairRwdUpCost": 0
+        },
+        {
+          "ChassisLevel": 4,
+          "ChassisUpCost": 0,
+          "DriveUpCost": 0,
+          "DrivetrainLevel": 4,
+          "EngineLevel": 4,
+          "EngineUpCost": 0,
+          "EngineerId": 41,
+          "Repair4wdUpCost": 0,
+          "RepairFwdUpCost": 0,
+          "RepairLevel4wd": 4,
+          "RepairLevelFwd": 4,
+          "RepairLevelRwd": 4,
+          "RepairRwdUpCost": 0
+        },
+        {
+          "ChassisLevel": 4,
+          "ChassisUpCost": 0,
+          "DriveUpCost": 0,
+          "DrivetrainLevel": 4,
+          "EngineLevel": 4,
+          "EngineUpCost": 0,
+          "EngineerId": 98,
+          "Repair4wdUpCost": 0,
+          "RepairFwdUpCost": 0,
+          "RepairLevel4wd": 4,
+          "RepairLevelFwd": 4,
+          "RepairLevelRwd": 4,
+          "RepairRwdUpCost": 0
+        },
+        {
+          "ChassisLevel": 4,
+          "ChassisUpCost": 0,
+          "DriveUpCost": 0,
+          "DrivetrainLevel": 4,
+          "EngineLevel": 4,
+          "EngineUpCost": 0,
+          "EngineerId": 65,
+          "Repair4wdUpCost": 0,
+          "RepairFwdUpCost": 0,
+          "RepairLevel4wd": 4,
+          "RepairLevelFwd": 4,
+          "RepairLevelRwd": 4,
+          "RepairRwdUpCost": 0
+        }
+      ],
+      "NextEngCost": 0,
+      "RxSpotter": 1
+    },
+    "headers": {
+      "Content-Length": "1841",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": []
+}

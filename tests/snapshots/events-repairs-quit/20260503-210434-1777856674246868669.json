@@ -1,0 +1,80 @@
+{
+  "request_summary": {
+    "egonet_function": "RaceNetChallenges.StageBegin",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "Progress": {
+        "AttemptsLeft": 1,
+        "ChallengeID": 262345,
+        "ChampTimeMs": 0,
+        "EventIndex": 0,
+        "HasRepaired": false,
+        "LiveryId": 3291,
+        "MetersDriven": 0,
+        "Percentile": 0,
+        "RepairPenalty": 0,
+        "StageIndex": 1,
+        "StageTimeMs": 0,
+        "State": 1,
+        "TuningSetup": {
+          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+          "size": 142
+        },
+        "TyreCompound": 1,
+        "TyresRemaining": 4,
+        "VehicleDamage": {
+          "Bodywork": 0,
+          "Brakes": 0,
+          "Clutch": 0.0,
+          "Dampers": 0,
+          "DiffImpact": 0,
+          "DiffWear": 0,
+          "Engine": 0.0,
+          "Exhaust": 0.0,
+          "Gearbox": 0,
+          "Lights": 0.0,
+          "QuickRepairs": 0,
+          "Radiator": 0.0,
+          "Springs": 0,
+          "Turbo": 0,
+          "WheelsImpact": 0,
+          "WheelsWear": 0
+        },
+        "VehicleId": 478,
+        "VehicleInstId": 0
+      },
+      "ResultCode": 0
+    },
+    "headers": {
+      "Content-Length": "812",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": [
+    {
+      "method": "POST",
+      "path": "/api/game/stage-begin",
+      "payload": {
+        "event_id": "test-event-262345",
+        "livery_id": 3291,
+        "nationality_id": 2,
+        "stage_index": 1,
+        "tuning_setup_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+        "tyre_compound": 1,
+        "tyres_remaining": 4,
+        "vehicle_id": 478
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/api/game/my-progress",
+      "payload": null
+    }
+  ]
+}

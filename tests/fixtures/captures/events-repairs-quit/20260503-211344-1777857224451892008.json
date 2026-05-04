@@ -1,0 +1,88 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "670",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr\u0010\u0000\u0000\u0000uuidѓ�.\u001cDFO�\u0018��\u0006�,�ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32v\u0000\u0000\u0000si32\\�\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00004db6020bd8d26e0d2c1488a6512e36casi32�\u0004\u0000\u0000si64���i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr\u0010\u0000\u0000\u0000dstr\u0017\u0000\u0000\u0000journey_championship_iddstr\u000f\u0000\u0000\u0000championship_iddstr\u0010\u0000\u0000\u0000mode_instance_iddstr\r\u0000\u0000\u0000discipline_iddstr\u000b\u0000\u0000\u0000scenario_iddstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\u0013\u0000\u0000\u0000ChampionshipStarted",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyEAAAAHV1aWTRk/4uHERGT7EYubUGniyNdWkzMgAAAAB1aTMyDgAAAHVpMzIBAAAAdWkzMgAAAABkc3RyAgAAAFVTdWkzMmj5EwBzaTMydgAAAHNpMzJcmQ0Ac2kzMugAAABkc3RyIAAAADRkYjYwMjBiZDhkMjZlMGQyYzE0ODhhNjUxMmUzNmNhc2kzMsYEAABzaTY0yPL3aQAAAAB1aTMyDwAAAGJvb2wAYm9vbAAEa2V5c3Z2dHIQAAAAZHN0chcAAABqb3VybmV5X2NoYW1waW9uc2hpcF9pZGRzdHIPAAAAY2hhbXBpb25zaGlwX2lkZHN0chAAAABtb2RlX2luc3RhbmNlX2lkZHN0cg0AAABkaXNjaXBsaW5lX2lkZHN0cgsAAABzY2VuYXJpb19pZGRzdHIOAAAAZ19jb3VudHJ5X2NvZGVkc3RyDAAAAGdfZ2FtZV9idWlsZGRzdHIcAAAAZ19zZXBhcmF0ZV9kYXlzX3BsYXllZF9jb3VudGRzdHIWAAAAZ190b3RhbF9zZWNvbmRzX3BsYXllZGRzdHIPAAAAZ19zZXNzaW9uX2NvdW50ZHN0cgwAAABnX3Nlc3Npb25faWRkc3RyFgAAAGdfc2Vjb25kc19pbnRvX3Nlc3Npb25kc3RyDwAAAGdfdXRjX3RpbWVzdGFtcGRzdHISAAAAZ19zZWFzb25fcGFzc19iaXRzZHN0chIAAABnX2lzX3RyaWFsX3ZlcnNpb25kc3RyDwAAAGdfaXNfaW5zdGFsbGluZwVldmVudGRzdHITAAAAQ2hhbXBpb25zaGlwU3RhcnRlZA==",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          {
+            "unsupported_type": "uid"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "."
+          },
+          {
+            "unsupported_marker": "\u001c"
+          },
+          {
+            "unsupported_marker": "D"
+          },
+          {
+            "unsupported_marker": "F"
+          },
+          {
+            "unsupported_marker": "O"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0018"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0006"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": ","
+          }
+        ],
+        "ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32v\u0000\u0000\u0000si32\\�\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00004db6020bd8d26e0d2c1488a6512e36casi32�\u0004\u0000\u0000si64���i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000": {
+          "unsupported_marker": "\u0000"
+        },
+        "ool\u0000bool\u0000\u0004keysvvtr\u0010\u0000\u0000\u0000dstr\u0017\u0000\u0000\u0000journey_championship_iddstr\u000f\u0000\u0000\u0000championship_iddstr\u0010\u0000\u0000\u0000mode_instance_": {
+          "unsupported_marker": "i"
+        }
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

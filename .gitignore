@@ -1,8 +1,10 @@
 __pycache__
 dr2server/__pycache__
-captures
+/captures
 runtime
 scripts/__pycache__
+*.egg-info/
+.pytest_cache/
 web/data
 web/.venv
 .env

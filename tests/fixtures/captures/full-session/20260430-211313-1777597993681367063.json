@@ -1,0 +1,137 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "1214",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr!\u0000\u0000\u0000uuid\u001d�h;�S�N�9�\u0014��X�uuidq�T�\\�\u0014D�����m\u000b>ui32\u0000\u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32%\u0000\u0000\u0000ui32�\u0000\u0000\u0000ui32A\u0002\u0000\u0000ui32H\u0000\u0000\u0000ui32\u0018\u0002\u0000\u0000si64��������ui32^\u000b\u0000\u0000si32\u0000\u0000\u0000\u0000bool\u0001bool\u0000fp64\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000ui32����si08\u0001dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32u\u0000\u0000\u0000si32�%\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00003b6029e2e82cf5aeba3c9fa37736d4c1si32�\u0002\u0000\u0000si64<��i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr!\u0000\u0000\u0000dstr\u0017\u0000\u0000\u0000journey_championship_iddstr\u0010\u0000\u0000\u0000journey_event_iddstr\b\u0000\u0000\u0000event_iddstr\u000b\u0000\u0000\u0000event_indexdstr\u000b\u0000\u0000\u0000event_countdstr\u000f\u0000\u0000\u0000championship_iddstr\u0010\u0000\u0000\u0000mode_instance_iddstr\r\u0000\u0000\u0000discipline_iddstr\u000b\u0000\u0000\u0000scenario_iddstr\u000b\u0000\u0000\u0000location_iddstr\b\u0000\u0000\u0000track_iddstr\u0007\u0000\u0000\u0000team_iddstr\u0010\u0000\u0000\u0000vehicle_class_iddstr\n\u0000\u0000\u0000vehicle_iddstr\u0013\u0000\u0000\u0000vehicle_instance_iddstr\u0011\u0000\u0000\u0000vehicle_livery_iddstr\r\u0000\u0000\u0000race_positiondstr\u000f\u0000\u0000\u0000player_finisheddstr\u0019\u0000\u0000\u0000player_won_every_activitydstr\"\u0000\u0000\u0000race_time_between_first_and_seconddstr\u0017\u0000\u0000\u0000rallycross_event_formatdstr\u001a\u0000\u0000\u0000is_hardcore_damage_enableddstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\n\u0000\u0000\u0000EventEnded",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyIQAAAHV1aWQd5mg7m1PxToI5jxT8oViTdXVpZHH5VJ1c6xREu/6L9N1tCz51aTMyAAAAAHNpMzIAAAAAc2kzMgEAAAB1aTMyAAAAAHVpMzIOAAAAdWkzMgEAAAB1aTMyAAAAAHVpMzIlAAAAdWkzMqkAAAB1aTMyQQIAAHVpMzJIAAAAdWkzMhgCAABzaTY0/P////////91aTMyXgsAAHNpMzIAAAAAYm9vbAFib29sAGZwNjQAAAAAAAAAAHVpMzL/////c2kwOAFkc3RyAgAAAFVTdWkzMmj5EwBzaTMydQAAAHNpMzKNJQ0Ac2kzMtsAAABkc3RyIAAAADNiNjAyOWUyZTgyY2Y1YWViYTNjOWZhMzc3MzZkNGMxc2kzMvECAABzaTY0PP3zaQAAAAB1aTMyDwAAAGJvb2wAYm9vbAAEa2V5c3Z2dHIhAAAAZHN0chcAAABqb3VybmV5X2NoYW1waW9uc2hpcF9pZGRzdHIQAAAAam91cm5leV9ldmVudF9pZGRzdHIIAAAAZXZlbnRfaWRkc3RyCwAAAGV2ZW50X2luZGV4ZHN0cgsAAABldmVudF9jb3VudGRzdHIPAAAAY2hhbXBpb25zaGlwX2lkZHN0chAAAABtb2RlX2luc3RhbmNlX2lkZHN0cg0AAABkaXNjaXBsaW5lX2lkZHN0cgsAAABzY2VuYXJpb19pZGRzdHILAAAAbG9jYXRpb25faWRkc3RyCAAAAHRyYWNrX2lkZHN0cgcAAAB0ZWFtX2lkZHN0chAAAAB2ZWhpY2xlX2NsYXNzX2lkZHN0cgoAAAB2ZWhpY2xlX2lkZHN0chMAAAB2ZWhpY2xlX2luc3RhbmNlX2lkZHN0chEAAAB2ZWhpY2xlX2xpdmVyeV9pZGRzdHINAAAAcmFjZV9wb3NpdGlvbmRzdHIPAAAAcGxheWVyX2ZpbmlzaGVkZHN0chkAAABwbGF5ZXJfd29uX2V2ZXJ5X2FjdGl2aXR5ZHN0ciIAAAByYWNlX3RpbWVfYmV0d2Vlbl9maXJzdF9hbmRfc2Vjb25kZHN0chcAAAByYWxseWNyb3NzX2V2ZW50X2Zvcm1hdGRzdHIaAAAAaXNfaGFyZGNvcmVfZGFtYWdlX2VuYWJsZWRkc3RyDgAAAGdfY291bnRyeV9jb2RlZHN0cgwAAABnX2dhbWVfYnVpbGRkc3RyHAAAAGdfc2VwYXJhdGVfZGF5c19wbGF5ZWRfY291bnRkc3RyFgAAAGdfdG90YWxfc2Vjb25kc19wbGF5ZWRkc3RyDwAAAGdfc2Vzc2lvbl9jb3VudGRzdHIMAAAAZ19zZXNzaW9uX2lkZHN0chYAAABnX3NlY29uZHNfaW50b19zZXNzaW9uZHN0cg8AAABnX3V0Y190aW1lc3RhbXBkc3RyEgAAAGdfc2Vhc29uX3Bhc3NfYml0c2RzdHISAAAAZ19pc190cmlhbF92ZXJzaW9uZHN0cg8AAABnX2lzX2luc3RhbGxpbmcFZXZlbnRkc3RyCgAAAEV2ZW50RW5kZWQ=",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          {
+            "unsupported_type": "uid"
+          },
+          {
+            "unsupported_marker": "\u001d"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "h"
+          },
+          {
+            "unsupported_marker": ";"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "S"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "N"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "9"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0014"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "X"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_type": "uid"
+          },
+          {
+            "unsupported_marker": "q"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "T"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\\"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "\u0014"
+          },
+          {
+            "unsupported_marker": "D"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "�"
+          },
+          {
+            "unsupported_marker": "m"
+          },
+          {
+            "unsupported_marker": "\u000b"
+          }
+        ],
+        "ui32\u0000\u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32%\u0000": {
+          "unsupported_marker": "\u0000"
+        },
+        "": 169
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

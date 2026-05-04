@@ -1,0 +1,20 @@
+{
+  "request_summary": {
+    "egonet_function": "Season.Get",
+    "method": "POST",
+    "path": "/RP17/1.18.0/STEAM/"
+  },
+  "response": {
+    "decoded_body": {
+      "SeasonId": 5
+    },
+    "headers": {
+      "Content-Length": "25",
+      "Content-Type": "text/html",
+      "X-EgoNet-Catalogue-Version": "1.18.0",
+      "X-EgoNet-Result": "0"
+    },
+    "status": 200
+  },
+  "upstream_calls": []
+}

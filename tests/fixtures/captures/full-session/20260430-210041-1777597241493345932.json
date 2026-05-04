@@ -1,0 +1,63 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "552",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr\r\u0000\u0000\u0000si32�\"\r\u0000ui32\u0014\u0000\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32u\u0000\u0000\u0000si32�\"\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00003b6029e2e82cf5aeba3c9fa37736d4c1si32\u0000\u0000\u0000\u0000si648��i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr\r\u0000\u0000\u0000dstr\u000e\u0000\u0000\u0000seconds_playeddstr\f\u0000\u0000\u0000co_driver_iddstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\r\u0000\u0000\u0000ProfileLoaded",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyDQAAAHNpMzKcIg0AdWkzMhQAAABkc3RyAgAAAFVTdWkzMmj5EwBzaTMydQAAAHNpMzKcIg0Ac2kzMtsAAABkc3RyIAAAADNiNjAyOWUyZTgyY2Y1YWViYTNjOWZhMzc3MzZkNGMxc2kzMgAAAABzaTY0OPvzaQAAAAB1aTMyDwAAAGJvb2wAYm9vbAAEa2V5c3Z2dHINAAAAZHN0cg4AAABzZWNvbmRzX3BsYXllZGRzdHIMAAAAY29fZHJpdmVyX2lkZHN0cg4AAABnX2NvdW50cnlfY29kZWRzdHIMAAAAZ19nYW1lX2J1aWxkZHN0chwAAABnX3NlcGFyYXRlX2RheXNfcGxheWVkX2NvdW50ZHN0chYAAABnX3RvdGFsX3NlY29uZHNfcGxheWVkZHN0cg8AAABnX3Nlc3Npb25fY291bnRkc3RyDAAAAGdfc2Vzc2lvbl9pZGRzdHIWAAAAZ19zZWNvbmRzX2ludG9fc2Vzc2lvbmRzdHIPAAAAZ191dGNfdGltZXN0YW1wZHN0chIAAABnX3NlYXNvbl9wYXNzX2JpdHNkc3RyEgAAAGdfaXNfdHJpYWxfdmVyc2lvbmRzdHIPAAAAZ19pc19pbnN0YWxsaW5nBWV2ZW50ZHN0cg0AAABQcm9maWxlTG9hZGVk",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          860828,
+          20,
+          "US",
+          1309032,
+          117,
+          860828,
+          219,
+          "3b6029e2e82cf5aeba3c9fa37736d4c1",
+          0,
+          1777597240,
+          15,
+          false,
+          false
+        ],
+        "keys": [
+          "seconds_played",
+          "co_driver_id",
+          "g_country_code",
+          "g_game_build",
+          "g_separate_days_played_count",
+          "g_total_seconds_played",
+          "g_session_count",
+          "g_session_id",
+          "g_seconds_into_session",
+          "g_utc_timestamp",
+          "g_season_pass_bits",
+          "g_is_trial_version",
+          "g_is_installing"
+        ],
+        "event": "ProfileLoaded"
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

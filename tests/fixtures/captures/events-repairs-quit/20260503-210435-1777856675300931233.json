@@ -1,0 +1,101 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "DataMining.DataEvent",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "1095",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0001\u0000\u0000\u0000\nStatisticsvdic\u0001\u0000\u0000\u0000\u0004Datavdic\u0003\u0000\u0000\u0000\u0006valuesvvtr \u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0002\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000si32\u0006\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000si32\u0000\u0000\u0000\u0000si32\u0001\u0000\u0000\u0000bool\u0000bool\u0000ui32\u0000\u0000\u0000\u0000ui32\u000e\u0000\u0000\u0000ui32\u0001\u0000\u0000\u0000ui32\u0000\u0000\u0000\u0000ui32\"\u0000\u0000\u0000ui32�\u0000\u0000\u0000ui32�\u0001\u0000\u0000ui32I\u0000\u0000\u0000ui32�\u0001\u0000\u0000si64��������ui32�\f\u0000\u0000dstr\u0002\u0000\u0000\u0000USui32h�\u0013\u0000si32v\u0000\u0000\u0000si327�\r\u0000si32�\u0000\u0000\u0000dstr \u0000\u0000\u00004db6020bd8d26e0d2c1488a6512e36casi32�\u0002\u0000\u0000si64���i\u0000\u0000\u0000\u0000ui32\u000f\u0000\u0000\u0000bool\u0000bool\u0000\u0004keysvvtr \u0000\u0000\u0000dstr\u000e\u0000\u0000\u0000practice_countdstr\f\u0000\u0000\u0000practice_maxdstr\b\u0000\u0000\u0000stage_iddstr\u000b\u0000\u0000\u0000stage_indexdstr\u000b\u0000\u0000\u0000stage_countdstr\b\u0000\u0000\u0000event_iddstr\u000b\u0000\u0000\u0000event_indexdstr\u000b\u0000\u0000\u0000event_countdstr\u0013\u0000\u0000\u0000is_rallycross_finaldstr\u0014\u0000\u0000\u0000is_consolation_stagedstr\u000f\u0000\u0000\u0000championship_iddstr\u0010\u0000\u0000\u0000mode_instance_iddstr\r\u0000\u0000\u0000discipline_iddstr\u000b\u0000\u0000\u0000scenario_iddstr\u000b\u0000\u0000\u0000location_iddstr\b\u0000\u0000\u0000track_iddstr\u0007\u0000\u0000\u0000team_iddstr\u0010\u0000\u0000\u0000vehicle_class_iddstr\n\u0000\u0000\u0000vehicle_iddstr\u0013\u0000\u0000\u0000vehicle_instance_iddstr\u0011\u0000\u0000\u0000vehicle_livery_iddstr\u000e\u0000\u0000\u0000g_country_codedstr\f\u0000\u0000\u0000g_game_builddstr\u001c\u0000\u0000\u0000g_separate_days_played_countdstr\u0016\u0000\u0000\u0000g_total_seconds_playeddstr\u000f\u0000\u0000\u0000g_session_countdstr\f\u0000\u0000\u0000g_session_iddstr\u0016\u0000\u0000\u0000g_seconds_into_sessiondstr\u000f\u0000\u0000\u0000g_utc_timestampdstr\u0012\u0000\u0000\u0000g_season_pass_bitsdstr\u0012\u0000\u0000\u0000g_is_trial_versiondstr\u000f\u0000\u0000\u0000g_is_installing\u0005eventdstr\f\u0000\u0000\u0000DriveStarted",
+  "body_base64": "dmRpYwEAAAAKU3RhdGlzdGljc3ZkaWMBAAAABERhdGF2ZGljAwAAAAZ2YWx1ZXN2dnRyIAAAAHNpMzIAAAAAc2kzMgIAAAB1aTMyAAAAAHNpMzIBAAAAc2kzMgYAAAB1aTMyAAAAAHNpMzIAAAAAc2kzMgEAAABib29sAGJvb2wAdWkzMgAAAAB1aTMyDgAAAHVpMzIBAAAAdWkzMgAAAAB1aTMyIgAAAHVpMzKkAAAAdWkzMtcBAAB1aTMySQAAAHVpMzLeAQAAc2k2NPz/////////dWkzMtsMAABkc3RyAgAAAFVTdWkzMmj5EwBzaTMydgAAAHNpMzI3lw0Ac2kzMugAAABkc3RyIAAAADRkYjYwMjBiZDhkMjZlMGQyYzE0ODhhNjUxMmUzNmNhc2kzMqECAABzaTY0o/D3aQAAAAB1aTMyDwAAAGJvb2wAYm9vbAAEa2V5c3Z2dHIgAAAAZHN0cg4AAABwcmFjdGljZV9jb3VudGRzdHIMAAAAcHJhY3RpY2VfbWF4ZHN0cggAAABzdGFnZV9pZGRzdHILAAAAc3RhZ2VfaW5kZXhkc3RyCwAAAHN0YWdlX2NvdW50ZHN0cggAAABldmVudF9pZGRzdHILAAAAZXZlbnRfaW5kZXhkc3RyCwAAAGV2ZW50X2NvdW50ZHN0chMAAABpc19yYWxseWNyb3NzX2ZpbmFsZHN0chQAAABpc19jb25zb2xhdGlvbl9zdGFnZWRzdHIPAAAAY2hhbXBpb25zaGlwX2lkZHN0chAAAABtb2RlX2luc3RhbmNlX2lkZHN0cg0AAABkaXNjaXBsaW5lX2lkZHN0cgsAAABzY2VuYXJpb19pZGRzdHILAAAAbG9jYXRpb25faWRkc3RyCAAAAHRyYWNrX2lkZHN0cgcAAAB0ZWFtX2lkZHN0chAAAAB2ZWhpY2xlX2NsYXNzX2lkZHN0cgoAAAB2ZWhpY2xlX2lkZHN0chMAAAB2ZWhpY2xlX2luc3RhbmNlX2lkZHN0chEAAAB2ZWhpY2xlX2xpdmVyeV9pZGRzdHIOAAAAZ19jb3VudHJ5X2NvZGVkc3RyDAAAAGdfZ2FtZV9idWlsZGRzdHIcAAAAZ19zZXBhcmF0ZV9kYXlzX3BsYXllZF9jb3VudGRzdHIWAAAAZ190b3RhbF9zZWNvbmRzX3BsYXllZGRzdHIPAAAAZ19zZXNzaW9uX2NvdW50ZHN0cgwAAABnX3Nlc3Npb25faWRkc3RyFgAAAGdfc2Vjb25kc19pbnRvX3Nlc3Npb25kc3RyDwAAAGdfdXRjX3RpbWVzdGFtcGRzdHISAAAAZ19zZWFzb25fcGFzc19iaXRzZHN0chIAAABnX2lzX3RyaWFsX3ZlcnNpb25kc3RyDwAAAGdfaXNfaW5zdGFsbGluZwVldmVudGRzdHIMAAAARHJpdmVTdGFydGVk",
+  "decoded_body": {
+    "Statistics": {
+      "Data": {
+        "values": [
+          0,
+          2,
+          0,
+          1,
+          6,
+          0,
+          0,
+          1,
+          false,
+          false,
+          0,
+          14,
+          1,
+          0,
+          34,
+          164,
+          471,
+          73,
+          478,
+          -4,
+          3291,
+          "US",
+          1309032,
+          118,
+          890679,
+          232,
+          "4db6020bd8d26e0d2c1488a6512e36ca",
+          673,
+          1777856675,
+          15,
+          false,
+          false
+        ],
+        "keys": [
+          "practice_count",
+          "practice_max",
+          "stage_id",
+          "stage_index",
+          "stage_count",
+          "event_id",
+          "event_index",
+          "event_count",
+          "is_rallycross_final",
+          "is_consolation_stage",
+          "championship_id",
+          "mode_instance_id",
+          "discipline_id",
+          "scenario_id",
+          "location_id",
+          "track_id",
+          "team_id",
+          "vehicle_class_id",
+          "vehicle_id",
+          "vehicle_instance_id",
+          "vehicle_livery_id",
+          "g_country_code",
+          "g_game_build",
+          "g_separate_days_played_count",
+          "g_total_seconds_played",
+          "g_session_count",
+          "g_session_id",
+          "g_seconds_into_session",
+          "g_utc_timestamp",
+          "g_season_pass_bits",
+          "g_is_trial_version",
+          "g_is_installing"
+        ],
+        "event": "DriveStarted"
+      }
+    }
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Accepted": true
+    }
+  }
+}

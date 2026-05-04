@@ -1,0 +1,33 @@
+{
+  "method": "POST",
+  "path": "/RP17/1.18.0/STEAM/",
+  "query": {},
+  "headers": {
+    "Content-Type": "application/egonet-stream",
+    "X-EgoNet-Function": "RaceNetChallenges.GetStageSplits",
+    "X-EgoNet-SessionID": "00000000000000000000000000000000",
+    "X-EgoNet-Game-Version": "1309032",
+    "User-Agent": "Codemasters-Egonet",
+    "Host": "prod.egonet.codemasters.com",
+    "Content-Length": "86",
+    "Connection": "Keep-Alive"
+  },
+  "body_text": "vdic\u0004\u0000\u0000\u0000\nStageIndexsi32\u0002\u0000\u0000\u0000\nEventIndexsi32\u0000\u0000\u0000\u0000\u000bChallengeIdsi32�\u0000\u0004\u0000\u000eSinglePlatformbool\u0000",
+  "body_base64": "dmRpYwQAAAAKU3RhZ2VJbmRleHNpMzICAAAACkV2ZW50SW5kZXhzaTMyAAAAAAtDaGFsbGVuZ2VJZHNpMzLJAAQADlNpbmdsZVBsYXRmb3JtYm9vbAA=",
+  "decoded_body": {
+    "StageIndex": 2,
+    "EventIndex": 0,
+    "ChallengeId": 262345,
+    "SinglePlatform": false
+  },
+  "response": {
+    "headers": {
+      "X-EgoNet-Result": "0",
+      "X-EgoNet-Catalogue-Version": "1.18.0"
+    },
+    "body": {
+      "Splits": [],
+      "Entries": []
+    }
+  }
+}
