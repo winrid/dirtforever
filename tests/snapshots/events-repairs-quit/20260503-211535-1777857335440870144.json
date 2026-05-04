@@ -6,23 +6,30 @@
   },
   "response": {
     "decoded_body": {
-      "Entries": [],
-      "PlayerRank": 0,
-      "TotalEntries": 0
+      "Entries": [
+        {
+          "IsVIP": false,
+          "Nationality": 0,
+          "Points": 0,
+          "Presence": {
+            "AccountRef": 4857398522365813364,
+            "EgoNetId": 4857398522365813364,
+            "IsCrossPlatform": true,
+            "Name": "sgt",
+            "NetworkId": 0
+          },
+          "Rank": 1
+        }
+      ],
+      "PlayerRank": 1,
+      "TotalEntries": 1
     },
     "headers": {
-      "Content-Length": "64",
+      "Content-Length": "247",
       "Content-Type": "text/html",
       "X-EgoNet-Catalogue-Version": "1.18.0",
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "GET",
-      "path": "/api/game/clubs",
-      "payload": null
-    }
-  ]
+  }
 }

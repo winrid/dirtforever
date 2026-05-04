@@ -1,0 +1,92 @@
+{
+  "results": {
+    "evt-00008b42": {
+      "entries": [
+        {
+          "attempts_used": 0,
+          "car": "",
+          "stages": [
+            {
+              "comp_damage": {
+                "bodywork": 34241,
+                "brakes": 84215045,
+                "clutch": 0.012432359158992767,
+                "dampers": 67372036,
+                "diff_impact": 159585957,
+                "diff_wear": 197379,
+                "engine": 0.010001235641539097,
+                "exhaust": 0.3388039171695709,
+                "gearbox": 170265324,
+                "lights": 0.23780548572540283,
+                "quick_repairs": 0,
+                "radiator": 0.1176636815071106,
+                "springs": 67372293,
+                "turbo": 69930428,
+                "wheels_impact": 522069547,
+                "wheels_wear": 993481041
+              },
+              "distance_driven": 9407,
+              "has_repaired": false,
+              "livery_id": 3291,
+              "meters_driven": 11511,
+              "nationality_id": 2,
+              "penalties_ms": 0,
+              "race_status": 0,
+              "repair_penalty_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 488708,
+              "tuning_setup_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYdjIwONgzHBBxBQsyNNhB8AlHBgywwDEt7ZmdsfFmMIapqd4yy26p1XW7XcuF7BmOOdsD9dvDdHi4R9txXVe2WfVggztYICHLDSi/D8QEifesr4GIO8wB2u+wH9m2WTMl7RmwAExxhH0A8I4meA==",
+              "tyre_compound": 2,
+              "tyres_remaining": 5,
+              "using_assists": true,
+              "using_wheel": false,
+              "vehicle_id": 478,
+              "vehicle_mud": {
+                "clean_dirt": 1.0,
+                "clean_height": 0.0,
+                "clean_mud": 1.0,
+                "dirt": 0.75,
+                "mud": 0.800000011920929,
+                "wheel_mud_0": 1.0,
+                "wheel_mud_1": 1.0,
+                "wheel_mud_2": 1.0,
+                "wheel_mud_3": 1.0
+              }
+            }
+          ],
+          "total_time_ms": 488708,
+          "username": "sgt",
+          "vehicle_id": 478
+        }
+      ],
+      "event_id": "evt-00008b42",
+      "in_progress": {
+        "sgt": {
+          "0": {
+            "livery_id": 3291,
+            "nationality_id": 2,
+            "tuning_setup_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYdjIwONgzHBBxBQsyNNhB8AlHBgywwDEt7ZmdsfFmMIapqd4yy26p1XW7XcuF7BmOOdsD9dvDdHi4R9txXVe2WfVggztYICHLDSi/D8QEifesr4GIO8wB2u+wH9m2WTMl7RmwAExxhH0A8I4meA==",
+            "tyre_compound": 2,
+            "tyres_remaining": 5,
+            "vehicle_id": 478
+          }
+        }
+      }
+    }
+  },
+  "time_trials": {
+    "0_570_1_1.json": [
+      {
+        "ghost_data_b64": "<GHOST_DATA len=83080>",
+        "livery_id": 3291,
+        "nationality_id": 2,
+        "stage_time_ms": 488708,
+        "submitted_at": "<TIMESTAMP>",
+        "username": "sgt",
+        "using_assists": true,
+        "using_wheel": false,
+        "vehicle_id": 478
+      }
+    ]
+  }
+}

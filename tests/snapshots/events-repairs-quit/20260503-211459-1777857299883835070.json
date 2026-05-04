@@ -6,23 +6,196 @@
   },
   "response": {
     "decoded_body": {
-      "Challenges": [],
-      "Clubs": [],
-      "Progress": []
+      "Challenges": [
+        {
+          "AllowAssists": true,
+          "AttemptsAllowed": 1,
+          "Category": 4,
+          "ChallengeID": 262345,
+          "ChallengeType": 2,
+          "ClubId": 45312,
+          "DifficultyLevel": 0,
+          "DirtPlusSeason": 0,
+          "EntryWindow": {
+            "End": "<EPOCH>",
+            "LastEntry": "<EPOCH>",
+            "Start": "<EPOCH>",
+            "Visible": "<EPOCH>"
+          },
+          "EsportsMonthId": 0,
+          "Events": [
+            {
+              "DisciplineId": 1,
+              "EventId": 262345,
+              "LeaderboardId": 1162345,
+              "LocationId": 13,
+              "NumberClasses": 1,
+              "NumberEntrants": 0,
+              "NumberRestarts": 0,
+              "Stages": [
+                {
+                  "AmbientTemp": 0.0,
+                  "DeltaTime": 0.0,
+                  "DryingTime": 3600,
+                  "HasServiceArea": true,
+                  "LeaderboardId": 2623450,
+                  "NumberLaps": 0,
+                  "NumberPractises": 0,
+                  "StageConditions": 1,
+                  "StageId": 0,
+                  "StageType": 0,
+                  "SurfaceCondId": 1,
+                  "SurfaceDegrad": 0.25,
+                  "SvcSettingsId": 2,
+                  "TimeOfDayId": 4,
+                  "TrackModelId": 511,
+                  "TrackTemp": 0.0,
+                  "WeatherPresetId": 1
+                }
+              ]
+            }
+          ],
+          "ExteriorCams": true,
+          "IsHardcore": true,
+          "IsPromo": false,
+          "LeaderboardId": 1062345,
+          "MaxEventCredits": 10000,
+          "MinEventCredits": 0,
+          "Mode": 1,
+          "Name": "evt-00008b42",
+          "NumEntrants": 0,
+          "Requirements": [
+            {
+              "Type": 1,
+              "Value": 74
+            }
+          ],
+          "Reward": {
+            "SoftCurrency": 0,
+            "TierRewards": [
+              {
+                "BarrierTime": 0.0,
+                "Item": {
+                  "Booster": {
+                    "BoosterId": 0,
+                    "Id": 0,
+                    "IsStarted": false,
+                    "StartedAt": 0
+                  },
+                  "Entitlement": {
+                    "EntitlementId": 0,
+                    "Id": 0
+                  },
+                  "ItemType": 0,
+                  "Livery": {
+                    "Id": 0,
+                    "LiveryId": 0
+                  },
+                  "Upgrade": {
+                    "Id": 0,
+                    "UpgradeId": 0
+                  },
+                  "Vehicle": {
+                    "DistanceDriven": 0,
+                    "EventsEntered": 0,
+                    "EventsFinished": 0,
+                    "Id": 0,
+                    "IsLocked": false,
+                    "IsNew": false,
+                    "IsRepairFree": false,
+                    "IsSellable": false,
+                    "LiveryId": 0,
+                    "LockChallengeId": 0,
+                    "LockEntity": 0,
+                    "LockExpiry": 0,
+                    "LockLocation": 0,
+                    "LockReason": 0,
+                    "Podiums": 0,
+                    "ResearchPercent": 0.0,
+                    "ResearchTarget": 0,
+                    "SellPrice": 0,
+                    "Terminals": 0,
+                    "TuningId": 0,
+                    "TuningPurchased": 0,
+                    "TuningReady": 0,
+                    "UpgAvailable": 0,
+                    "UpgEnabled": 0,
+                    "VehicleId": 0
+                  }
+                },
+                "MaxSoftCurrency": 0,
+                "MinSoftCurrency": 0,
+                "PercentLimit": 10
+              }
+            ]
+          },
+          "ScoringType": 2,
+          "State": 0,
+          "UnxpectdMoments": true,
+          "UseInvVehicle": false
+        }
+      ],
+      "Clubs": [
+        {
+          "AmountOfEvents": 1,
+          "CreatorName": "sgt",
+          "EventIndex": 0,
+          "HasStandings": true,
+          "Id": 45312,
+          "IsOtherPlatform": false,
+          "IsUpcoming": false,
+          "Name": "test-club"
+        }
+      ],
+      "Progress": [
+        {
+          "AttemptsLeft": 1,
+          "ChallengeID": 262345,
+          "ChampTimeMs": 1001885,
+          "EventIndex": 0,
+          "HasRepaired": false,
+          "LiveryId": 3291,
+          "MetersDriven": 27505,
+          "Percentile": 0,
+          "RepairPenalty": 0,
+          "StageIndex": 0,
+          "StageTimeMs": 0,
+          "State": 2,
+          "TuningSetup": {
+            "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+            "size": 142
+          },
+          "TyreCompound": 1,
+          "TyresRemaining": 4,
+          "VehicleDamage": {
+            "Bodywork": 42637,
+            "Brakes": 202050572,
+            "Clutch": 0.027832886204123497,
+            "Dampers": 151587081,
+            "DiffImpact": 929967409,
+            "DiffWear": 460551,
+            "Engine": 0.14560268819332123,
+            "Exhaust": 0.48648491501808167,
+            "Gearbox": 340925003,
+            "Lights": 0.859268307685852,
+            "QuickRepairs": 0,
+            "Radiator": 0.32176998257637024,
+            "Springs": 134679050,
+            "Turbo": 147209009,
+            "WheelsImpact": 711921467,
+            "WheelsWear": 1313564262
+          },
+          "VehicleId": 478,
+          "VehicleInstId": 0
+        }
+      ]
     },
     "headers": {
-      "Content-Length": "58",
+      "Content-Length": "3031",
       "Content-Type": "text/html",
       "X-EgoNet-Catalogue-Version": "1.18.0",
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "GET",
-      "path": "/api/game/clubs",
-      "payload": null
-    }
-  ]
+  }
 }

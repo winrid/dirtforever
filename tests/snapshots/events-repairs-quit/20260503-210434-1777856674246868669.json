@@ -9,7 +9,7 @@
       "Progress": {
         "AttemptsLeft": 1,
         "ChallengeID": 262345,
-        "ChampTimeMs": 0,
+        "ChampTimeMs": 488708,
         "EventIndex": 0,
         "HasRepaired": false,
         "LiveryId": 3291,
@@ -26,22 +26,22 @@
         "TyreCompound": 1,
         "TyresRemaining": 4,
         "VehicleDamage": {
-          "Bodywork": 0,
-          "Brakes": 0,
-          "Clutch": 0.0,
-          "Dampers": 0,
-          "DiffImpact": 0,
-          "DiffWear": 0,
-          "Engine": 0.0,
-          "Exhaust": 0.0,
-          "Gearbox": 0,
-          "Lights": 0.0,
+          "Bodywork": 34241,
+          "Brakes": 84215045,
+          "Clutch": 0.012432359158992767,
+          "Dampers": 67372036,
+          "DiffImpact": 159585957,
+          "DiffWear": 197379,
+          "Engine": 0.010001235641539097,
+          "Exhaust": 0.3388039171695709,
+          "Gearbox": 170265324,
+          "Lights": 0.23780548572540283,
           "QuickRepairs": 0,
-          "Radiator": 0.0,
-          "Springs": 0,
-          "Turbo": 0,
-          "WheelsImpact": 0,
-          "WheelsWear": 0
+          "Radiator": 0.1176636815071106,
+          "Springs": 67372293,
+          "Turbo": 69930428,
+          "WheelsImpact": 522069547,
+          "WheelsWear": 993481041
         },
         "VehicleId": 478,
         "VehicleInstId": 0
@@ -55,26 +55,5 @@
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "POST",
-      "path": "/api/game/stage-begin",
-      "payload": {
-        "event_id": "test-event-262345",
-        "livery_id": 3291,
-        "nationality_id": 2,
-        "stage_index": 1,
-        "tuning_setup_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
-        "tyre_compound": 1,
-        "tyres_remaining": 4,
-        "vehicle_id": 478
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/api/game/my-progress",
-      "payload": null
-    }
-  ]
+  }
 }

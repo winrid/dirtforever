@@ -6,23 +6,36 @@
   },
   "response": {
     "decoded_body": {
-      "Entries": [],
-      "PlayerRank": 0,
-      "TotalEntries": 0
+      "Entries": [
+        {
+          "CumulativeBest": 1001885,
+          "GhostAvailable": false,
+          "IsFounder": false,
+          "IsVIP": false,
+          "LiveryId": 0,
+          "Nationality": 0,
+          "PersonalBest": 1001885,
+          "Presence": {
+            "AccountRef": 4857398522365813364,
+            "EgoNetId": 4857398522365813364,
+            "IsCrossPlatform": false,
+            "Name": "sgt",
+            "NetworkId": 0
+          },
+          "Rank": 1,
+          "TimeDiff": 0,
+          "VehicleId": 478
+        }
+      ],
+      "PlayerRank": 1,
+      "TotalEntries": 1
     },
     "headers": {
-      "Content-Length": "64",
+      "Content-Length": "379",
       "Content-Type": "text/html",
       "X-EgoNet-Catalogue-Version": "1.18.0",
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "GET",
-      "path": "/api/game/leaderboard/test-event-262345",
-      "payload": null
-    }
-  ]
+  }
 }

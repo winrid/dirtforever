@@ -55,26 +55,5 @@
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "POST",
-      "path": "/api/game/stage-begin",
-      "payload": {
-        "event_id": "test-event-262345",
-        "livery_id": 3291,
-        "nationality_id": 2,
-        "stage_index": 0,
-        "tuning_setup_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYdjIwONgzHBBxBQsyNNhB8AlHBgywwDEt7ZmdsfFmMIapqd4yy26p1XW7XcuF7BmOOdsD9dvDdHi4R9txXVe2WfVggztYICHLDSi/D8QEifesr4GIO8wB2u+wH9m2WTMl7RmwAExxhH0A8I4meA==",
-        "tyre_compound": 2,
-        "tyres_remaining": 5,
-        "vehicle_id": 478
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/api/game/my-progress",
-      "payload": null
-    }
-  ]
+  }
 }

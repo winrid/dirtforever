@@ -13,6 +13,7 @@ from typing import Any, Dict
 SESSION_ID_PLACEHOLDER = "<SESSION_ID>"
 ACCOUNT_ID_PLACEHOLDER = "<ACCOUNT_ID>"
 ENTRY_ID_PLACEHOLDER = "<ENTRY_ID>"
+EPOCH_PLACEHOLDER = "<EPOCH>"
 CAPTURE_PATH_PLACEHOLDER = "<CAPTURE_PATH>"
 
 _VOLATILE_HEADER_KEYS = {"x-egonet-sessionid"}
@@ -20,6 +21,10 @@ _VOLATILE_DECODED_BODY_KEYS = {
     "AccountId": ACCOUNT_ID_PLACEHOLDER,
     "EntryId": ENTRY_ID_PLACEHOLDER,
 }
+# Nested keys whose entire value is volatile (clock-derived). These appear
+# under e.g. EntryWindow inside Challenges responses; the dispatcher builds
+# them from int(time.time()) so they drift per run.
+_VOLATILE_NESTED_KEYS = {"Start", "End", "Visible", "LastEntry"}
 _VOLATILE_RESPONSE_HEADER_KEYS_LOWER = {"date", "server"}
 
 
@@ -38,14 +43,15 @@ def normalize_response_headers(headers: Dict[str, str]) -> Dict[str, str]:
 
 def normalize_decoded_body(body: Any) -> Any:
     if isinstance(body, dict):
-        return {
-            key: (
-                _VOLATILE_DECODED_BODY_KEYS[key]
-                if key in _VOLATILE_DECODED_BODY_KEYS
-                else normalize_decoded_body(value)
-            )
-            for key, value in body.items()
-        }
+        out: Dict[str, Any] = {}
+        for key, value in body.items():
+            if key in _VOLATILE_DECODED_BODY_KEYS:
+                out[key] = _VOLATILE_DECODED_BODY_KEYS[key]
+            elif key in _VOLATILE_NESTED_KEYS:
+                out[key] = EPOCH_PLACEHOLDER
+            else:
+                out[key] = normalize_decoded_body(value)
+        return out
     if isinstance(body, list):
         return [normalize_decoded_body(item) for item in body]
     return body

@@ -43,22 +43,22 @@
       "Progress": {
         "AttemptsLeft": 1,
         "ChallengeID": 262345,
-        "ChampTimeMs": 513177,
+        "ChampTimeMs": 1001885,
         "EventIndex": 0,
         "HasRepaired": false,
         "LiveryId": 3291,
         "MetersDriven": 27505,
         "Percentile": 0,
         "RepairPenalty": 0,
-        "StageIndex": 2,
+        "StageIndex": 0,
         "StageTimeMs": 0,
-        "State": 0,
+        "State": 2,
         "TuningSetup": {
-          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGc+PQ9JbkMDG8CLewZFERcQWJpac/sZs6cacfAoODEQCR4sXS23ZmDl+1eynDb/28xsLcPiLBnYGiwB8mFJkjYcV1fvKfkI7cHRHGDGwPDg/0gJkicS2GNO1g8RQxIL9g/a6akHbH2IgDELhAAALoQI5w=",
-          "size": 140
+          "__bytes_b64": "AQAAABAAAADeAAAAAAAAAHicY2ZgYGBkAIGLKavs04sYOBkYHOwZDoi4ggUZGuwg+IQjAwZY4JiW9szO2HgzGMPUVG+ZZbfU6rrdruVC9gzHnO2B+u1hOjzco+24rivbrHqwwR0skJDlBpTfB2KCxHvW10DEHeYA7XfYj2zbrJmS9gxYAKY4wj4AY54lyA==",
+          "size": 142
         },
-        "TyreCompound": 7,
-        "TyresRemaining": 2,
+        "TyreCompound": 1,
+        "TyresRemaining": 4,
         "VehicleDamage": {
           "Bodywork": 42637,
           "Brakes": 202050572,
@@ -96,72 +96,11 @@
       "ResultCode": 0
     },
     "headers": {
-      "Content-Length": "1594",
+      "Content-Length": "1596",
       "Content-Type": "text/html",
       "X-EgoNet-Catalogue-Version": "1.18.0",
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "POST",
-      "path": "/api/game/stage-complete",
-      "payload": {
-        "comp_damage": {
-          "bodywork": 42637,
-          "brakes": 202050572,
-          "clutch": 0.027832886204123497,
-          "dampers": 151587081,
-          "diff_impact": 929967409,
-          "diff_wear": 460551,
-          "engine": 0.14560268819332123,
-          "exhaust": 0.48648491501808167,
-          "gearbox": 340925003,
-          "lights": 0.859268307685852,
-          "quick_repairs": 0,
-          "radiator": 0.32176998257637024,
-          "springs": 134679050,
-          "turbo": 147209009,
-          "wheels_impact": 711921467,
-          "wheels_wear": 1313564262
-        },
-        "distance_driven": 6402,
-        "event_id": "test-event-262345",
-        "has_repaired": false,
-        "livery_id": 3291,
-        "meters_driven": 27505,
-        "nationality_id": 2,
-        "race_status": 0,
-        "repair_penalty_ms": 0,
-        "stage_index": 1,
-        "time_ms": 513177,
-        "username": "",
-        "using_assists": true,
-        "using_wheel": false,
-        "vehicle_id": 478,
-        "vehicle_mud": {
-          "clean_dirt": 1.0,
-          "clean_height": 0.0,
-          "clean_mud": 1.0,
-          "dirt": 0.75,
-          "mud": 0.800000011920929,
-          "wheel_mud_0": 1.0,
-          "wheel_mud_1": 1.0,
-          "wheel_mud_2": 1.0,
-          "wheel_mud_3": 1.0
-        }
-      }
-    },
-    {
-      "method": "GET",
-      "path": "/api/game/my-progress",
-      "payload": null
-    },
-    {
-      "method": "GET",
-      "path": "/api/game/events/test-event-262345",
-      "payload": null
-    }
-  ]
+  }
 }

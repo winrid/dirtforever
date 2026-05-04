@@ -1,31 +1,30 @@
 """Replays bundled DR2 session capture corpora end-to-end.
 
-Each corpus (a directory under tests/fixtures/captures/) is replayed in its
-own test against a fresh DR2 server + fake upstream. Captures are sent over
-real HTTP byte-for-byte from `body_base64` (with the live X-EgoNet-SessionID
-substituted in once Login.Login establishes one). Per capture we snapshot
-the response and the upstream calls it triggered.
+Each corpus replays through:
+  [replayer] -- HTTP --> [DR2 server] -- HTTP --> [real web app]
 
-We also assert per-capture that times round-trip correctly:
-  - TimeTrial.PostTime decoded `StageTime` in seconds reaches the upstream
-    POST as `stage_time_ms = int(StageTime * 1000)`.
-  - RaceNetChallenges.StageComplete with RaceStatus=0 likewise reaches the
-    upstream POST with `time_ms = int(StageTime * 1000)`.
+The web app persists state to JSON files under a per-test temp data dir.
+After replay we read the resulting `results/<event_id>.json` and
+`time_trials/*.json` and assert that StageTime values from the captures
+landed there as `int(StageTime * 1000)` ms.
+
+Per-capture response snapshots live under tests/snapshots/<corpus>/.
+A separate end-of-corpus DB-state snapshot lives at
+tests/snapshots/<corpus>/_db_state.json.
 """
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict, List
+import re
+from typing import Any, Dict
 
 import pytest
 
-from dr2server.httpd import App
-
 from .conftest import CORPORA, Corpus
-from .fake_upstream import FakeUpstream
 from .normalize import normalize_decoded_body, normalize_response_headers
 from .replay import Capture, Replayer
 from .snapshot import assert_snapshot
+from .web_app import WebApp
 
 
 def _serialize_decoded_body(body: Any) -> Any:
@@ -43,12 +42,11 @@ def _serialize_decoded_body(body: Any) -> Any:
     return body
 
 
-def _build_snapshot(
+def _build_response_snapshot(
     capture: Capture,
     status: int,
     headers: Dict[str, str],
     decoded_body: Any,
-    upstream_calls: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     return {
         "request_summary": {
@@ -61,26 +59,39 @@ def _build_snapshot(
             "headers": normalize_response_headers(headers),
             "decoded_body": normalize_decoded_body(_serialize_decoded_body(decoded_body)),
         },
-        "upstream_calls": upstream_calls,
     }
 
 
-@pytest.mark.parametrize("corpus", CORPORA, ids=[c.name for c in CORPORA])
-def test_replay_corpus(
-    corpus: Corpus,
-    dr2_server,
-    fake_upstream: FakeUpstream,
-) -> None:
-    host, port, app, _ = dr2_server
-    replayer = Replayer(server_host=host, server_port=port)
+_TIMESTAMP_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?")
 
-    for chal_id, event_id in corpus.seeded_challenge_ids.items():
-        app.dispatcher._challenge_event_map[chal_id] = event_id
+
+def _normalize_db(value: Any) -> Any:
+    """Strip non-deterministic fields (timestamps, ghost data) from the
+    persisted state before snapshotting."""
+    if isinstance(value, dict):
+        out: Dict[str, Any] = {}
+        for key, item in value.items():
+            if key in ("submitted_at", "created_at"):
+                out[key] = "<TIMESTAMP>" if item else item
+            elif key == "ghost_data_b64":
+                out[key] = f"<GHOST_DATA len={len(item) if isinstance(item, str) else 0}>"
+            else:
+                out[key] = _normalize_db(item)
+        return out
+    if isinstance(value, list):
+        return [_normalize_db(item) for item in value]
+    if isinstance(value, str) and _TIMESTAMP_RE.fullmatch(value):
+        return "<TIMESTAMP>"
+    return value
+
+
+@pytest.mark.parametrize("corpus", CORPORA, ids=[c.name for c in CORPORA])
+def test_replay_corpus(corpus: Corpus, dr2_server) -> None:
+    host, port, app, web_app = dr2_server  # type: ignore[misc]
+    replayer = Replayer(server_host=host, server_port=port)
 
     captures = Replayer.load_corpus(corpus.captures_dir)
     assert captures, f"No captures found in {corpus.captures_dir}"
-
-    fake_upstream.reset()
 
     seen_post_time = False
     seen_stage_complete = False
@@ -91,67 +102,66 @@ def test_replay_corpus(
             f"[{corpus.name}] {capture.name}: expected 200, got {result.status}\n"
             f"body={result.body_bytes[:200]!r}"
         )
-
-        new_calls = fake_upstream.take_calls()
-        upstream_calls = [
-            {"method": call.method, "path": call.path, "payload": call.payload}
-            for call in new_calls
-        ]
-
-        snapshot = _build_snapshot(
-            capture,
-            result.status,
-            result.headers,
-            result.decoded_body,
-            upstream_calls,
+        snapshot = _build_response_snapshot(
+            capture, result.status, result.headers, result.decoded_body
         )
         assert_snapshot(capture.name, snapshot, corpus.snapshots_dir)
 
         if capture.egonet_function == "TimeTrial.PostTime":
             seen_post_time = True
-            stage_time = float(capture.data["decoded_body"]["StageTime"])
-            expected_ms = int(stage_time * 1000)
-            tt_posts = [
-                call for call in new_calls
-                if call.method == "POST" and call.path == "/api/game/time-trial-submit"
-            ]
-            assert len(tt_posts) == 1, (
-                f"[{corpus.name}] {capture.name}: expected exactly one POST "
-                f"/api/game/time-trial-submit, saw {len(tt_posts)}: {tt_posts!r}"
-            )
-            assert tt_posts[0].payload["stage_time_ms"] == expected_ms, (
-                f"[{corpus.name}] {capture.name}: stage_time_ms round-trip failed. "
-                f"StageTime={stage_time}s expected_ms={expected_ms} "
-                f"actual={tt_posts[0].payload.get('stage_time_ms')}"
-            )
-
         if capture.egonet_function == "RaceNetChallenges.StageComplete":
             body = capture.data["decoded_body"]
-            stage_time = float(body["StageTime"])
-            race_status = body.get("RaceStatus", 0) or 0
-            sc_posts = [
-                call for call in new_calls
-                if call.method == "POST" and call.path == "/api/game/stage-complete"
-            ]
-            if race_status == 0:
+            if (body.get("RaceStatus", 0) or 0) == 0:
                 seen_stage_complete = True
-                expected_ms = int(stage_time * 1000)
-                assert len(sc_posts) == 1, (
-                    f"[{corpus.name}] {capture.name}: expected one POST "
-                    f"/api/game/stage-complete on clean finish, saw {len(sc_posts)}"
-                )
-                assert sc_posts[0].payload["time_ms"] == expected_ms, (
-                    f"[{corpus.name}] {capture.name}: time_ms round-trip failed. "
-                    f"StageTime={stage_time}s expected_ms={expected_ms} "
-                    f"actual={sc_posts[0].payload.get('time_ms')}"
-                )
-            else:
-                assert sc_posts == [], (
-                    f"[{corpus.name}] {capture.name}: race_status={race_status} "
-                    f"should not POST stage-complete, but saw {sc_posts}"
-                )
+
+    # End-of-corpus DB-state snapshot: only the mutated dirs.
+    db_state = web_app.read_db_state()
+    assert_snapshot("_db_state", _normalize_db(db_state), corpus.snapshots_dir)
+
+    # Round-trip checks: every captured StageTime must appear in the DB
+    # exactly as int(StageTime * 1000).
+    expected_tt_times: list[int] = []
+    expected_stage_times: list[tuple[str, int]] = []
+    for capture in captures:
+        body = capture.data.get("decoded_body") or {}
+        if capture.egonet_function == "TimeTrial.PostTime":
+            expected_tt_times.append(int(float(body["StageTime"]) * 1000))
+        elif capture.egonet_function == "RaceNetChallenges.StageComplete":
+            if (body.get("RaceStatus", 0) or 0) != 0:
+                continue
+            for evt in corpus.events:
+                if int(body.get("ChallengeId") or body.get("ChallengeID") or 0) == evt.challenge_id:
+                    expected_stage_times.append(
+                        (evt.event_id, int(float(body["StageTime"]) * 1000))
+                    )
+                    break
+
+    if expected_tt_times:
+        all_tt_times: list[int] = []
+        for entries in db_state["time_trials"].values():
+            for entry in entries:
+                all_tt_times.append(int(entry["stage_time_ms"]))
+        for ms in expected_tt_times:
+            assert ms in all_tt_times, (
+                f"[{corpus.name}] expected stage_time_ms={ms} in time_trials, "
+                f"got {sorted(all_tt_times)}"
+            )
+
+    for event_id, ms in expected_stage_times:
+        results = db_state["results"].get(event_id)
+        assert results is not None, (
+            f"[{corpus.name}] expected results/{event_id}.json to exist"
+        )
+        all_stage_times: list[int] = []
+        for entry in results.get("entries", []):
+            for stage in entry.get("stages", []):
+                if stage.get("time_ms"):
+                    all_stage_times.append(int(stage["time_ms"]))
+        assert ms in all_stage_times, (
+            f"[{corpus.name}] expected stage time_ms={ms} in results/{event_id}.json, "
+            f"got {sorted(all_stage_times)}"
+        )
 
     assert seen_post_time or seen_stage_complete, (
-        f"[{corpus.name}]: corpus contained neither TimeTrial.PostTime nor "
-        f"RaceNetChallenges.StageComplete - round-trip checks all skipped"
+        f"[{corpus.name}]: corpus had no time-bearing RPC; round-trip checks skipped"
     )

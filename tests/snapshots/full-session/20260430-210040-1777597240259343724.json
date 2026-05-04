@@ -17,12 +17,5 @@
       "X-EgoNet-SessionID": "<SESSION_ID>"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "GET",
-      "path": "/api/game/token-test",
-      "payload": null
-    }
-  ]
+  }
 }

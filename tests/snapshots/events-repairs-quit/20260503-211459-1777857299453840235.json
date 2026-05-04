@@ -4539,12 +4539,5 @@
       "X-EgoNet-Result": "0"
     },
     "status": 200
-  },
-  "upstream_calls": [
-    {
-      "method": "GET",
-      "path": "/api/game/profile",
-      "payload": null
-    }
-  ]
+  }
 }
