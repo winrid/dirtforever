@@ -2372,6 +2372,9 @@ def create_club_event(club_id: str) -> Response:
     available = len(STAGES.get(location, []))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
+    active_events = [e for e in get_all_events() if e.get('club_id') == club_id and e.get('active')]
+    if active_events:
+        errors.append('This club already has an active event. You must wait for it to finish before creating a new one.')
 
     if errors:
         for e in errors:
