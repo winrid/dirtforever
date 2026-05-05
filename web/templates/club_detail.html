@@ -113,7 +113,8 @@
                 <h2 class="card-title"><span class="accent">//</span> Club Events</h2>
                 {% if current_user and current_user.username == club.created_by %}
                 <button type="button" class="btn btn-primary btn-sm"
-                        onclick="document.getElementById('createEvent').classList.toggle('hidden')">
+                        onclick="document.getElementById('createEvent').classList.toggle('hidden')"
+                        {% if active_event_exists %}disabled title="The club already has an active event."{% endif %}>
                     + Create Event
                 </button>
                 {% endif %}
