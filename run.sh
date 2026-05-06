@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /home/winrid/dirtforever-web/web
+cd ./web
 
 .venv/bin/python -m gunicorn \
           --access-logfile - \
