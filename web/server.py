@@ -1726,6 +1726,7 @@ def club_detail(club_id: str) -> str:
         abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
     events = [e for e in get_all_events() if e.get('club_id') == club_id]
+    active_event_exists = any(e.get('active') for e in events)
     uname = user['username'] if user else None
     pending_users = []
     if user_is_owner(club, uname):
@@ -1748,6 +1749,7 @@ def club_detail(club_id: str) -> str:
     return render_template(
         'club_detail.html', club=club, members=members, events=events,
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+        active_event_exists=active_event_exists,
         is_owner=user_is_owner(club, uname),
         is_member=user_is_member(club, uname),
         has_pending_request=user_has_pending_request(club, uname),
@@ -2372,6 +2374,9 @@ def create_club_event(club_id: str) -> Response:
     available = len(STAGES.get(location, []))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
+    active_events = [e for e in get_all_events() if e.get('club_id') == club_id and e.get('active')]
+    if active_events:
+        errors.append('This club already has an active event. You must wait for it to finish before creating a new one.')
 
     if errors:
         for e in errors:
@@ -2906,7 +2911,7 @@ def api_game_leaderboard(event_id: str) -> Response | tuple[Response, int]:
             'total_time_ms': e['total_time_ms'],
             'stages': e.get('stages', []),
         })
-    return jsonify({'ok': True, 'entries': out})
+    return jsonify({'ok': True, 'entries': out, 'total': len(out)})
 
 
 @app.route('/api/game/events/<event_id>')
