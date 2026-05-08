@@ -11,9 +11,9 @@
         <form method="post" action="/login" class="auth-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
-                <label for="username" class="form-label">Username</label>
+                <label for="username" class="form-label">Username or Email</label>
                 <input type="text" id="username" name="username" class="form-input" required autofocus
-                       autocomplete="username" placeholder="Your username">
+                       autocomplete="username" placeholder="Your username or email">
             </div>
             <div class="form-group">
                 <label for="password" class="form-label">Password</label>

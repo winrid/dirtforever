@@ -1168,13 +1168,21 @@ def login() -> str | Response:
 
 @app.route('/login', methods=['POST'])
 def login_post() -> Response:
-    username = request.form.get('username', '').strip()
+    identifier = request.form.get('username', '').strip()
     password = request.form.get('password', '')
-    user = get_user(username)
+    user = None
+    if identifier:
+        try:
+            user = get_user(identifier)
+        except Exception:
+            user = None
+        if not user and '@' in identifier:
+            user = next((u for u in get_all_users()
+                         if u.get('email', '').lower() == identifier.lower()), None)
     if not user or not check_password(password, user):
         flash('Invalid username or password.', 'error')
         return redirect(url_for('login'))
-    session['username'] = username
+    session['username'] = user['username']
     flash(f'Welcome back, {user["display_name"]}!', 'success')
     return redirect(url_for('dashboard'))
 
