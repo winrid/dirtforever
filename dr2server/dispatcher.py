@@ -1028,6 +1028,44 @@ class RpcDispatcher:
         keys = params.get("keys", [])
         return {"ok": True, "strings": {key: key for key in keys}}
 
+    @staticmethod
+    def _cap_entries_at_stage(
+        entries: List[Dict[str, Any]],
+        cutoff_stage_index: int,
+    ) -> List[Dict[str, Any]]:
+        """Return entries that completed every stage in [0, cutoff_stage_index].
+
+        Each kept entry is a shallow copy annotated with ``partial_total_ms``
+        (sum of ``time_ms + penalties_ms`` across stages 0..cutoff inclusive).
+        Entries are excluded when any stage in that range is missing, ``None``,
+        or has ``time_ms <= 0``. The result is stably sorted ascending by
+        ``partial_total_ms``.
+        """
+        kept: List[Dict[str, Any]] = []
+        for e in entries:
+            stages = e.get("stages") or []
+            if len(stages) <= cutoff_stage_index:
+                continue
+            partial = 0
+            ok = True
+            for i in range(cutoff_stage_index + 1):
+                s = stages[i]
+                if not s:
+                    ok = False
+                    break
+                t = int(s.get("time_ms", 0) or 0)
+                if t <= 0:
+                    ok = False
+                    break
+                partial += t + int(s.get("penalties_ms", 0) or 0)
+            if not ok:
+                continue
+            capped = dict(e)
+            capped["partial_total_ms"] = partial
+            kept.append(capped)
+        kept.sort(key=lambda x: x["partial_total_ms"])
+        return kept
+
     def _leaderboard(self, params: Dict[str, Any]) -> Dict[str, Any]:
         if self.api_client is None:
             return {"ok": True, "TotalEntries": 0, "Entries": [], "PlayerRank": 0}
@@ -1151,10 +1189,48 @@ class RpcDispatcher:
             print(f"[LB] api_client.get_leaderboard({event_id}) raised: {exc}")
             entries = []
 
+        # Determine the cutoff stage for capping opponents' totals. For
+        # stage-level leaderboard requests the cutoff is encoded in lb_id.
+        # For event-level requests we use the requesting user's max
+        # completed stage so opponents who finished more stages don't look
+        # artificially slower. cutoff=None means "no cap" (full totals).
+        cutoff: Optional[int] = None
+        if stage_index_for_lb is not None:
+            cutoff = stage_index_for_lb
+        else:
+            me = self._resolve_my_username()
+            if me:
+                my_entry = next(
+                    (e for e in entries if e.get("username") == me), None
+                )
+                if my_entry:
+                    max_idx = -1
+                    for i, s in enumerate(my_entry.get("stages") or []):
+                        if s and int(s.get("time_ms", 0) or 0) > 0:
+                            max_idx = i
+                    if max_idx >= 0:
+                        cutoff = max_idx
+
+        if cutoff is not None:
+            source = self._cap_entries_at_stage(entries, cutoff)
+            use_partial = True
+        else:
+            source = entries
+            use_partial = False
+
+        leader_ms = 0
+        if source:
+            if use_partial:
+                leader_ms = int(source[0]["partial_total_ms"])
+            else:
+                leader_ms = int(source[0].get("total_time_ms", 0) or 0)
+
         egonet_entries = []
-        leader_ms = entries[0].get("total_time_ms", 0) if entries else 0
-        for i, e in enumerate(entries):
-            total_ms = e.get("total_time_ms", 0)
+        for i, e in enumerate(source):
+            if use_partial:
+                total_ms = int(e["partial_total_ms"])
+            else:
+                total_ms = int(e.get("total_time_ms", 0) or 0)
             vehicle_id = e.get("vehicle_id", 0)
             if not isinstance(vehicle_id, int):
                 vehicle_id = 0
@@ -1171,7 +1247,7 @@ class RpcDispatcher:
                 "PersonalBest":   Int64(total_ms),
                 "CumulativeBest": Int64(total_ms),
                 "TimeDiff":       Int64(total_ms - leader_ms),
-                "Rank":           e.get("rank", i + 1),
+                "Rank":           (i + 1) if use_partial else e.get("rank", i + 1),
                 "VehicleId":      UInt32(vehicle_id),
                 "IsFounder":      False,
                 "IsVIP":          False,
