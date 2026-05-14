@@ -662,93 +662,139 @@ def user_flag_filter(username: str) -> str:
 
 
 # ── Seed data ────────────────────────────────────────────
+#
+# STAGES is derived from dr2server.game_data so the dispatcher's per-stage
+# TrackModelId assignment and the website's stage display agree. Specifically,
+# dr2server/dispatcher.py builds the in-game stage list as
+#   track_id = tracks_for_location(location_id)[stage_index]
+# meaning the i-th entry of STAGES[location] MUST be the canonical (verified,
+# enum-definition order) i-th track for that location. Otherwise a stage time
+# submitted from the game gets attributed to the wrong name on the website.
+#
+# Names come from Track.display_name (with proper diacritics). Distances are
+# carried over from the previously hardcoded values where the canonical name
+# matches an old web entry (accent/case insensitive); otherwise we use the
+# Track enum's length_km value. The length_km values in the enum can be
+# corrected without touching STAGES.
 
-STAGES = {
-    'Argentina': [
-        ('Las Juntas', 8.25), ('Valle de los puentes', 7.55),
-        ('Camino de acantilados', 5.30), ('San Isidro', 6.85),
-        ('Miraflores', 3.35), ('El Rodeo', 7.00),
-    ],
-    'Australia': [
-        ('Mount Kaye Pass', 12.50), ('Chandlers Creek', 12.34),
-        ('Bondi Forest', 7.00), ('Rockton Plains', 6.87),
-        ('Yambulla Mountain Ascent', 6.64), ('Noorinbee Ridge Descent', 6.30),
-    ],
-    'Finland': [
-        ('Kakaristo', 16.20), ('Kontinjarvi', 15.04),
-        ('Naarajarvi', 12.14), ('Jyrkysjarvi', 7.51),
-        ('Kailajarvi', 7.43), ('Paskuri', 5.72),
-    ],
-    'Greece': [
-        ('Fourketa Kourva', 10.36), ('Anodou Farmakas', 9.10),
-        ('Pomona Erixi', 5.09), ('Koryfi Dafni', 4.95),
-        ('Abies Koilada', 7.09), ('Tsiristra Thea', 5.79),
-    ],
-    'Monaco': [
-        ('Vallee descendante', 10.87), ("Pra d'Alart", 9.83),
-        ('Col de Turini Depart', 9.05), ('Route de Turini', 10.87),
-        ('Col de Turini Sprint', 5.17), ('Gordolon', 5.17),
-    ],
-    'New Zealand': [
-        ('Waimarama Point Forward', 15.06), ('Te Awanga Forward', 11.44),
-        ('Waimarama Sprint Forward', 5.23), ('Elsthorpe Sprint Forward', 4.79),
-        ('Ocean Beach Sprint Forward', 7.15), ('Te Awanga Sprint Forward', 4.83),
-    ],
-    'Poland': [
-        ('Leczna', 16.46), ('Zienki', 13.42),
-        ('Zagorze', 8.75), ('Jezioro Rotcze', 6.59),
-        ('Borysik', 6.82), ('Jozefow', 9.17),
-    ],
-    'Scotland': [
-        ('Rosebank Farm', 7.17), ('South Morningside', 12.58),
-        ('Annbank Station', 7.77), ('Newhouse Bridge', 12.85),
-    ],
-    'Spain': [
-        ('Comiols', 14.35), ('Descenso por carretera', 10.57),
-        ('Centenera', 10.57), ('Ascenso bosque', 5.30),
-        ('Vinedos dentro del monasterio', 6.81), ('El Montaje', 3.20),
-    ],
-    'Sweden': [
-        ('Hamra', 12.34), ('Ransbysater', 11.98),
-        ('Elgsjon', 7.28), ('Stor-jangen Sprint', 6.69),
-        ('Algsjon Sprint', 5.25), ('Ostra Hinnsjon', 4.93),
-    ],
-    'USA': [
-        ('Beaver Creek Trail Forward', 12.86),
-        ('North Fork Pass', 12.50),
-        ('Hancock Creek Burst', 6.89),
-        ('Fuller Mountain Ascent', 6.64),
-        ('Fury Lake Depart', 5.97),
-        ('Hancock Hill Sprint', 6.01),
-    ],
-    'Wales': [
-        ('River Severn Valley', 11.40), ('Sweet Lamb', 9.93),
-        ('Geufron Forest', 10.03), ('Pant Mawr', 5.72),
-        ('Bidno Moorland', 4.87), ('Bronfelen', 5.10),
-    ],
-    # --- Rallycross circuits ---------------------------------------------
-    # Each RX location has 1 "Full Circuit" route in-game. Stage distance
-    # 1.2 km is the approximate rallycross lap length.
-    'Barcelona': [('Full Circuit', 1.20)],
-    'Hell':      [('Full Circuit', 1.20)],
-    'Höljes':    [('Full Circuit', 1.20)],
-    'Loheac':    [('Full Circuit', 1.20)],
-    'Lydden Hill': [('Full Circuit', 1.20)],
-    'Mettet':    [('Full Circuit', 1.20)],
-    'Montalegre': [('Full Circuit', 1.20)],
-    'Estering':  [('Full Circuit', 1.20)],
-    'Bikernieki': [('Full Circuit', 1.20)],  # Riga, Latvia
-    'Killarney': [('Full Circuit', 1.20)],
-    'Silverstone': [('Full Circuit', 1.20)],
-    'Trois-Rivières': [('Full Circuit', 1.20)],
-    'Yas Marina': [('Full Circuit', 1.20)],
-    # --- Special freeplay ------------------------------------------------
-    'Twin Peaks': [
-        ('Twin Peaks Route 0', 6.50),
-        ('Twin Peaks Route 1', 6.50),
-        ('Twin Peaks Route 2', 6.50),
-    ],
+import unicodedata as _unicodedata  # noqa: E402
+from dr2server.game_data import (  # noqa: E402
+    Location as _Location,
+    Track as _Track,
+    get_tracks_for_location as _get_tracks_for_location,
+)
+
+
+def _strip_accents(s: str) -> str:
+    nfkd = _unicodedata.normalize('NFKD', s.lower())
+    return ''.join(c for c in nfkd if not _unicodedata.combining(c))
+
+
+# Old hand-curated distances (km), keyed by accent-stripped, lowercased name.
+# Kept so canonical-order stages whose name matches an old entry keep the
+# published in-game length the website has been showing.
+_LEGACY_STAGE_DISTANCES_KM: dict[str, float] = {
+    # Argentina
+    'las juntas': 8.25, 'valle de los puentes': 7.55,
+    'camino de acantilados y rocas': 5.30, 'san isidro': 6.85,
+    'miraflores': 3.35, 'el rodeo': 7.00,
+    # Australia
+    'mount kaye pass': 12.50, 'chandlers creek': 12.34,
+    'bondi forest': 7.00, 'rockton plains': 6.87,
+    'yambulla mountain ascent': 6.64, 'noorinbee ridge descent': 6.30,
+    # Finland
+    'kakaristo': 16.20, 'kontinjarvi': 15.04,
+    'naarajarvi': 12.14, 'jyrkysjarvi': 7.51,
+    'kailajarvi': 7.43, 'paskuri': 5.72,
+    # Greece
+    'fourketa kourva': 10.36, 'anodou farmakas': 9.10,
+    'pomona ekrixi': 5.09, 'koryfi dafni': 4.95,
+    'abies koileda': 7.09, 'tsiristra thea': 5.79,
+    # Monte Carlo (Monaco)
+    'vallee descendante': 10.87, "pra d'alart": 9.83,
+    'col de turini depart': 9.05, 'route de turini': 10.87,
+    'gordolon - courte montee': 5.17,
+    # New Zealand
+    'waimarama point forward': 15.06, 'te awanga forward': 11.44,
+    'waimarama sprint forward': 5.23, 'elsthorpe sprint forward': 4.79,
+    'ocean beach sprint forward': 7.15, 'te awanga sprint forward': 4.83,
+    # Reverse versions are the same length as their forward counterparts.
+    'waimarama point reverse': 15.06, 'te awanga reverse': 11.44,
+    'waimarama sprint reverse': 5.23, 'elsthorpe sprint reverse': 4.79,
+    'ocean beach sprint reverse': 7.15, 'te awanga sprint reverse': 4.83,
+    # Poland
+    'zienki': 13.42, 'zagorze': 8.75, 'jezioro rotcze': 6.59,
+    'borysik': 6.82, 'jozefin': 9.17,
+    # Scotland
+    'rosebank farm': 7.17, 'south morningside': 12.58,
+    'annbank station': 7.77, 'newhouse bridge': 12.85,
+    # Spain (current canonical first 6 differ from old web names)
+    'comienzo de bellriu': 14.35, 'descenso por carretera': 10.57,
+    'centenera': 10.57, 'ascenso bosque montverd': 5.30,
+    # Sweden
+    'hamra': 12.34, 'ransbysater': 11.98,
+    'elgsjon': 7.28, 'stor-jangen sprint': 6.69,
+    'algsjon sprint': 5.25, 'ostra hinnsjon': 4.93,
+    'algsjon': 5.25,
+    # USA / New England
+    'beaver creek trail forward': 12.86, 'north fork pass': 12.50,
+    'hancock creek burst': 6.89, 'fuller mountain ascent': 6.64,
+    'fury lake depart': 5.97, 'hancock hill sprint forward': 6.01,
+    # Wales
+    'river severn valley': 11.40, 'sweet lamb': 9.93,
+    'geufron forest': 10.03, 'pant mawr': 5.72,
+    'bidno moorland': 4.87, 'bronfelen': 5.10,
 }
+
+
+# Map web-side location-name key (as stored in event JSONs and shown on the
+# club-event form) -> dr2server Location enum.
+_RALLY_LOCATIONS: dict[str, _Location] = {
+    'Argentina':   _Location.ARGENTINA,
+    'Australia':   _Location.AUSTRALIA,
+    'Finland':     _Location.FINLAND,
+    'Greece':      _Location.GREECE,
+    'Monaco':      _Location.MONTE_CARLO,
+    'New Zealand': _Location.NEW_ZEALAND,
+    'Poland':      _Location.POLAND,
+    'Scotland':    _Location.SCOTLAND,
+    'Spain':       _Location.SPAIN,
+    'Sweden':      _Location.SWEDEN,
+    'USA':         _Location.NEW_ENGLAND,
+    'Wales':       _Location.WALES,
+}
+
+
+def _build_stages() -> dict[str, list[tuple[str, float]]]:
+    stages: dict[str, list[tuple[str, float]]] = {}
+    for web_name, location in _RALLY_LOCATIONS.items():
+        ordered: list[tuple[str, float]] = []
+        for tid in _get_tracks_for_location(int(location)):
+            track = _Track(tid)
+            name = track.display_name
+            dist = _LEGACY_STAGE_DISTANCES_KM.get(_strip_accents(name))
+            if dist is None:
+                dist = track.length_km
+            ordered.append((name, dist))
+        stages[web_name] = ordered
+    return stages
+
+
+STAGES: dict[str, list[tuple[str, float]]] = _build_stages()
+
+# Rallycross — one "Full Circuit" route per location; the enum doesn't carry
+# RX track lengths so 1.20 km is the approximate lap length.
+for _rx in ('Barcelona', 'Hell', 'Höljes', 'Loheac', 'Lydden Hill',
+            'Mettet', 'Montalegre', 'Estering', 'Bikernieki',
+            'Killarney', 'Silverstone', 'Trois-Rivières', 'Yas Marina'):
+    STAGES[_rx] = [('Full Circuit', 1.20)]
+
+# Twin Peaks freeplay (Washington, USA) — three routes, all approximately 6.5km.
+STAGES['Twin Peaks'] = [
+    ('Twin Peaks Route 0', 6.50),
+    ('Twin Peaks Route 1', 6.50),
+    ('Twin Peaks Route 2', 6.50),
+]
 
 CAR_CLASSES = {
     'Group A': [
