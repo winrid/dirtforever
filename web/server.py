@@ -44,6 +44,7 @@ from dr2server.game_data import (  # noqa: E402
     TRACKS as GAME_TRACKS,
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
     VEHICLES as GAME_VEHICLES,
+    stage_conditions_label,
 )
 
 
@@ -1650,7 +1651,7 @@ def leaderboards() -> str | Response:
                 variant_options.append({
                     'conditions': b['conditions'],
                     'category': b['category'],
-                    'label': f'Conditions #{b["conditions"]}',
+                    'label': stage_conditions_label(b['conditions']),
                     'count': b['count'],
                     'active': (b['conditions'] == selected_cond and b['category'] == selected_cat),
                 })
