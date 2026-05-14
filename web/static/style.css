@@ -274,6 +274,24 @@ button { cursor: pointer; font-family: inherit; }
 
 .btn-full { width: 100%; }
 
+.btn:disabled,
+.btn[disabled] {
+    cursor: not-allowed;
+    opacity: .55;
+    filter: grayscale(.6);
+    box-shadow: none;
+}
+.btn:disabled:hover,
+.btn[disabled]:hover {
+    box-shadow: none;
+}
+.btn-primary:disabled:hover,
+.btn-primary[disabled]:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-deep);
+}
+
 .btn-donate {
     background: transparent;
     color: var(--green);

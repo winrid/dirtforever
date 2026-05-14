@@ -524,6 +524,19 @@ def get_events_by_type(t: str) -> list[Any]:
     return [e for e in get_all_events() if e.get('type') == t]
 
 
+def event_is_active(e: dict[str, Any], now: datetime | None = None) -> bool:
+    if not e.get('active'):
+        return False
+    raw = e.get('end_time')
+    if not raw:
+        return True
+    try:
+        end = datetime.fromisoformat(raw)
+    except ValueError:
+        return True
+    return end > (now or datetime.now())
+
+
 # ── Result ops ───────────────────────────────────────────
 
 def get_results(eid: str) -> dict[str, Any]:
@@ -1734,7 +1747,7 @@ def club_detail(club_id: str) -> str:
         abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
     events = [e for e in get_all_events() if e.get('club_id') == club_id]
-    active_event_exists = any(e.get('active') for e in events)
+    active_event_exists = any(event_is_active(e) for e in events)
     uname = user['username'] if user else None
     pending_users = []
     if user_is_owner(club, uname):
@@ -2382,7 +2395,7 @@ def create_club_event(club_id: str) -> Response:
     available = len(STAGES.get(location, []))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
-    active_events = [e for e in get_all_events() if e.get('club_id') == club_id and e.get('active')]
+    active_events = [e for e in get_all_events() if e.get('club_id') == club_id and event_is_active(e)]
     if active_events:
         errors.append('This club already has an active event. You must wait for it to finish before creating a new one.')
 
