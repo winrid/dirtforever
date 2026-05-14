@@ -14,6 +14,12 @@ Run from the repo root:
     uv run python scripts/migrate_stage_order.py            # apply
     uv run python scripts/migrate_stage_order.py --dry-run  # preview only
 
+The data directory is read from the same ``DATA_DIR`` env var the web
+server uses (default: ``web/data`` next to the source tree). On a
+production host where the data lives elsewhere, point the script at it:
+
+    DATA_DIR=/var/lib/dirtforever/data uv run python scripts/migrate_stage_order.py --dry-run
+
 Backups of every changed file are written next to the original as
 ``<name>.bak.<timestamp>`` so the migration is reversible.
 """
@@ -29,21 +35,19 @@ from typing import Any
 
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-EVENTS_DIR = os.path.join(REPO_ROOT, "web", "data", "events")
-RESULTS_DIR = os.path.join(REPO_ROOT, "web", "data", "results")
 
 
-def _load_stages_map() -> dict[str, list[tuple[str, float]]]:
-    """Import the canonical STAGES dict from the web module.
-
-    This is the post-fix STAGES (canonical order). The web module needs
-    SECRET_KEY in the environment to import; tolerate either an already-set
-    value or fall back to a benign placeholder for migration only.
+def _load_web_module():
+    """Import web.server. Requires SECRET_KEY in env (placeholder is fine
+    for a migration that never serves a request). The web module reads
+    DATA_DIR from the environment the same way the running server does,
+    so on a production host the operator points the migration at the
+    real data directory by setting DATA_DIR.
     """
     os.environ.setdefault("SECRET_KEY", "migration-only")
     sys.path.insert(0, REPO_ROOT)
-    from web.server import STAGES  # type: ignore
-    return STAGES
+    import web.server as web_server  # type: ignore
+    return web_server
 
 
 def _backup(path: str, ts: str) -> str:
@@ -59,16 +63,27 @@ def _write_json(path: str, data: dict[str, Any]) -> None:
 
 
 def migrate(dry_run: bool = False) -> int:
-    stages_map = _load_stages_map()
+    web_server = _load_web_module()
+    stages_map: dict[str, list[tuple[str, float]]] = web_server.STAGES
+    events_dir: str = web_server.EVENTS_DIR
+    results_dir: str = web_server.RESULTS_DIR
+    print(f"events dir:  {events_dir}")
+    print(f"results dir: {results_dir}")
+    if not os.path.isdir(events_dir):
+        print(f"error: events directory does not exist: {events_dir}", file=sys.stderr)
+        print("set DATA_DIR to point at the runtime data directory and try again.",
+              file=sys.stderr)
+        return 2
+
     ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     changed = 0
     skipped: list[str] = []
     truncated: list[str] = []
 
-    for fname in sorted(os.listdir(EVENTS_DIR)):
+    for fname in sorted(os.listdir(events_dir)):
         if not fname.endswith(".json"):
             continue
-        evt_path = os.path.join(EVENTS_DIR, fname)
+        evt_path = os.path.join(events_dir, fname)
         with open(evt_path) as f:
             event = json.load(f)
 
@@ -115,7 +130,7 @@ def migrate(dry_run: bool = False) -> int:
             )
             print(f"  [{i}] {old_label}  →  {new_label}")
 
-        results_path = os.path.join(RESULTS_DIR, fname)
+        results_path = os.path.join(results_dir, fname)
         results: dict[str, Any] | None = None
         if os.path.exists(results_path):
             with open(results_path) as f:
