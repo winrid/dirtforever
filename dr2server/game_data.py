@@ -343,19 +343,19 @@ class Track(IntEnum):
     GLENCASTLE_FARM_REVERSE                  = 668
 
     # RALLYCROSS
-    # METTET                                   = 000
-    # TRIOS_RIVIERES                           = 000
-    # LYDDEN_HILL                              = 000
-    # SILVERSTONE                              = 000
-    # LOHEAC                                   = 000
-    # ESTERING                                 = 000
-    # BIKERNIEKI                               = 000
-    HELL                                     = 478
-    MONTALEGRE                               = 537
-    # KILLARNEY                                = 000
-    BARCELONA                                = 538
-    # HOLJES                                   = 000
-    # YAS_MARINA                               = 000
+    METTET                                   = 172
+    TRIOS_RIVIERES                           = 158
+    LYDDEN_HILL                              = 131
+    SILVERSTONE                              = 171
+    LOHEAC                                   = 152
+    ESTERING                                 = 173
+    BIKERNIEKI                               = 174
+    HELL                                     = 142
+    MONTALEGRE                               = 153
+    KILLARNEY                                = 175
+    BARCELONA                                = 154
+    HOLJES                                   = 141
+    YAS_MARINA                               = 176
 
     @property
     def display_name(self) -> str:
@@ -560,16 +560,20 @@ _TRACK_META: Dict[Track, dict] = {
     Track.GLENCASTLE_FARM_REVERSE: {"display_name": "Glencastle Farm Reverse", "location": Location.SCOTLAND, "length_km": 5.24},
 
     # Rallycross
-    Track.HELL: {"display_name": "Full Circuit", "location": Location.HELL, "length_km": 0.63},
-    Track.MONTALEGRE: {"display_name": "Full Circuit", "location": Location.MONTALEGRE, "length_km": 0.59},
-    Track.BARCELONA: {"display_name": "Circuit de Barcelona-Catalunya", "location": Location.BARCELONA, "length_km": 0.70},
+    Track.METTET: {"display_name": "Mettet", "location": Location.METTET, "length_km": 1.15, "discipline": "rallycross"},
+    Track.TRIOS_RIVIERES: {"display_name": "Trios-Rivières", "location": Location.TRIOS_RIVIERES, "length_km": 1.35, "discipline": "rallycross"},
+    Track.LYDDEN_HILL: {"display_name": "Lydden Hill", "location": Location.LYDDEN_HILL, "length_km": 1.40, "discipline": "rallycross"},
+    Track.SILVERSTONE: {"display_name": "Silverstone", "location": Location.SILVERSTONE, "length_km": 0.97, "discipline": "rallycross"},
+    Track.LOHEAC: {"display_name": "Lohéac Bretagne", "location": Location.LOHEAC, "length_km": 1.09, "discipline": "rallycross"},
+    Track.ESTERING: {"display_name": "Estering", "location": Location.ESTERING, "length_km": 0.95, "discipline": "rallycross"},
+    Track.BIKERNIEKI: {"display_name": "Bikernieki", "location": Location.BIKERNIEKI, "length_km": 1.29, "discipline": "rallycross"},
+    Track.HELL: {"display_name": "Hell", "location": Location.HELL, "length_km": 1.02, "discipline": "rallycross"},
+    Track.MONTALEGRE: {"display_name": "Montalegre", "location": Location.MONTALEGRE, "length_km": 0.95, "discipline": "rallycross"},
+    Track.KILLARNEY: {"display_name": "Killarney International Raceway", "location": Location.KILLARNEY, "length_km": 1.07, "discipline": "rallycross"},
+    Track.BARCELONA: {"display_name": "Circuit de Barcelona-Catalunya", "location": Location.BARCELONA, "length_km": 1.13, "discipline": "rallycross"},
+    Track.HOLJES: {"display_name": "Höljes", "location": Location.HOLJES, "length_km": 1.21, "discipline": "rallycross"},
+    Track.YAS_MARINA: {"display_name": "Yas Marina Circuit", "location": Location.YAS_MARINA, "length_km": 1.00, "discipline": "rallycross"},
 }
-
-# 159 tracks across 16 locations (13 rally × 12 stages + 3 rallycross).
-#   Rally: ARGENTINA, AUSTRALIA, FINLAND, GERMANY, GREECE, MONTE_CARLO,
-#     NEW_ENGLAND, NEW_ZEALAND, POLAND, SCOTLAND, SPAIN, SWEDEN, WALES — 12 each.
-#   Rallycross: BARCELONA (1), HELL (1), MONTALEGRE (1).
-
 
 
 # ---------------------------------------------------------------------------
