@@ -343,19 +343,19 @@ class Track(IntEnum):
     GLENCASTLE_FARM_REVERSE                  = 668
 
     # RALLYCROSS
-    # METTET                                   = 000
-    # TRIOS_RIVIERES                           = 000
-    # LYDDEN_HILL                              = 000
-    # SILVERSTONE                              = 000
-    # LOHEAC                                   = 000
-    # ESTERING                                 = 000
-    # BIKERNIEKI                               = 000
-    HELL                                     = 478
-    MONTALEGRE                               = 537
-    # KILLARNEY                                = 000
-    BARCELONA                                = 538
-    # HOLJES                                   = 000
-    # YAS_MARINA                               = 000
+    METTET                                   = 172
+    TRIOS_RIVIERES                           = 158
+    LYDDEN_HILL                              = 131
+    SILVERSTONE                              = 171
+    LOHEAC                                   = 152
+    ESTERING                                 = 173
+    BIKERNIEKI                               = 174
+    HELL                                     = 142
+    MONTALEGRE                               = 153
+    KILLARNEY                                = 175
+    BARCELONA                                = 154
+    HOLJES                                   = 141
+    YAS_MARINA                               = 176
 
     @property
     def display_name(self) -> str:
