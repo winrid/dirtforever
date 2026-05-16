@@ -134,9 +134,16 @@
                             <label for="ev_location" class="form-label">Location</label>
                             <select id="ev_location" name="location" class="form-input form-select" required>
                                 <option value="">Select location...</option>
-                                {% for loc in stages.keys() %}
+                                <optgroup label="Rally">
+                                {% for loc in rally_locs %}
                                 <option value="{{ loc }}">{{ loc }}</option>
                                 {% endfor %}
+                                </optgroup>
+                                <optgroup label="Rallycross">
+                                {% for loc in rx_locs %}
+                                <option value="{{ loc }}">{{ loc }}</option>
+                                {% endfor %}
+                                </optgroup>
                             </select>
                         </div>
                         <div class="form-group">
@@ -159,8 +166,8 @@
                         <div class="form-group">
                             <label for="ev_num_stages" class="form-label">Number of Stages</label>
                             <input type="number" id="ev_num_stages" name="num_stages" class="form-input"
-                                   min="1" max="6" value="3" required>
-                            <span class="form-hint">Max depends on location (most have 6, Scotland has 4)</span>
+                                   min="1" max="12" value="3" required>
+                            <span class="form-hint">Rally locations have up to 12 stages; rallycross locations have 1.</span>
                         </div>
                         <div class="form-group">
                             <label for="ev_duration" class="form-label">Duration</label>

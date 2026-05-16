@@ -344,7 +344,7 @@ class Track(IntEnum):
 
     # RALLYCROSS
     METTET                                   = 172
-    TRIOS_RIVIERES                           = 158
+    TROIS_RIVIERES                           = 158
     LYDDEN_HILL                              = 131
     SILVERSTONE                              = 171
     LOHEAC                                   = 152
@@ -561,7 +561,7 @@ _TRACK_META: Dict[Track, dict] = {
 
     # Rallycross
     Track.METTET: {"display_name": "Mettet", "location": Location.METTET, "length_km": 1.15, "discipline": "rallycross"},
-    Track.TRIOS_RIVIERES: {"display_name": "Trios-Rivières", "location": Location.TRIOS_RIVIERES, "length_km": 1.35, "discipline": "rallycross"},
+    Track.TROIS_RIVIERES: {"display_name": "Trois-Rivières", "location": Location.TROIS_RIVIERES, "length_km": 1.35, "discipline": "rallycross"},
     Track.LYDDEN_HILL: {"display_name": "Lydden Hill", "location": Location.LYDDEN_HILL, "length_km": 1.40, "discipline": "rallycross"},
     Track.SILVERSTONE: {"display_name": "Silverstone", "location": Location.SILVERSTONE, "length_km": 0.97, "discipline": "rallycross"},
     Track.LOHEAC: {"display_name": "Lohéac Bretagne", "location": Location.LOHEAC, "length_km": 1.09, "discipline": "rallycross"},
