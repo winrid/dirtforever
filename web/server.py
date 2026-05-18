@@ -40,6 +40,8 @@ from flask_wtf.csrf import CSRFProtect
 # them here. The package is stdlib-only, so this adds no runtime deps.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dr2server.game_data import (  # noqa: E402
+    Location,
+    Track,
     LOCATIONS as GAME_LOCATIONS,
     TRACKS as GAME_TRACKS,
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
@@ -677,92 +679,19 @@ def user_flag_filter(username: str) -> str:
 
 # ── Seed data ────────────────────────────────────────────
 
-STAGES = {
-    'Argentina': [
-        ('Las Juntas', 8.25), ('Valle de los puentes', 7.55),
-        ('Camino de acantilados', 5.30), ('San Isidro', 6.85),
-        ('Miraflores', 3.35), ('El Rodeo', 7.00),
-    ],
-    'Australia': [
-        ('Mount Kaye Pass', 12.50), ('Chandlers Creek', 12.34),
-        ('Bondi Forest', 7.00), ('Rockton Plains', 6.87),
-        ('Yambulla Mountain Ascent', 6.64), ('Noorinbee Ridge Descent', 6.30),
-    ],
-    'Finland': [
-        ('Kakaristo', 16.20), ('Kontinjarvi', 15.04),
-        ('Naarajarvi', 12.14), ('Jyrkysjarvi', 7.51),
-        ('Kailajarvi', 7.43), ('Paskuri', 5.72),
-    ],
-    'Greece': [
-        ('Fourketa Kourva', 10.36), ('Anodou Farmakas', 9.10),
-        ('Pomona Erixi', 5.09), ('Koryfi Dafni', 4.95),
-        ('Abies Koilada', 7.09), ('Tsiristra Thea', 5.79),
-    ],
-    'Monaco': [
-        ('Vallee descendante', 10.87), ("Pra d'Alart", 9.83),
-        ('Col de Turini Depart', 9.05), ('Route de Turini', 10.87),
-        ('Col de Turini Sprint', 5.17), ('Gordolon', 5.17),
-    ],
-    'New Zealand': [
-        ('Waimarama Point Forward', 15.06), ('Te Awanga Forward', 11.44),
-        ('Waimarama Sprint Forward', 5.23), ('Elsthorpe Sprint Forward', 4.79),
-        ('Ocean Beach Sprint Forward', 7.15), ('Te Awanga Sprint Forward', 4.83),
-    ],
-    'Poland': [
-        ('Leczna', 16.46), ('Zienki', 13.42),
-        ('Zagorze', 8.75), ('Jezioro Rotcze', 6.59),
-        ('Borysik', 6.82), ('Jozefow', 9.17),
-    ],
-    'Scotland': [
-        ('Rosebank Farm', 7.17), ('South Morningside', 12.58),
-        ('Annbank Station', 7.77), ('Newhouse Bridge', 12.85),
-    ],
-    'Spain': [
-        ('Comiols', 14.35), ('Descenso por carretera', 10.57),
-        ('Centenera', 10.57), ('Ascenso bosque', 5.30),
-        ('Vinedos dentro del monasterio', 6.81), ('El Montaje', 3.20),
-    ],
-    'Sweden': [
-        ('Hamra', 12.34), ('Ransbysater', 11.98),
-        ('Elgsjon', 7.28), ('Stor-jangen Sprint', 6.69),
-        ('Algsjon Sprint', 5.25), ('Ostra Hinnsjon', 4.93),
-    ],
-    'USA': [
-        ('Beaver Creek Trail Forward', 12.86),
-        ('North Fork Pass', 12.50),
-        ('Hancock Creek Burst', 6.89),
-        ('Fuller Mountain Ascent', 6.64),
-        ('Fury Lake Depart', 5.97),
-        ('Hancock Hill Sprint', 6.01),
-    ],
-    'Wales': [
-        ('River Severn Valley', 11.40), ('Sweet Lamb', 9.93),
-        ('Geufron Forest', 10.03), ('Pant Mawr', 5.72),
-        ('Bidno Moorland', 4.87), ('Bronfelen', 5.10),
-    ],
-    # --- Rallycross circuits ---------------------------------------------
-    # Each RX location has 1 "Full Circuit" route in-game. Stage distance
-    # 1.2 km is the approximate rallycross lap length.
-    'Barcelona': [('Full Circuit', 1.20)],
-    'Hell':      [('Full Circuit', 1.20)],
-    'Höljes':    [('Full Circuit', 1.20)],
-    'Loheac':    [('Full Circuit', 1.20)],
-    'Lydden Hill': [('Full Circuit', 1.20)],
-    'Mettet':    [('Full Circuit', 1.20)],
-    'Montalegre': [('Full Circuit', 1.20)],
-    'Estering':  [('Full Circuit', 1.20)],
-    'Bikernieki': [('Full Circuit', 1.20)],  # Riga, Latvia
-    'Killarney': [('Full Circuit', 1.20)],
-    'Silverstone': [('Full Circuit', 1.20)],
-    'Trois-Rivières': [('Full Circuit', 1.20)],
-    'Yas Marina': [('Full Circuit', 1.20)],
-    # --- Special freeplay ------------------------------------------------
-    'Twin Peaks': [
-        ('Twin Peaks Route 0', 6.50),
-        ('Twin Peaks Route 1', 6.50),
-        ('Twin Peaks Route 2', 6.50),
-    ],
+STAGES: dict[str, list[tuple[str, float]]] = {
+    loc.display_name: [
+        (t.display_name, t.length_km)
+        for t in Track
+        if t.location is loc
+    ]
+    for loc in Location
+    if any(t.location is loc for t in Track)
 }
+
+RX_LOCATIONS: frozenset[str] = frozenset(
+    loc.display_name for loc in Location if loc.discipline == 'rallycross'
+)
 
 CAR_CLASSES = {
     'Group A': [
@@ -871,7 +800,7 @@ COUNTRIES: dict[str, str] = {
 }
 
 LOCATION_SURFACE = {
-    'Monaco': 'Tarmac',
+    'Monte Carlo': 'Tarmac',
     'Spain': 'Tarmac',
     # Rallycross circuits — mix of tarmac and gravel in-game.
     'Barcelona':      'Tarmac/Gravel',
@@ -887,8 +816,6 @@ LOCATION_SURFACE = {
     'Silverstone':    'Tarmac',
     'Trois-Rivières': 'Tarmac/Gravel',
     'Yas Marina':     'Tarmac',
-    # Twin Peaks — gravel forest roads.
-    'Twin Peaks':     'Gravel',
 }
 
 DURATION_OPTIONS = {
@@ -1047,7 +974,7 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
             'id': 'evt-monthly-monaco',
             'name': 'Monte Carlo Championship',
             'type': 'monthly',
-            'location': 'Monaco',
+            'location': 'Monte Carlo',
             'car_class': 'R5',
             'surface': 'Tarmac',
             'conditions': 'Light Rain',
@@ -1770,6 +1697,8 @@ def club_detail(club_id: str) -> str:
             invite_links.append(link)
     return render_template(
         'club_detail.html', club=club, members=members, events=events,
+        rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
+        rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
         active_event_exists=active_event_exists,
         is_owner=user_is_owner(club, uname),
