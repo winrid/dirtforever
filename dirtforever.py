@@ -57,6 +57,21 @@ def _data_dir() -> Path:
     return _bundle_root() / "data"
 
 
+def _icon_path() -> Optional[Path]:
+    """Return the path to the app icon PNG, or None if not found.
+
+    Bundled builds carry it at the bundle root; in dev we fall back to the
+    web/static logo so running from source shows the same icon.
+    """
+    for candidate in (
+        _bundle_root() / "logo.png",
+        Path(__file__).parent / "web" / "static" / "logo.png",
+    ):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
@@ -544,6 +559,17 @@ def run_gui():
     root.title(f"DirtForever v{VERSION}")
     root.resizable(False, False)
     root.configure(bg=BG)
+
+    # Replace Tk's default feather icon with the DirtForever logo. Keep a
+    # reference on `root` so the PhotoImage isn't garbage-collected; Tk
+    # only holds a weak reference and the taskbar icon vanishes otherwise.
+    icon_file = _icon_path()
+    if icon_file is not None:
+        try:
+            root._app_icon = tk.PhotoImage(file=str(icon_file))
+            root.iconphoto(True, root._app_icon)
+        except tk.TclError:
+            pass
 
     # Center on screen
     w, h = 440, 560

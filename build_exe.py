@@ -109,6 +109,14 @@ def build() -> None:
         f"{ROOT / 'VERSION'}{sep}.",
     ]
 
+    # App icon (PNG), used by tkinter for the window/taskbar icon. Bundled at
+    # the bundle root as logo.png; dirtforever.py's _icon_path() looks there.
+    logo_src = ROOT / "web" / "static" / "logo.png"
+    if logo_src.is_file():
+        add_data.append(f"{logo_src}{sep}.")
+    else:
+        print(f"[build] No logo found at {logo_src}; window will use Tk's default icon.")
+
     # ------------------------------------------------------------------
     # Hidden imports that PyInstaller's static analysis might miss.
     # ------------------------------------------------------------------
