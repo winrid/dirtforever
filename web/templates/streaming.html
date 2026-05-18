@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Streaming Overlays - DirtForever{% endblock %}
+
+{% block content %}
+<style>
+    .streaming-section .container { margin-bottom: 3rem; }
+    .streaming-files {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 1rem;
+        font-size: .95rem;
+    }
+    .streaming-files th,
+    .streaming-files td {
+        text-align: left;
+        padding: .65rem .85rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .streaming-files th {
+        font-family: var(--font-ui);
+        font-size: .75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--muted);
+        background: var(--bg-elevated);
+    }
+    .streaming-files td code {
+        font-family: var(--font-mono);
+        font-size: .85rem;
+        color: var(--accent-bright);
+        background: var(--bg-deep);
+        padding: .15rem .4rem;
+        border-radius: 3px;
+    }
+    .streaming-code {
+        background: var(--bg-deep);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: .75rem 1rem;
+        margin-top: .75rem;
+        font-family: var(--font-mono);
+        font-size: .85rem;
+        color: var(--accent-bright);
+        overflow-x: auto;
+        white-space: pre;
+        line-height: 1.6;
+    }
+</style>
+<section class="section streaming-section" style="padding-top: 6rem;">
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> STREAMING OVERLAYS</h1>
+        <p>
+            DirtForever can generate plain text files containing your current club, event, car, location, and leaderboard while you play. These files are designed to be read by streaming software like <strong>OBS Studio</strong> (Text GDI+ source) or <strong>SimHub</strong> (Text source), so you can show live race info on stream without any extra plugins.
+        </p>
+    </div>
+
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> HOW TO ENABLE</h1>
+        <p>
+            Open the DirtForever desktop app and click the <strong>Streaming</strong> tab next to the Main tab. Tick <em>Generate overlay files while server is running</em>, set the update interval (seconds, minimum 2, default 5), and pick which files you want generated using the checkboxes. Settings are saved automatically.
+        </p>
+        <p>
+            Files start being written as soon as the game server is started and the game has reported your current club / event. They are written to:
+        </p>
+        <div class="streaming-code">~/dirtforever/    (Linux)
+%USERPROFILE%\dirtforever\    (Windows)</div>
+        <p>
+            Use the <strong>Open folder</strong> button on the Streaming tab to jump to that directory.
+        </p>
+    </div>
+
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> FILES GENERATED</h1>
+        <table class="streaming-files">
+            <thead>
+                <tr><th>File</th><th>Example</th><th>Description</th></tr>
+            </thead>
+            <tbody>
+                <tr><td><code>Current Club.txt</code></td><td>Barrel Rollers</td><td>Name of the club whose event you are currently racing.</td></tr>
+                <tr><td><code>Club Owner.txt</code></td><td>Fred Bloggs</td><td>The user who created the club.</td></tr>
+                <tr><td><code>Number of members.txt</code></td><td>123 members</td><td>How many members are in the club.</td></tr>
+                <tr><td><code>Number of Stages.txt</code></td><td>12 Stages</td><td>Total stage count in the current event.</td></tr>
+                <tr><td><code>Location.txt</code></td><td>Spain</td><td>Country / location of the current event.</td></tr>
+                <tr><td><code>Car.txt</code></td><td>Peugeot 205 T16 Evo 2</td><td>The specific vehicle you picked for the stage.</td></tr>
+                <tr><td><code>Car Class.txt</code></td><td>Group B</td><td>The car class the event is restricted to.</td></tr>
+                <tr><td><code>Leaderboard.txt</code></td><td>1. alice  1:23.456 ...</td><td>Top 10 leaderboard entries for the current event, refreshed at most once every 10 seconds.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> SETTING UP OBS</h1>
+        <p>
+            In OBS, add a new source to your scene of type <strong>Text (GDI+)</strong> on Windows or <strong>Text (FreeType 2)</strong> on Linux. Check the <em>Read from file</em> option and point it at one of the files in your dirtforever folder, for example <code>~/dirtforever/Current Club.txt</code>. Repeat for any other files you want to display. OBS will pick up changes automatically each time the file is written.
+        </p>
+        <p>
+            For <strong>SimHub</strong>, add a <em>Text</em> control to your dashboard and bind it to the same file path. Same idea: SimHub reads the file on its own schedule and displays whatever is inside.
+        </p>
+    </div>
+
+    <div class="container">
+        <h1 class="section-title"><span class="accent">//</span> NOTES AND TIPS</h1>
+        <p>
+            <strong>Idle behavior.</strong> When DirtForever has no current event (server idle, no club fetched yet) the files keep their last known values rather than being blanked out. This keeps your overlay readable between sessions.
+        </p>
+        <p>
+            <strong>Disable what you don't use.</strong> Each file has its own checkbox on the Streaming tab. Unchecking <em>Leaderboard.txt</em> in particular skips the API call entirely, which is the polite thing to do if you do not need it on stream.
+        </p>
+        <p>
+            <strong>Atomic writes.</strong> Files are written via a temp-then-rename strategy, so OBS and SimHub never see a half-written file. Files are only rewritten when their content actually changes.
+        </p>
+        <p>
+            <strong>Where does the data come from?</strong> Club, owner, member count, stages, location, and car class come from the same data the game already fetches when you open the Clubs screen. The selected car comes from the StageBegin event when you start a stage. The leaderboard comes from the DirtForever web API.
+        </p>
+    </div>
+</section>
+{% endblock %}

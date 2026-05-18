@@ -2552,6 +2552,11 @@ def about() -> str:
     return render_template('about.html')
 
 
+@app.route('/streaming')
+def streaming() -> str:
+    return render_template('streaming.html')
+
+
 # ── Error pages ──────────────────────────────────────────
 
 @app.errorhandler(404)
