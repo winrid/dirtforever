@@ -1,0 +1,64 @@
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Unit tests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Install deps
+        run: uv sync --frozen
+
+      - name: Run pytest
+        run: uv run pytest -v
+
+  admin-helper-windows:
+    name: Admin helper end-to-end (built .exe, windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: pip install pyinstaller cryptography
+
+      - name: Build DirtForever.exe
+        run: python build_exe.py
+
+      - name: Run --admin-helper start against temp hosts
+        shell: pwsh
+        run: python tests/integration_admin_helper_exe.py dist/DirtForever.exe
+
+  admin-helper-linux:
+    name: Admin helper end-to-end (built binary, linux)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk binutils
+          pip install pyinstaller cryptography
+
+      - name: Build linux binary
+        run: python build_exe.py
+
+      - name: Run --admin-helper start against temp hosts
+        run: python tests/integration_admin_helper_exe.py dist/DirtForever-linux-x86_64
