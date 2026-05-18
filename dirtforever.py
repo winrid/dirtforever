@@ -507,6 +507,9 @@ def run_gui():
     server_thread: Optional[threading.Thread] = None
     server_running = threading.Event()
     shutdown_flag = threading.Event()
+    # Mutable holder so closures defined before the writer exists can still
+    # reach it after server_worker() instantiates one.
+    streaming_writer: dict = {"instance": None}
 
     # Colors (matched to dirtforever.net web theme)
     BG = "#08080C"
@@ -527,10 +530,30 @@ def run_gui():
     root.configure(bg=BG)
 
     # Center on screen
-    w, h = 440, 500
+    w, h = 440, 560
     x = (root.winfo_screenwidth() - w) // 2
     y = (root.winfo_screenheight() - h) // 2
     root.geometry(f"{w}x{h}+{x}+{y}")
+
+    style = ttk.Style()
+    try:
+        style.theme_use("default")
+    except tk.TclError:
+        pass
+    style.configure("TNotebook", background=BG, borderwidth=0)
+    style.configure(
+        "TNotebook.Tab",
+        background=BG_ELEVATED,
+        foreground=MUTED,
+        padding=(14, 6),
+        font=(UI_FONT, 9, "bold"),
+        borderwidth=0,
+    )
+    style.map(
+        "TNotebook.Tab",
+        background=[("selected", BG_CARD)],
+        foreground=[("selected", ACCENT)],
+    )
 
     # --- Update check (non-blocking) ---
     GOLD = "#F59E0B"
@@ -567,15 +590,23 @@ def run_gui():
                     update_label.configure(
                         text=f"Update available: v{remote_tag}  —  click to download")
                     update_label.bind("<Button-1>", lambda e: webbrowser.open(dl_url))
-                    update_bar.pack(fill="x", padx=20, pady=(5, 0), before=header)
+                    update_bar.pack(fill="x", padx=20, pady=(5, 0), before=notebook)
                 root.after(0, show)
         except Exception:
             pass  # Silent fail — update check is best-effort
 
     threading.Thread(target=_check_for_updates, daemon=True).start()
 
+    # --- Tabbed layout ---
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill="both", expand=True)
+    main_tab = tk.Frame(notebook, bg=BG)
+    streaming_tab = tk.Frame(notebook, bg=BG)
+    notebook.add(main_tab, text="Main")
+    notebook.add(streaming_tab, text="Streaming")
+
     # --- Header ---
-    header = tk.Frame(root, bg=BG)
+    header = tk.Frame(main_tab, bg=BG)
     header.pack(fill="x", padx=20, pady=(20, 5))
     tk.Label(header, text="DIRTFOREVER", font=(UI_FONT, 18, "bold"),
              fg=ACCENT, bg=BG).pack(side="left")
@@ -583,7 +614,7 @@ def run_gui():
              fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(6, 0))
 
     # --- Token config ---
-    token_frame = tk.Frame(root, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+    token_frame = tk.Frame(main_tab, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
     token_frame.pack(fill="x", padx=20, pady=(10, 5))
 
     tk.Label(token_frame, text="GAME TOKEN", font=(UI_FONT, 8, "bold"),
@@ -642,7 +673,7 @@ def run_gui():
         token_status_label.configure(text="Get token at dirtforever.net/dashboard", fg=MUTED)
 
     # --- Status ---
-    status_frame = tk.Frame(root, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
+    status_frame = tk.Frame(main_tab, bg=BG_CARD, highlightbackground=BORDER, highlightthickness=1)
     status_frame.pack(fill="x", padx=20, pady=5)
 
     status_dot = tk.Label(status_frame, text="\u25cf", font=(UI_FONT, 14),
@@ -658,7 +689,7 @@ def run_gui():
     status_detail.pack(side="right", padx=15, pady=10)
 
     # --- Log area ---
-    log_frame = tk.Frame(root, bg=BG)
+    log_frame = tk.Frame(main_tab, bg=BG)
     log_frame.pack(fill="both", expand=True, padx=20, pady=(5, 5))
 
     log_text = tk.Text(log_frame, height=5, bg=BG, fg=MUTED,
@@ -673,7 +704,7 @@ def run_gui():
         log_text.configure(state="disabled")
 
     # --- Buttons ---
-    btn_frame = tk.Frame(root, bg=BG)
+    btn_frame = tk.Frame(main_tab, bg=BG)
     btn_frame.pack(fill="x", padx=20, pady=(5, 8))
 
     easy_setup_var = tk.BooleanVar(value=config.get("easy_setup", True))
@@ -726,13 +757,165 @@ def run_gui():
     stop_btn.pack(fill="x")
 
     # --- Footer ---
-    footer = tk.Frame(root, bg=BG)
+    footer = tk.Frame(main_tab, bg=BG)
     footer.pack(fill="x", padx=20, pady=(0, 12))
 
     dash_link = tk.Label(footer, text="dirtforever.net/dashboard", font=(UI_FONT, 8, "underline"),
                          fg=ACCENT, bg=BG, cursor="hand2")
     dash_link.pack(side="right")
     dash_link.bind("<Button-1>", lambda e: webbrowser.open(DASHBOARD_URL))
+
+    # --- Streaming tab ---
+    OVERLAY_DIR = Path.home() / "dirtforever"
+
+    stream_header = tk.Frame(streaming_tab, bg=BG)
+    stream_header.pack(fill="x", padx=20, pady=(20, 5))
+    tk.Label(stream_header, text="OBS / SimHub", font=(UI_FONT, 16, "bold"),
+             fg=ACCENT, bg=BG).pack(side="left")
+    tk.Label(stream_header, text="Live overlay text files", font=(UI_FONT, 9),
+             fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(5, 0))
+
+    stream_card = tk.Frame(streaming_tab, bg=BG_CARD,
+                           highlightbackground=BORDER, highlightthickness=1)
+    stream_card.pack(fill="x", padx=20, pady=(10, 5))
+
+    streaming_enabled_var = tk.BooleanVar(
+        value=bool(config.get("streaming_enabled", False)))
+    enable_cb = tk.Checkbutton(
+        stream_card, text="Generate overlay files while server is running",
+        variable=streaming_enabled_var,
+        bg=BG_CARD, fg=TEXT, activebackground=BG_CARD, activeforeground=TEXT,
+        selectcolor=BG_ELEVATED, font=(UI_FONT, 10),
+        highlightthickness=0, bd=0, anchor="w",
+    )
+    enable_cb.pack(fill="x", padx=12, pady=(10, 4))
+
+    interval_row = tk.Frame(stream_card, bg=BG_CARD)
+    interval_row.pack(fill="x", padx=12, pady=(2, 8))
+    tk.Label(interval_row, text="Update interval (seconds, min 2):",
+             font=(UI_FONT, 9), fg=TEXT, bg=BG_CARD).pack(side="left")
+    streaming_interval_var = tk.IntVar(
+        value=max(2, int(config.get("streaming_interval_seconds", 5) or 5)))
+    interval_spin = tk.Spinbox(
+        interval_row, from_=2, to=60, increment=1, width=5,
+        textvariable=streaming_interval_var,
+        font=(MONO_FONT, 10), bg=BG, fg=TEXT, insertbackground=TEXT,
+        relief="flat", highlightbackground=BORDER, highlightthickness=1,
+        buttonbackground=BG_ELEVATED,
+    )
+    interval_spin.pack(side="left", padx=(8, 0), ipady=2)
+
+    path_card = tk.Frame(streaming_tab, bg=BG_CARD,
+                         highlightbackground=BORDER, highlightthickness=1)
+    path_card.pack(fill="x", padx=20, pady=5)
+    tk.Label(path_card, text="OUTPUT FOLDER", font=(UI_FONT, 8, "bold"),
+             fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
+    path_row = tk.Frame(path_card, bg=BG_CARD)
+    path_row.pack(fill="x", padx=12, pady=(0, 8))
+    tk.Label(path_row, text=str(OVERLAY_DIR), font=(MONO_FONT, 9),
+             fg=TEXT, bg=BG_CARD).pack(side="left")
+
+    def _open_overlay_dir():
+        try:
+            OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
+            if IS_WIN:
+                os.startfile(str(OVERLAY_DIR))  # type: ignore[attr-defined]
+            else:
+                subprocess.Popen(["xdg-open", str(OVERLAY_DIR)])
+        except Exception as exc:
+            log(f"Could not open overlay folder: {exc}")
+
+    tk.Button(
+        path_row, text="Open folder", font=(UI_FONT, 8, "bold"),
+        bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=_open_overlay_dir,
+    ).pack(side="right")
+
+    from dr2server.streaming import FILES as STREAMING_FILES
+
+    files_card = tk.Frame(streaming_tab, bg=BG_CARD,
+                          highlightbackground=BORDER, highlightthickness=1)
+    files_card.pack(fill="x", padx=20, pady=5)
+    tk.Label(files_card, text="FILES GENERATED", font=(UI_FONT, 8, "bold"),
+             fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 4))
+    _file_rows = [
+        ("club",        "Club name you're racing in"),
+        ("club_owner",  "Creator of the current club"),
+        ("members",     "Member count, e.g. '123 members'"),
+        ("stages",      "Stage count, e.g. '12 Stages'"),
+        ("location",    "Event location, e.g. 'Spain'"),
+        ("car",         "Selected vehicle name"),
+        ("car_class",   "Event class, e.g. 'Group B'"),
+        ("leaderboard", "Top 10 leaderboard (polls API)"),
+    ]
+    saved_files_cfg = config.get("streaming_files") or {}
+    streaming_file_vars: dict = {}
+    for key, desc in _file_rows:
+        var = tk.BooleanVar(value=bool(saved_files_cfg.get(key, True)))
+        streaming_file_vars[key] = var
+        row = tk.Frame(files_card, bg=BG_CARD)
+        row.pack(fill="x", padx=12, pady=1)
+        tk.Checkbutton(
+            row, variable=var,
+            bg=BG_CARD, activebackground=BG_CARD,
+            selectcolor=BG_ELEVATED, highlightthickness=0, bd=0,
+        ).pack(side="left")
+        tk.Label(row, text=STREAMING_FILES[key], font=(MONO_FONT, 9),
+                 fg=TEXT, bg=BG_CARD, width=22, anchor="w").pack(side="left")
+        tk.Label(row, text=desc, font=(UI_FONT, 8),
+                 fg=MUTED, bg=BG_CARD, anchor="w").pack(side="left")
+    tk.Label(files_card, text="", bg=BG_CARD).pack(pady=(0, 4))
+
+    streaming_status_label = tk.Label(
+        streaming_tab,
+        text=("Writing every {}s".format(
+                  max(2, int(config.get("streaming_interval_seconds", 5) or 5)))
+              if config.get("streaming_enabled", False) else "Idle"),
+        font=(UI_FONT, 9), fg=MUTED, bg=BG, anchor="w",
+    )
+    streaming_status_label.pack(fill="x", padx=20, pady=(8, 12))
+
+    def _enabled_files_set() -> set:
+        return {k for k, v in streaming_file_vars.items() if v.get()}
+
+    def _apply_streaming_state(*_):
+        enabled = bool(streaming_enabled_var.get())
+        try:
+            interval = max(2, int(streaming_interval_var.get() or 5))
+        except (tk.TclError, ValueError):
+            interval = 5
+        files_enabled = _enabled_files_set()
+        config["streaming_enabled"] = enabled
+        config["streaming_interval_seconds"] = interval
+        config["streaming_files"] = {k: (k in files_enabled) for k in streaming_file_vars}
+        save_config(config)
+        inst = streaming_writer["instance"]
+        if inst is not None:
+            inst.set_enabled(files_enabled)
+        if enabled:
+            if inst is not None:
+                if inst.is_running():
+                    inst.set_interval(interval)
+                    inst.set_output_dir(OVERLAY_DIR)
+                else:
+                    inst.start(interval=interval, output_dir=OVERLAY_DIR)
+                streaming_status_label.configure(
+                    text=f"Writing every {interval}s ({len(files_enabled)} files)",
+                    fg=GREEN)
+            else:
+                streaming_status_label.configure(
+                    text=f"Enabled, will start with server (every {interval}s)",
+                    fg=MUTED)
+        else:
+            if inst is not None and inst.is_running():
+                inst.stop()
+            streaming_status_label.configure(text="Idle", fg=MUTED)
+
+    streaming_enabled_var.trace_add("write", _apply_streaming_state)
+    streaming_interval_var.trace_add("write", _apply_streaming_state)
+    for _var in streaming_file_vars.values():
+        _var.trace_add("write", _apply_streaming_state)
 
     # --- Server control ---
     def set_status(running: bool, detail: str = ""):
@@ -789,6 +972,20 @@ def run_gui():
             if api_client:
                 app.dispatcher.api_client = api_client
 
+            from dr2server.streaming import StreamingWriter
+            streaming_writer["instance"] = StreamingWriter(
+                app.dispatcher,
+                logger=lambda m: root.after(0, lambda msg=m: log(msg)),
+            )
+            streaming_writer["instance"].set_enabled(_enabled_files_set())
+            if config.get("streaming_enabled", False):
+                _si = max(2, int(config.get("streaming_interval_seconds", 5) or 5))
+                streaming_writer["instance"].start(
+                    interval=_si, output_dir=OVERLAY_DIR,
+                )
+                root.after(0, lambda iv=_si: log(
+                    f"Streaming writer started, {OVERLAY_DIR} every {iv}s"))
+
             servers = []
             http_server = create_server(args.host, args.port, app)
             servers.append(http_server)
@@ -809,6 +1006,10 @@ def run_gui():
             # Wait until shutdown is requested
             while not shutdown_flag.is_set():
                 shutdown_flag.wait(timeout=1.0)
+
+            if streaming_writer["instance"] is not None:
+                streaming_writer["instance"].stop()
+                streaming_writer["instance"] = None
 
             for s in servers:
                 s.shutdown()

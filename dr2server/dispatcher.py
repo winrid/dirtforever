@@ -106,6 +106,14 @@ class RpcDispatcher:
         # Local player's web username, lazily resolved via api_client.test_token().
         # Used to identify the player's own row in leaderboard responses.
         self._my_username: Optional[str] = None
+        # Streaming-overlay state: track the most recent event/club/vehicle the
+        # player engaged with, plus a cached copy of the last clubs payload.
+        # Read by StreamingWriter via get_streaming_state(); see dr2server/streaming.py.
+        self._current_event_id: Optional[str] = None
+        self._current_club_id: Optional[str] = None
+        self._current_vehicle_id: Optional[int] = None
+        self._clubs_snapshot: Optional[Dict[str, Any]] = None
+        self._clubs_snapshot_ts: float = 0.0
         self._handlers: Dict[str, Handler] = {
             "Login.GetCurrentVersion": self._get_current_version,
             "Login.Login": self._login,
@@ -401,6 +409,9 @@ class RpcDispatcher:
         except Exception as exc:
             print(f"[CLUBS] api_client.get_clubs() raised: {exc}")
             return None
+
+        self._clubs_snapshot = data
+        self._clubs_snapshot_ts = time.time()
 
         web_clubs = data.get("clubs", [])
         web_events = data.get("events", [])
@@ -1585,6 +1596,15 @@ class RpcDispatcher:
               f"event after refresh; refusing to misroute submission")
         return None
 
+    def get_streaming_state(self) -> Dict[str, Any]:
+        """Read-only snapshot consumed by the OBS/SimHub overlay writer."""
+        return {
+            "event_id": self._current_event_id,
+            "club_id": self._current_club_id,
+            "vehicle_id": self._current_vehicle_id,
+            "clubs_snapshot": self._clubs_snapshot,
+        }
+
     def _total_stages_for_event(self, event_id: str) -> int:
         """Look up the configured stage count for an event. 0 if unknown."""
         if self.api_client is None or not event_id:
@@ -1606,6 +1626,16 @@ class RpcDispatcher:
               f"tyres={req.tyres_remaining} compound={req.tyre_compound}")
 
         event_id = self._resolve_event_id(req.challenge_id, "Begin")
+
+        if event_id:
+            self._current_event_id = event_id
+        if req.vehicle_id:
+            self._current_vehicle_id = req.vehicle_id
+        if event_id and self._clubs_snapshot:
+            for evt in self._clubs_snapshot.get("events", []) or []:
+                if evt.get("id") == event_id:
+                    self._current_club_id = evt.get("club_id") or self._current_club_id
+                    break
 
         # Persist the pre-stage setup so my-progress reflects it for later calls.
         if event_id and self.api_client is not None:
