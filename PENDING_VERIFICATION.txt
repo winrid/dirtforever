@@ -1,0 +1,156 @@
+PENDING: Verify and re-align dispatcher stage order with the in-game UI
+========================================================================
+
+Status:    open
+Owner:     winrid
+Filed:     2026-05-18 (during the #15/#17/#18 thread)
+
+Background
+----------
+A user reported that the website's per-event stage list for the New
+Zealand monthly event (evt-8331c2ca, "Monthly #1 New Zealand Apr 2026")
+did not match the stage order shown in DiRT Rally 2.0's in-game UI.
+
+Their reported in-game order for that 6-stage event:
+
+    01 Te Awanga Forward
+    02 Waimarama Point Forward
+    03 Ocean Beach
+    04 Te Awanga Sprint Forward
+    05 Ocean Beach Sprint Forward
+    06 Ocean Beach Sprint Reverse
+
+Old web/server.py STAGES['New Zealand'] (what the site displayed):
+
+    01 Waimarama Point Forward
+    02 Te Awanga Forward
+    03 Waimarama Sprint Forward
+    04 Elsthorpe Sprint Forward
+    05 Ocean Beach Sprint Forward
+    06 Te Awanga Sprint Forward
+
+What we tried (and reverted)
+----------------------------
+PR #15 ("Align web STAGES with dispatcher track order") + PR #17
+("Resolve migration data paths via DATA_DIR") were merged on 2026-05-13
+and then fully reverted by PR #18 the same day. The reverted approach
+was to:
+
+  - derive web/server.py's STAGES from dr2server.game_data.Track via
+    get_tracks_for_location(), so the i-th entry per location matches
+    the TrackModelId the dispatcher assigns at stage_index=i
+    (dr2server/dispatcher.py:475 uses track_ids[si % len(track_ids)])
+  - add a parameterized pytest guard across all 12 rally locations
+    that fails if web's STAGES drifts from the canonical order
+  - ship scripts/migrate_stage_order.py to rewrite event JSONs and
+    per-entry stage times in web/data/events|results to the new
+    canonical order, with timestamped .bak files for reversibility
+
+That migration was never applied to production data. The local
+dev data dir (/home/winrid/dev/dirtforever/web/data) WAS migrated
+during development of #15 — backups are alongside as
+``*.bak.20260513-175647`` if a clean local state is wanted.
+
+Why it was reverted
+-------------------
+The derivation took dr2server/game_data.py's Track enum
+(TrackModelId -> display_name) as authoritative, but the user's
+in-game observation indicates that mapping is probably wrong in the
+New Zealand block starting at TrackModelId 594. The dispatcher's
+order for a 6-stage NZ event resolves to track IDs
+[570, 594, 595, 596, 597, 598] (enum-definition order, filtered by
+VERIFIED_TRACK_IDS), which doesn't include 571 (Waimarama Point
+Forward) — yet the game shows Waimarama Point Forward at S2.
+
+The most plausible explanation: TrackModelId 594 is actually
+"Waimarama Point Forward" in the game, not "Ocean Beach", and the
+whole NZ block from 594 onward is shifted by one position relative
+to what game_data.py claims. Working hypothesis:
+
+    | ID  | game_data.py says         | likely actual (game UI)        |
+    |-----|---------------------------|--------------------------------|
+    | 570 | Te Awanga Forward         | Te Awanga Forward (matches)    |
+    | 594 | Ocean Beach               | Waimarama Point Forward        |
+    | 595 | Te Awanga Sprint Forward  | Ocean Beach                    |
+    | 596 | Ocean Beach Sprint Fwd    | Te Awanga Sprint Forward       |
+    | 597 | Ocean Beach Sprint Rev    | Ocean Beach Sprint Forward     |
+    | 598 | Te Awanga Sprint Reverse  | Ocean Beach Sprint Reverse     |
+
+(Unverified — derived purely from the symptom. Other locations may
+have similar shifts.)
+
+The game_data.py docstring claims these names were OCR-verified
+in-game on 2026-04-11 against ``runtime/discovery/track_mapping.json``,
+but that file is not in the repo (checked: ``find . -name
+"track_mapping.json"`` returned nothing). So we have no second source
+of truth to cross-check.
+
+Steps to resume
+---------------
+1. Re-verify the TrackModelId -> display_name mapping in
+   dr2server/game_data.py against the live game UI. Options:
+   a. Recover or re-run the original discovery pipeline that
+      generated ``runtime/discovery/track_mapping.json`` (probe an
+      event with a specific TrackModelId, screenshot/OCR the Event
+      Details panel). See ``scripts/probe_loop.py``,
+      ``scripts/probe_header_loop.py``, ``scripts/locid_brute_force.py``,
+      ``scripts/gen_track_enum.py``, ``scripts/emit_new_tracks.py``
+      for tooling that already exists from prior rounds.
+   b. Lower-tech alternative: build a small known-good event for
+      each location, race through S1..SN, and transcribe the in-game
+      names against the dispatcher's known track_ids. The dispatcher
+      sends ``tracks_for_location(loc)[si]`` for stage si — so the
+      i-th in-game name observed is the true display_name for that
+      TrackModelId.
+   c. ``DR2_DISCOVERY_MODE=1`` env var bypasses the VERIFIED_TRACK_IDS
+      filter (api_client.py:126) and is intended for exactly this kind
+      of probe.
+
+2. Once corrected, re-do the work that was reverted:
+   - Re-introduce ``STAGES`` derivation in web/server.py from
+     ``get_tracks_for_location()``.
+   - Re-introduce ``tests/test_stage_canonical_order.py`` as a
+     standing guard (12 rally locations, parameterized).
+   - Re-introduce ``scripts/migrate_stage_order.py``. It honored
+     ``DATA_DIR`` (per #17) and writes ``*.bak.<timestamp>`` next to
+     every modified file. The version that was on the
+     fix/stage-canonical-order branch (commit aff70b9 on the reverted
+     branch) had the DATA_DIR fix already.
+
+3. Before running the migration on production data, verify the new
+   STAGES ordering against the in-game UI for at least the NZ
+   monthly event (evt-8331c2ca on prod). It must match S1..S6
+   exactly.
+
+Open PR / branch state
+----------------------
+- PR #15 (merged ca1f691, reverted by #18) — original alignment
+- PR #17 (merged a3e4096, reverted by #18) — DATA_DIR fix on migration
+- PR #18 (merged 10880ce) — the revert
+- No related branches remain; all three feature branches were deleted
+  on merge.
+
+Locations with zero verified tracks
+-----------------------------------
+``Monte Carlo`` had zero entries in VERIFIED_TRACK_IDS at the time of
+#15, so the dispatcher already cannot serve Monaco events to the game
+(api_client.py:130 filters them out, see dispatcher.py:466 ``if not
+track_ids: skip``). Any rework should either fix that gap or document
+it explicitly. Several other locations had partial verification
+counts (Finland 4/12, Greece 4/12, Sweden 4/12, Scotland 4/12).
+
+Key files / line refs (as of main @ 10880ce)
+--------------------------------------------
+- web/server.py:666 ``STAGES`` — hand-curated, currently does NOT
+  match dispatcher order (the original bug); leave alone until
+  step 1 above is done.
+- dr2server/game_data.py:154 ``Track`` enum — TrackModelId / display
+  name. Suspected source of the wrong mapping.
+- dr2server/game_data.py:1264 ``VERIFIED_TRACK_IDS`` — allow-list of
+  track IDs the dispatcher will serve.
+- dr2server/game_data.py:1285 ``get_tracks_for_location`` — returns
+  enum-definition-ordered list of verified TrackModelIds.
+- dr2server/api_client.py:128 ``_TRACKS_BY_LOCATION`` — parallel list
+  used by dispatcher, same ordering rule.
+- dr2server/dispatcher.py:465-490, 534-553 — where the dispatcher
+  assigns ``track_ids[si]`` to web ``stage_index=si``.
