@@ -874,7 +874,8 @@ def run_gui():
         row.pack(fill="x", padx=12, pady=1)
         tk.Checkbutton(
             row, variable=var,
-            bg=BG_CARD, activebackground=BG_CARD,
+            bg=BG_CARD, fg=TEXT,
+            activebackground=BG_CARD, activeforeground=TEXT,
             selectcolor=BG_ELEVATED, highlightthickness=0, bd=0,
         ).pack(side="left")
         tk.Label(row, text=STREAMING_FILES[key], font=(MONO_FONT, 9),
