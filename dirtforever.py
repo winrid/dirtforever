@@ -64,13 +64,18 @@ def _data_dir() -> Path:
 if IS_WIN:
     APPDATA = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
     DIRTFOREVER_DIR = APPDATA / "DirtForever"
-    HOSTS_FILE = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
+    _DEFAULT_HOSTS = Path(os.environ.get("WINDIR", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
     HOSTS_NEWLINE = "\r\n"
 else:
     _xdg = os.environ.get("XDG_CONFIG_HOME") or str(Path.home() / ".config")
     DIRTFOREVER_DIR = Path(_xdg) / "dirtforever"
-    HOSTS_FILE = Path("/etc/hosts")
+    _DEFAULT_HOSTS = Path("/etc/hosts")
     HOSTS_NEWLINE = "\n"
+
+# Env override is honored on all platforms — used by CI integration tests so
+# the elevation path can be exercised without touching the real system hosts
+# file. Also useful for local dry-run testing.
+HOSTS_FILE = Path(os.environ["DIRTFOREVER_HOSTS_FILE"]) if "DIRTFOREVER_HOSTS_FILE" in os.environ else _DEFAULT_HOSTS
 
 CONFIG_PATH = DIRTFOREVER_DIR / "config.json"
 CERTS_DIR = DIRTFOREVER_DIR / "certs"
@@ -118,6 +123,61 @@ def run_as_admin(args: list[str]) -> int:
     # Linux: pkexec runs the literal argv as root. First arg should be an executable.
     result = subprocess.run(["pkexec", *args], timeout=ELEVATION_TIMEOUT_SECONDS)
     return result.returncode
+
+
+def _self_invocation_args() -> list[str]:
+    """Argv that re-launches this same program (for elevated helper calls).
+
+    PyInstaller --onefile: sys.executable IS the app .exe, no script arg needed.
+    Source mode: sys.executable is python.exe, so we need to pass our .py path.
+    Critical: in PyInstaller mode the bootloader can't run a .py path passed as
+    argv — that's the bug that left Win11 (and Win10, silently) without hosts
+    configured, because the elevated child just re-opened the GUI instead of
+    running the helper script.
+    """
+    # _is_pyinstaller_bundle is defined later; inline the same check here.
+    if hasattr(sys, "_MEIPASS") or getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, str(Path(__file__).resolve())]
+
+
+def _windows_elevate_admin_helper(op: str, timeout: int = ELEVATION_TIMEOUT_SECONDS) -> int:
+    """Re-launch ourselves with `--admin-helper <op>` via UAC. Returns the
+    PowerShell exit code (NOT the elevated child's — Start-Process -Wait
+    doesn't surface that). Callers verify the side effect (hosts_configured)
+    rather than trusting the return code.
+    """
+    invocation = _self_invocation_args() + ["--admin-helper", op]
+    file_path = invocation[0]
+    arg_list = " ".join(f'"{a}"' for a in invocation[1:])
+    ps_cmd = (
+        f'Start-Process -FilePath "{file_path}" '
+        f"-ArgumentList '{arg_list}' -Verb RunAs -Wait"
+    )
+    result = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
+        capture_output=True,
+        timeout=timeout,
+    )
+    return result.returncode
+
+
+def _run_admin_helper(op: str) -> int:
+    """Entry point for the elevated subprocess. Performs the privileged
+    work (cert trust + hosts edits) and returns an exit code.
+    """
+    try:
+        if op == "start":
+            if IS_WIN and cert_exists():
+                install_cert_trust()
+            add_hosts()
+            return 0
+        if op == "stop":
+            remove_hosts()
+            return 0
+    except Exception:
+        return 2
+    return 1
 
 
 # ---------------------------------------------------------------------------
@@ -397,53 +457,9 @@ def save_config(config: dict) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Elevated helper-script content (Windows: invoked via PowerShell RunAs;
-# Linux: invoked via pkexec)
+# Elevated helper-script content (Linux: invoked via pkexec).
+# Windows uses the in-process `--admin-helper` re-launch path instead.
 # ---------------------------------------------------------------------------
-
-def _windows_admin_start_script() -> str:
-    """Helper Python script that installs the cert and writes the hosts block."""
-    return (
-        "import subprocess, sys\n"
-        f"r = subprocess.run(['certutil', '-addstore', 'Root', {str(CERT_PATH)!r}], capture_output=True)\n"
-        "print('cert:', 'ok' if r.returncode == 0 else 'fail')\n"
-        f"hosts = {str(HOSTS_FILE)!r}\n"
-        "try:\n"
-        "    content = open(hosts, encoding='utf-8').read()\n"
-        "except UnicodeDecodeError:\n"
-        "    content = open(hosts, encoding='latin-1').read()\n"
-        "lines, out, inside = content.splitlines(True), [], False\n"
-        "for l in lines:\n"
-        "    s = l.strip()\n"
-        f"    if s == {HOSTS_BEGIN!r}: inside = True; continue\n"
-        f"    if s == {HOSTS_END!r}: inside = False; continue\n"
-        "    if not inside: out.append(l)\n"
-        "cleaned = ''.join(out).rstrip('\\r\\n')\n"
-        f"block = '\\r\\n'.join([{HOSTS_BEGIN!r}] + "
-        f"[{SERVER_IP!r} + '\\t' + d for d in {REDIRECT_DOMAINS!r}] + "
-        f"[{HOSTS_END!r}])\n"
-        "new = (cleaned + '\\r\\n\\r\\n' + block + '\\r\\n') if cleaned else (block + '\\r\\n')\n"
-        "open(hosts, 'wb').write(new.encode('utf-8'))\n"
-        "print('hosts: ok')\n"
-    )
-
-
-def _windows_admin_stop_script() -> str:
-    return (
-        f"hosts = {str(HOSTS_FILE)!r}\n"
-        "try:\n"
-        "    content = open(hosts, encoding='utf-8').read()\n"
-        "except UnicodeDecodeError:\n"
-        "    content = open(hosts, encoding='latin-1').read()\n"
-        "lines, out, inside = content.splitlines(True), [], False\n"
-        "for l in lines:\n"
-        "    s = l.strip()\n"
-        f"    if s == {HOSTS_BEGIN!r}: inside = True; continue\n"
-        f"    if s == {HOSTS_END!r}: inside = False; continue\n"
-        "    if not inside: out.append(l)\n"
-        "open(hosts, 'wb').write(''.join(out).encode('utf-8'))\n"
-        "print('ok')\n"
-    )
 
 
 def _linux_admin_start_script(setcap_target: Path) -> str:
@@ -1049,20 +1065,11 @@ def run_gui():
                 elif IS_WIN:
                     if not hosts_configured():
                         root.after(0, lambda: log("Setting up hosts & cert trust (admin required)..."))
-                        helper = DIRTFOREVER_DIR / "_admin_start.py"
-                        helper.write_text(_windows_admin_start_script(), encoding="utf-8")
-                        exe = sys.executable
-                        ps_cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'"{helper}"\' -Verb RunAs -Wait'
                         try:
-                            subprocess.run(
-                                ["powershell", "-Command", ps_cmd],
-                                capture_output=True,
-                                timeout=ELEVATION_TIMEOUT_SECONDS,
-                            )
+                            _windows_elevate_admin_helper("start")
                         except subprocess.TimeoutExpired:
                             root.after(0, lambda: log(
                                 "WARNING: UAC prompt timed out after 5 minutes."))
-                        helper.unlink(missing_ok=True)
 
                         if hosts_configured():
                             root.after(0, lambda: log("Hosts configured, cert trusted."))
@@ -1163,32 +1170,28 @@ def run_gui():
 
             # Remove hosts (needs elevation)
             root.after(0, lambda: log("Removing hosts entries (admin required)..."))
-            helper = DIRTFOREVER_DIR / "_admin_stop.py"
             try:
                 if IS_WIN:
-                    helper.write_text(_windows_admin_stop_script(), encoding="utf-8")
-                    exe = sys.executable
-                    ps_cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'"{helper}"\' -Verb RunAs -Wait'
-                    subprocess.run(
-                        ["powershell", "-Command", ps_cmd], capture_output=True,
-                        timeout=ELEVATION_TIMEOUT_SECONDS,
-                    )
+                    _windows_elevate_admin_helper("stop")
                 else:
                     helper_python = _system_python_for_helper()
                     if helper_python is None:
                         root.after(0, lambda: log(
                             "WARNING: no python3 on PATH; cannot remove hosts entries."))
                     else:
+                        helper = DIRTFOREVER_DIR / "_admin_stop.py"
                         helper.write_text(_linux_admin_stop_script(), encoding="utf-8")
-                        subprocess.run(
-                            ["pkexec", str(helper_python), str(helper)],
-                            capture_output=True, text=True,
-                            timeout=ELEVATION_TIMEOUT_SECONDS,
-                        )
+                        try:
+                            subprocess.run(
+                                ["pkexec", str(helper_python), str(helper)],
+                                capture_output=True, text=True,
+                                timeout=ELEVATION_TIMEOUT_SECONDS,
+                            )
+                        finally:
+                            helper.unlink(missing_ok=True)
             except subprocess.TimeoutExpired:
                 root.after(0, lambda: log(
                     "WARNING: elevation prompt timed out after 5 minutes."))
-            helper.unlink(missing_ok=True)
 
             root.after(0, lambda: log("Stopped. Game will use RaceNet servers now."))
             root.after(0, lambda: set_status(False, "Hosts restored"))
@@ -1222,10 +1225,13 @@ def run_gui():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    # Handle admin helper subprocess calls
-    if len(sys.argv) == 2 and sys.argv[1].endswith(".py"):
-        # Being called as: python dirtforever.py _admin_start.py
-        # This shouldn't happen with current design, but guard against it
-        pass
+    # Elevated-helper entry: when re-launched via UAC/pkexec with
+    # `--admin-helper <op>`, do the privileged work and exit before
+    # importing/initializing any Tk machinery. The elevated child must
+    # never show a GUI — otherwise users see a phantom second window
+    # and the privileged work silently never happens (the original Win11
+    # symptom).
+    if len(sys.argv) >= 3 and sys.argv[1] == "--admin-helper":
+        sys.exit(_run_admin_helper(sys.argv[2]))
 
     run_gui()
