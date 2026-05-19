@@ -754,8 +754,17 @@ def run_gui():
         token_input_frame, textvariable=token_var, font=(MONO_FONT, 9),
         bg=BG, fg=TEXT, insertbackground=TEXT, relief="flat",
         highlightbackground=BORDER, highlightthickness=1,
+        show="•",
     )
     token_entry.pack(side="left", fill="x", expand=True, ipady=4)
+
+    def toggle_token_visibility():
+        if token_entry.cget("show") == "":
+            token_entry.configure(show="•")
+            show_btn.configure(text="Show")
+        else:
+            token_entry.configure(show="")
+            show_btn.configure(text="Hide")
 
     def save_token():
         t = token_var.get().strip()
@@ -789,6 +798,14 @@ def run_gui():
         command=save_token,
     )
     save_btn.pack(side="right", padx=(5, 0))
+
+    show_btn = tk.Button(
+        token_input_frame, text="Show", font=(UI_FONT, 8, "bold"),
+        bg=BG_ELEVATED, fg=TEXT, activebackground=BORDER, activeforeground=TEXT,
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=toggle_token_visibility,
+    )
+    show_btn.pack(side="right", padx=(5, 0))
 
     token_status_label = tk.Label(token_frame, text="", font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD)
     token_status_label.pack(anchor="w", padx=12, pady=(0, 6))
