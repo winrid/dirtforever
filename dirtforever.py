@@ -96,6 +96,85 @@ CONFIG_PATH = DIRTFOREVER_DIR / "config.json"
 CERTS_DIR = DIRTFOREVER_DIR / "certs"
 CERT_PATH = CERTS_DIR / "dr2server-cert.pem"
 KEY_PATH = CERTS_DIR / "dr2server-key.pem"
+LOG_PATH = DIRTFOREVER_DIR / "debug.log"
+CAPTURES_DIR = DIRTFOREVER_DIR / "captures"
+
+
+class _TeeStream:
+    """Forward writes to a file and (optionally) the original stream.
+
+    Used to redirect sys.stdout / sys.stderr inside the PyInstaller --windowed
+    build, where the original streams are None or point at NUL. The file is
+    line-buffered so a crash still leaves us with everything up to the last
+    newline.
+    """
+
+    def __init__(self, file_obj, original=None):
+        self._file = file_obj
+        self._original = original
+
+    def write(self, data: str) -> int:
+        try:
+            if self._original is not None:
+                self._original.write(data)
+        except Exception:
+            pass
+        try:
+            self._file.write(data)
+            self._file.flush()
+        except Exception:
+            pass
+        return len(data)
+
+    def flush(self) -> None:
+        for s in (self._original, self._file):
+            if s is None:
+                continue
+            try:
+                s.flush()
+            except Exception:
+                pass
+
+
+_LOG_FILE = None  # set by _setup_file_logging() so log() can tee into it
+
+
+def _setup_file_logging() -> None:
+    """Open debug.log and redirect stdout/stderr into it.
+
+    Called once at process start so PyInstaller --windowed builds (where
+    sys.stdout is None) still leave a debuggable trail on disk.
+    """
+    global _LOG_FILE
+    try:
+        DIRTFOREVER_DIR.mkdir(parents=True, exist_ok=True)
+        # Truncate per-launch so the file reflects the current session, not
+        # months of accumulated history. The previous run is rotated to
+        # debug.prev.log so we still have it if the user reports an issue
+        # after restarting.
+        if LOG_PATH.exists():
+            try:
+                prev = LOG_PATH.with_name(f"{LOG_PATH.stem}.prev{LOG_PATH.suffix}")
+                if prev.exists():
+                    prev.unlink()
+                LOG_PATH.rename(prev)
+            except OSError:
+                pass
+        _LOG_FILE = open(LOG_PATH, "w", encoding="utf-8", buffering=1)
+    except OSError:
+        _LOG_FILE = None
+        return
+
+    from datetime import datetime as _dt
+    header = (
+        f"=== DirtForever debug.log opened "
+        f"{_dt.now().isoformat(timespec='seconds')} ===\n"
+    )
+    _LOG_FILE.write(header)
+    _LOG_FILE.flush()
+
+    sys.stdout = _TeeStream(_LOG_FILE, original=sys.stdout)
+    sys.stderr = _TeeStream(_LOG_FILE, original=sys.stderr)
 
 REDIRECT_DOMAINS = [
     "prod.egonet.codemasters.com",
@@ -541,6 +620,9 @@ def run_gui():
     # Mutable holder so closures defined before the writer exists can still
     # reach it after server_worker() instantiates one.
     streaming_writer: dict = {"instance": None}
+    # Same trick for the dispatcher — we need to flip verbose_logging on
+    # the live instance when the user toggles the checkbox in the Logs tab.
+    dispatcher_holder: dict = {"instance": None}
 
     # Colors (matched to dirtforever.net web theme)
     BG = "#08080C"
@@ -644,8 +726,10 @@ def run_gui():
     notebook.pack(fill="both", expand=True)
     main_tab = tk.Frame(notebook, bg=BG)
     streaming_tab = tk.Frame(notebook, bg=BG)
+    advanced_tab = tk.Frame(notebook, bg=BG)
     notebook.add(main_tab, text="Main")
     notebook.add(streaming_tab, text="Streaming")
+    notebook.add(advanced_tab, text="Logs")
 
     # --- Header ---
     header = tk.Frame(main_tab, bg=BG)
@@ -744,6 +828,13 @@ def run_gui():
         log_text.insert("end", msg + "\n")
         log_text.see("end")
         log_text.configure(state="disabled")
+        if _LOG_FILE is not None:
+            try:
+                from datetime import datetime as _dt
+                _LOG_FILE.write(f"[GUI {_dt.now().strftime('%H:%M:%S')}] {msg}\n")
+                _LOG_FILE.flush()
+            except Exception:
+                pass
 
     # --- Buttons ---
     btn_frame = tk.Frame(main_tab, bg=BG)
@@ -960,6 +1051,79 @@ def run_gui():
     for _var in streaming_file_vars.values():
         _var.trace_add("write", _apply_streaming_state)
 
+    # --- Advanced tab ---
+    def _reveal_in_explorer(path: Path) -> None:
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if IS_WIN and path.is_file():
+                subprocess.Popen(["explorer", "/select,", str(path)])
+            elif IS_WIN:
+                path.mkdir(parents=True, exist_ok=True)
+                os.startfile(str(path))  # type: ignore[attr-defined]
+            else:
+                target = str(path if path.is_dir() else path.parent)
+                subprocess.Popen(["xdg-open", target])
+        except Exception as exc:
+            log(f"Could not open {path}: {exc}")
+
+    adv_header = tk.Frame(advanced_tab, bg=BG)
+    adv_header.pack(fill="x", padx=20, pady=(20, 5))
+    tk.Label(adv_header, text="Logs", font=(UI_FONT, 16, "bold"),
+             fg=ACCENT, bg=BG).pack(side="left")
+    tk.Label(adv_header, text="Diagnostic file locations", font=(UI_FONT, 9),
+             fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(5, 0))
+
+    def _path_card(parent, label: str, path: Path, button_text: str) -> None:
+        card = tk.Frame(parent, bg=BG_CARD,
+                        highlightbackground=BORDER, highlightthickness=1)
+        card.pack(fill="x", padx=20, pady=5)
+        tk.Label(card, text=label, font=(UI_FONT, 8, "bold"),
+                 fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
+        tk.Label(card, text=str(path), font=(MONO_FONT, 9),
+                 fg=TEXT, bg=BG_CARD, anchor="w", wraplength=380,
+                 justify="left").pack(anchor="w", fill="x", padx=12)
+        tk.Button(
+            card, text=button_text, font=(UI_FONT, 8, "bold"),
+            bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+            relief="flat", cursor="hand2", padx=10, pady=2,
+            command=lambda p=path: _reveal_in_explorer(p),
+        ).pack(anchor="w", padx=12, pady=(4, 8))
+
+    _path_card(advanced_tab, "DEBUG LOG", LOG_PATH, "Show in folder")
+    _path_card(advanced_tab, "CAPTURES DIR", CAPTURES_DIR, "Open folder")
+    _path_card(advanced_tab, "CONFIG", CONFIG_PATH, "Show in folder")
+
+    verbose_logging_var = tk.BooleanVar(
+        value=bool(config.get("verbose_logging", False)))
+    verbose_card = tk.Frame(advanced_tab, bg=BG_CARD,
+                            highlightbackground=BORDER, highlightthickness=1)
+    verbose_card.pack(fill="x", padx=20, pady=5)
+    tk.Checkbutton(
+        verbose_card,
+        text="Verbose logging (for support)",
+        variable=verbose_logging_var,
+        bg=BG_CARD, fg=TEXT, activebackground=BG_CARD, activeforeground=TEXT,
+        selectcolor=BG_ELEVATED, font=(UI_FONT, 10),
+        highlightthickness=0, bd=0, anchor="w",
+    ).pack(fill="x", padx=12, pady=(8, 2))
+    tk.Label(
+        verbose_card,
+        text=("Logs every streaming tick and dispatcher state change. "
+              "Leave off unless debugging."),
+        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=380,
+        justify="left", anchor="w",
+    ).pack(fill="x", padx=12, pady=(0, 8))
+
+    def _apply_verbose_logging(*_):
+        val = bool(verbose_logging_var.get())
+        config["verbose_logging"] = val
+        save_config(config)
+        disp = dispatcher_holder.get("instance")
+        if disp is not None:
+            disp.verbose_logging = val
+
+    verbose_logging_var.trace_add("write", _apply_verbose_logging)
+
     # --- Server control ---
     def set_status(running: bool, detail: str = ""):
         if running:
@@ -988,7 +1152,8 @@ def run_gui():
             sys.argv = [sys.argv[0],
                         "--ssl-cert", cert,
                         "--ssl-key", key,
-                        "--data-dir", data_root]
+                        "--data-dir", data_root,
+                        "--capture-dir", str(CAPTURES_DIR)]
             if api_url:
                 sys.argv += ["--api-url", api_url]
             if api_token:
@@ -1014,11 +1179,14 @@ def run_gui():
             )
             if api_client:
                 app.dispatcher.api_client = api_client
+            app.dispatcher.verbose_logging = bool(verbose_logging_var.get())
+            dispatcher_holder["instance"] = app.dispatcher
 
             from dr2server.streaming import StreamingWriter
             streaming_writer["instance"] = StreamingWriter(
                 app.dispatcher,
                 logger=lambda m: root.after(0, lambda msg=m: log(msg)),
+                verbose=lambda: bool(verbose_logging_var.get()),
             )
             streaming_writer["instance"].set_enabled(_enabled_files_set())
             if config.get("streaming_enabled", False):
@@ -1252,6 +1420,7 @@ def run_gui():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    _setup_file_logging()
     # Elevated-helper entry: when re-launched via UAC/pkexec with
     # `--admin-helper <op>`, do the privileged work and exit before
     # importing/initializing any Tk machinery. The elevated child must

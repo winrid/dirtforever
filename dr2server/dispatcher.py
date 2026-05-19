@@ -93,6 +93,10 @@ class RpcDispatcher:
     ) -> None:
         self.account_store = account_store
         self.api_client = api_client
+        # Toggle for diagnostic prints emitted alongside state transitions.
+        # The GUI sets this from config["verbose_logging"]; default off so
+        # released builds stay quiet unless a user opts in for support.
+        self.verbose_logging: bool = False
         # Maps numeric challenge_id -> web event_id string, populated when
         # clubs are fetched from the API.
         self._challenge_event_map: Dict[int, str] = {}
@@ -415,6 +419,9 @@ class RpcDispatcher:
 
         web_clubs = data.get("clubs", [])
         web_events = data.get("events", [])
+        if self.verbose_logging:
+            print(f"[STREAM] dispatcher: clubs_snapshot updated — "
+                  f"{len(web_clubs)} clubs, {len(web_events)} events")
 
         if not web_clubs and not web_events:
             return None
@@ -1636,6 +1643,11 @@ class RpcDispatcher:
                 if evt.get("id") == event_id:
                     self._current_club_id = evt.get("club_id") or self._current_club_id
                     break
+        if self.verbose_logging:
+            print(f"[STREAM] dispatcher: stage_begin set "
+                  f"event_id={self._current_event_id!r} "
+                  f"club_id={self._current_club_id!r} "
+                  f"vehicle_id={self._current_vehicle_id!r}")
 
         # Persist the pre-stage setup so my-progress reflects it for later calls.
         if event_id and self.api_client is not None:

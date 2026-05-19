@@ -79,9 +79,14 @@ class StreamingWriter:
         self,
         dispatcher: Any,
         logger: Optional[Callable[[str], None]] = None,
+        verbose: Optional[Callable[[], bool]] = None,
     ) -> None:
         self._dispatcher = dispatcher
         self._log = logger or (lambda m: print(m))
+        # Verbose-mode getter (called each tick). False -> per-tick state /
+        # skip-reason lines are suppressed; errors and lifecycle events
+        # always go through self._log.
+        self._verbose = verbose or (lambda: False)
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
@@ -92,6 +97,14 @@ class StreamingWriter:
         self._lb_cache_text: Optional[str] = None
         self._lb_cache_ts: float = 0.0
         self._lb_cache_event_id: Optional[str] = None
+
+    def _vlog(self, msg: str) -> None:
+        """Verbose log — only emits when the verbose flag is on."""
+        try:
+            if self._verbose():
+                self._log(msg)
+        except Exception:
+            pass
 
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
@@ -160,11 +173,19 @@ class StreamingWriter:
         self._log("[STREAM] writer stopped")
 
     def _loop(self) -> None:
+        self._vlog(
+            f"[STREAM] loop entered; interval={self._current_interval()}s "
+            f"dir={self._current_output_dir()} "
+            f"enabled={sorted(self._current_enabled())}"
+        )
+        tick_n = 0
         while not self._stop.is_set():
+            tick_n += 1
             try:
-                self._tick()
+                self._tick(tick_n)
             except Exception as exc:
-                self._log(f"[STREAM] tick error: {exc}")
+                import traceback
+                self._log(f"[STREAM] tick {tick_n} error: {exc}\n{traceback.format_exc()}")
             self._stop.wait(self._current_interval())
 
     def _maybe_fetch_leaderboard(self, event_id: str) -> Optional[str]:
@@ -196,14 +217,21 @@ class StreamingWriter:
         self._lb_cache_ts = now
         return self._lb_cache_text
 
-    def _tick(self) -> None:
+    def _tick(self, tick_n: int = 0) -> None:
         state = self._dispatcher.get_streaming_state()
         snapshot = state.get("clubs_snapshot")
         if not snapshot:
+            self._vlog(
+                f"[STREAM] tick {tick_n}: skip — no clubs_snapshot yet "
+                f"(event_id={state.get('event_id')!r} "
+                f"club_id={state.get('club_id')!r} "
+                f"vehicle_id={state.get('vehicle_id')!r})"
+            )
             return
 
         enabled = self._current_enabled()
         if not enabled:
+            self._vlog(f"[STREAM] tick {tick_n}: skip — no files enabled")
             return
 
         events_by_id: Dict[str, Dict[str, Any]] = {
@@ -218,6 +246,13 @@ class StreamingWriter:
         club_id = state.get("club_id") or (event.get("club_id") if event else None)
         club = clubs_by_id.get(club_id or "")
         vehicle_id = state.get("vehicle_id")
+
+        self._vlog(
+            f"[STREAM] tick {tick_n}: state event_id={event_id!r} "
+            f"club_id={club_id!r} vehicle_id={vehicle_id!r} "
+            f"snapshot_events={len(events_by_id)} snapshot_clubs={len(clubs_by_id)} "
+            f"event_found={event is not None} club_found={club is not None}"
+        )
 
         values: Dict[str, str] = {}
 
@@ -264,14 +299,30 @@ class StreamingWriter:
             self._log(f"[STREAM] mkdir {out_dir} failed: {exc}")
             return
 
+        if not values:
+            self._vlog(
+                f"[STREAM] tick {tick_n}: nothing to write — built no values "
+                f"(enabled={sorted(enabled)})"
+            )
+            return
+
+        wrote: List[str] = []
+        skipped_unchanged: List[str] = []
         for key, content in values.items():
             filename = FILES.get(key)
             if not filename:
                 continue
             if self._last_written.get(key) == content:
+                skipped_unchanged.append(key)
                 continue
             try:
                 _atomic_write(out_dir / filename, content)
                 self._last_written[key] = content
+                wrote.append(key)
             except OSError as exc:
                 self._log(f"[STREAM] write {filename} failed: {exc}")
+        if wrote or skipped_unchanged:
+            self._vlog(
+                f"[STREAM] tick {tick_n}: wrote={wrote} "
+                f"unchanged={skipped_unchanged} dir={out_dir}"
+            )
