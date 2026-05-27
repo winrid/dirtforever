@@ -2995,7 +2995,7 @@ def api_game_time_trial_submit() -> Response | tuple[Response, int]:
     data = request.get_json(silent=True) or {}
 
     try:
-        vclass = str(int(data['vehicle_class_id']))
+        vclass_int = int(data['vehicle_class_id'])
         track = str(int(data['track_model_id']))
         conditions = str(int(data['conditions_id']))
         category = str(int(data['category']))
@@ -3008,6 +3008,15 @@ def api_game_time_trial_submit() -> Response | tuple[Response, int]:
         ghost_data_b64 = str(data.get('ghost_data_b64', ''))
     except (KeyError, TypeError, ValueError) as exc:
         return _api_error(f'invalid payload: {exc}')
+
+    # Defense in depth: an older client sends 0 here when its dispatcher
+    # didn't see a prior GetLeaderboardId. Recover from the vehicle's class.
+    if vclass_int not in GAME_VEHICLE_CLASSES:
+        vehicle_meta = GAME_VEHICLES.get(vehicle_id)
+        if vehicle_meta is None:
+            return _api_error(f'unknown vehicle_id: {vehicle_id}')
+        vclass_int = vehicle_meta['class']
+    vclass = str(vclass_int)
 
     if stage_time_ms <= 0:
         return _api_error('stage_time_ms must be positive')

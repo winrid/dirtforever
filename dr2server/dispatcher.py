@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from .account_store import AccountStore
 from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
-from .game_data import Location, Track
+from .game_data import Location, Track, VEHICLES
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
     Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward,
@@ -1353,11 +1353,16 @@ class RpcDispatcher:
             ghost_b64 = str(ghost_raw)
 
         # VehicleClassId is not sent in PostTime — recover from the cached
-        # GetLeaderboardId call for this session.
+        # GetLeaderboardId call for this session, or fall back to the class
+        # baked into VehicleId. The cache is empty on a fresh dispatcher
+        # session (host restart, alternate code path that skips
+        # GetLeaderboardId), so without the vehicle fallback the time gets
+        # filed under vclass=0 and shows up as "Class 0" on the web board.
+        vclass = 0
         if self._last_tt_request is not None:
-            vclass, _track, _conditions, _category = self._last_tt_request
-        else:
-            vclass = 0
+            vclass = self._last_tt_request[0]
+        if vclass == 0 and vehicle_id in VEHICLES:
+            vclass = VEHICLES[vehicle_id]["class"]
 
         entry_id = secrets.token_hex(8)
 
