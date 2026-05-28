@@ -130,7 +130,7 @@
     }
   },
   "time_trials": {
-    "0_570_1_1.json": [
+    "73_570_1_1.json": [
       {
         "ghost_data_b64": "<GHOST_DATA len=83080>",
         "livery_id": 3291,
@@ -143,7 +143,7 @@
         "vehicle_id": 478
       }
     ],
-    "0_571_1_1.json": [
+    "73_571_1_1.json": [
       {
         "ghost_data_b64": "<GHOST_DATA len=89216>",
         "livery_id": 3291,
