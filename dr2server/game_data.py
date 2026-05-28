@@ -1116,6 +1116,30 @@ def stage_conditions_label(value: int) -> str:
     return STAGE_CONDITIONS_LABELS.get(int(value), f"Conditions #{int(value)}")
 
 
+# Maps the web club-event "conditions" dropdown labels (see web/server.py
+# CONDITIONS) onto verified StageConditions ints from STAGE_CONDITIONS_LABELS.
+# The game treats StageConditions as the authoritative weather/time/surface
+# index, so passing the right int is all that's needed; every value here is
+# from the in-game-verified table, so none risk the crash-on-invalid-ID issue.
+WEB_CONDITIONS_TO_STAGE_CONDITIONS: Dict[str, int] = {
+    "Clear":      1,   # Daytime / Clear / Dry
+    "Overcast":   38,  # Daytime / Overcast / Dry
+    "Light Rain": 26,  # Daytime / Showers / Wet
+    "Heavy Rain": 9,   # Daytime / Heavy Rain / Wet
+    "Dusk":       4,   # Dusk / Cloudy / Dry
+    "Night":      3,   # Night / Clear / Dry
+}
+
+
+def stage_conditions_for_web(label: str) -> int:
+    """Resolve a web conditions label to a verified StageConditions int.
+
+    Unknown labels fall back to 1 (Daytime / Clear / Dry), which is the same
+    default the game would otherwise load.
+    """
+    return WEB_CONDITIONS_TO_STAGE_CONDITIONS.get(label, 1)
+
+
 # StageConditions integer values observed in the wild (upstream club data +
 # time-trial captures).  Kept as a sorted list for UI dropdowns.
 OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
