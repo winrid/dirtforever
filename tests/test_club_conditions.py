@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dr2server.game_data import (
     STAGE_CONDITIONS_LABELS,
-    WEB_CONDITIONS_TO_STAGE_CONDITIONS,
+    WEB_CONDITIONS_TO_STAGE_LABEL,
     stage_conditions_for_web,
 )
 
@@ -18,18 +18,20 @@ WEB_CONDITIONS = ["Clear", "Overcast", "Light Rain", "Heavy Rain", "Dusk", "Nigh
 
 def test_every_web_condition_is_mapped() -> None:
     for label in WEB_CONDITIONS:
-        assert label in WEB_CONDITIONS_TO_STAGE_CONDITIONS, (
+        assert label in WEB_CONDITIONS_TO_STAGE_LABEL, (
             f"web condition {label!r} has no StageConditions mapping"
         )
 
 
-def test_mapped_values_are_all_verified() -> None:
-    # Unverified StageConditions ints can crash the game client, so every
-    # mapped value must come from the in-game-verified label table.
-    for label, sc in WEB_CONDITIONS_TO_STAGE_CONDITIONS.items():
-        assert sc in STAGE_CONDITIONS_LABELS, (
-            f"{label!r} -> {sc} is not a verified StageConditions value"
+def test_mapped_labels_are_all_verified() -> None:
+    # Unverified StageConditions can crash the game client, so every target
+    # label must exist in the in-game-verified table (and thus resolve to an id).
+    verified_labels = set(STAGE_CONDITIONS_LABELS.values())
+    for web_label, stage_label in WEB_CONDITIONS_TO_STAGE_LABEL.items():
+        assert stage_label in verified_labels, (
+            f"{web_label!r} -> {stage_label!r} is not a verified StageConditions label"
         )
+        assert stage_conditions_for_web(web_label) in STAGE_CONDITIONS_LABELS
 
 
 def test_wet_conditions_map_to_wet() -> None:
