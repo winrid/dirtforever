@@ -1166,6 +1166,17 @@ class TimeTrialCategory(IntEnum):
         return self.label
 
 
+def time_trial_category_label(value: int) -> str:
+    """Human-readable label for a TimeTrial Category id.
+
+    Falls back to ``"Category N"`` for ids outside the known enum.
+    """
+    try:
+        return TimeTrialCategory(int(value)).label
+    except ValueError:
+        return f"Category {int(value)}"
+
+
 # ---------------------------------------------------------------------------
 # Race status codes (from StageComplete.RaceStatus)
 # ---------------------------------------------------------------------------
