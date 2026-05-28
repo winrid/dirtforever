@@ -132,6 +132,7 @@
   "time_trials": {
     "73_570_1_1.json": [
       {
+        "category": 1,
         "ghost_data_b64": "<GHOST_DATA len=83080>",
         "livery_id": 3291,
         "nationality_id": 2,
@@ -145,6 +146,7 @@
     ],
     "73_571_1_1.json": [
       {
+        "category": 1,
         "ghost_data_b64": "<GHOST_DATA len=89216>",
         "livery_id": 3291,
         "nationality_id": 2,
