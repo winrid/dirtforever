@@ -80,6 +80,9 @@ SMTP_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'true').lower() == 'true'
 MAIL_FROM = os.environ.get('DEFAULT_FROM_EMAIL', 'noreply@dirtforever.com')
 SITE_URL = os.environ.get('SITE_URL', 'http://localhost:5001')
 CRON_API_KEY = os.environ.get('CRON_API_KEY', '')
+# Donations: the hosted PayPal Donate button id is rendered into the donate
+# page; the PayPal client/webhook creds live in paypal.py (read from env there).
+PAYPAL_DONATE_BUTTON_ID = os.environ.get('PAYPAL_DONATE_BUTTON_ID', '')
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR   = os.environ.get('DATA_DIR', os.path.join(BASE, 'data'))
@@ -1054,6 +1057,8 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
 
 
 def seed_data() -> None:
+    from donations import ensure_store  # self-contained module; safe to import here
+    ensure_store()
     if os.listdir(USERS_DIR):
         return
     users = _seed_users()
@@ -2480,6 +2485,57 @@ def about() -> str:
 @app.route('/streaming')
 def streaming() -> str:
     return render_template('streaming.html')
+
+
+# ── Donations ────────────────────────────────────────────
+# /donate renders the progress page; /api/donations/status feeds both the
+# page's live refresh and the desktop app's "Budget Coverage" footer bar;
+# /api/paypal/webhook is the (verified) PayPal endpoint that updates the total.
+
+@app.route('/donate')
+def donate() -> str:
+    from donations import get_status
+    return render_template(
+        'donate.html',
+        status=get_status(datetime.utcnow()),
+        donate_button_id=PAYPAL_DONATE_BUTTON_ID,
+    )
+
+
+@app.route('/api/donations/status')
+def api_donations_status() -> Response:
+    from donations import get_status
+    return jsonify(get_status(datetime.utcnow()))
+
+
+@app.route('/api/paypal/webhook', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+def api_paypal_webhook() -> Response:
+    import paypal
+    from donations import record_donation
+
+    raw = request.get_data()
+    if len(raw) > 1_000_000:  # PayPal events are a few KB; cap defensively.
+        return _api_error('payload too large', 413)  # type: ignore[return-value]
+
+    headers = {k.lower(): v for k, v in request.headers.items()}
+    if not paypal.verify_webhook_signature(headers, raw):
+        # Reject anything we can't prove came from PayPal — a forged POST must
+        # not be able to inflate the donation total.
+        return _api_error('verification failed', 400)  # type: ignore[return-value]
+
+    try:
+        event = json.loads(raw.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return _api_error('bad json', 400)  # type: ignore[return-value]
+
+    donation = paypal.extract_donation(event)
+    if donation is not None:
+        txn_id, cents = donation
+        record_donation(txn_id, cents, datetime.utcnow())
+    # Always 200 on a verified event (even non-donation types) so PayPal stops
+    # retrying a delivery we've already accepted.
+    return jsonify({'ok': True})
 
 
 # ── Error pages ──────────────────────────────────────────

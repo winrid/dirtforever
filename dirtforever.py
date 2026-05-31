@@ -187,6 +187,7 @@ HOSTS_BEGIN = "# BEGIN DIRTFOREVER"
 HOSTS_END = "# END DIRTFOREVER"
 SERVER_IP = "127.0.0.1"
 DASHBOARD_URL = "https://dirtforever.net/dashboard"
+DONATE_URL = "https://dirtforever.net/donate"
 API_URL = "https://dirtforever.net"
 
 
@@ -910,10 +911,79 @@ def run_gui():
     footer = tk.Frame(main_tab, bg=BG)
     footer.pack(fill="x", padx=20, pady=(0, 12))
 
-    dash_link = tk.Label(footer, text="dirtforever.net/dashboard", font=(UI_FONT, 8, "underline"),
+    # Budget coverage meter — a small fuel gauge of monthly donations vs goal,
+    # fetched from the web API in a background thread. Stays hidden until data
+    # arrives so a server outage never shows a broken bar. Click → donate page.
+    budget_frame = tk.Frame(footer, bg=BG, cursor="hand2")
+    budget_top = tk.Frame(budget_frame, bg=BG)
+    budget_top.pack(fill="x")
+    tk.Label(budget_top, text="BUDGET COVERAGE", font=(UI_FONT, 7, "bold"),
+             fg=MUTED, bg=BG).pack(side="left")
+    budget_amount = tk.Label(budget_top, text="", font=(MONO_FONT, 8, "bold"),
+                             fg=ACCENT_BRIGHT, bg=BG)
+    budget_amount.pack(side="right")
+
+    BUDGET_BAR_H = 10
+    budget_canvas = tk.Canvas(budget_frame, height=BUDGET_BAR_H, bg=BG_ELEVATED,
+                              highlightthickness=1, highlightbackground=BORDER, bd=0)
+    budget_canvas.pack(fill="x", pady=(3, 0))
+
+    dash_row = tk.Frame(footer, bg=BG)
+    dash_row.pack(fill="x")
+    dash_link = tk.Label(dash_row, text="dirtforever.net/dashboard", font=(UI_FONT, 8, "underline"),
                          fg=ACCENT, bg=BG, cursor="hand2")
     dash_link.pack(side="right")
     dash_link.bind("<Button-1>", lambda e: webbrowser.open(DASHBOARD_URL))
+
+    _budget_state = {"pct": 0}
+
+    def _open_donate(_e=None):
+        webbrowser.open(DONATE_URL)
+
+    for _w in (budget_frame, budget_top, budget_amount, budget_canvas):
+        _w.bind("<Button-1>", _open_donate)
+
+    def _draw_budget_bar(_e=None):
+        budget_canvas.delete("fill")
+        w = budget_canvas.winfo_width()
+        if w <= 1:
+            return  # not laid out yet; <Configure> will call us again
+        pct = _budget_state["pct"]
+        fill_w = int(w * max(0, min(100, pct)) / 100)
+        if fill_w > 0:
+            color = GREEN if pct >= 100 else ACCENT
+            budget_canvas.create_rectangle(0, 0, fill_w, BUDGET_BAR_H,
+                                           fill=color, width=0, tags="fill")
+
+    budget_canvas.bind("<Configure>", _draw_budget_bar)
+
+    def _show_budget(pct, raised_dollars, goal_dollars):
+        _budget_state["pct"] = pct
+        budget_amount.configure(text=f"${raised_dollars} / ${goal_dollars} /mo")
+        if not budget_frame.winfo_ismapped():
+            budget_frame.pack(fill="x", pady=(0, 6), before=dash_row)
+        _draw_budget_bar()
+
+    def _fetch_budget():
+        import urllib.request
+        try:
+            api = config.get("api_url", API_URL).rstrip("/")
+            req = urllib.request.Request(
+                f"{api}/api/donations/status",
+                headers={"Accept": "application/json", "User-Agent": "DirtForever"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+            goal = int(data.get("goal_cents", 0)) // 100
+            if goal <= 0:
+                return
+            pct = int(data.get("percent", 0))
+            raised = int(data.get("raised_cents", 0)) // 100
+            root.after(0, lambda: _show_budget(pct, raised, goal))
+        except Exception:
+            pass  # best-effort — the donations meter is non-critical
+
+    threading.Thread(target=_fetch_budget, daemon=True).start()
 
     # --- Streaming tab ---
     OVERLAY_DIR = Path.home() / "dirtforever"
