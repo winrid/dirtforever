@@ -644,6 +644,52 @@ _VEHICLE_CLASS_LABELS: Dict[VehicleClass, str] = {
 
 
 # ---------------------------------------------------------------------------
+# Canonical car-class label resolution
+# ---------------------------------------------------------------------------
+#
+# Single source of truth shared by the web UI (event creation + validation)
+# and the game server (challenge building), so the set of resolvable labels
+# can never drift from the confirmed IDs.
+
+# Every VehicleClass member is confirmed in-game.  An ID outside this set — or
+# a missing/empty Requirement — crashes the game client, so callers must never
+# emit one.
+CONFIRMED_VEHICLE_CLASS_IDS: frozenset = frozenset(int(vc) for vc in VehicleClass)
+
+# label (lower-cased) -> confirmed VehicleClassId.  Seeded from the enum labels,
+# then extended with alternate spellings used by the web UI / seed data.  Each
+# alias is an exact synonym for a confirmed class — NOT a fallback.
+_VCLASS_LABEL_TO_ID: Dict[str, int] = {vc.label.lower(): int(vc) for vc in VehicleClass}
+_VCLASS_LABEL_TO_ID.update({
+    "h1 (fwd)":           int(VehicleClass.H1_FWD),
+    "h2 (fwd)":           int(VehicleClass.H2_FWD),
+    "h2 (rwd)":           int(VehicleClass.H2_RWD),
+    "h3 (rwd)":           int(VehicleClass.H3_RWD),
+    "group b (4wd)":      int(VehicleClass.GROUP_B_4WD),
+    "group b (awd)":      int(VehicleClass.GROUP_B_4WD),
+    "group b (rwd)":      int(VehicleClass.GROUP_B_RWD),
+    "group b rallycross": int(VehicleClass.GROUP_B_RX),
+    "f2 kit cars":        int(VehicleClass.F2_KIT_CAR),
+    "rally gt":           int(VehicleClass.NR4_R4),  # no confirmed Rally GT ID
+    "2000cc":             int(VehicleClass.CC_4WD),  # web UI label for 2000cc 4WD
+    "2000cc 4wd":         int(VehicleClass.CC_4WD),
+    "4wd <= 2000cc":      int(VehicleClass.CC_4WD),
+    "cross kart":         int(VehicleClass.CROSS_KART),
+})
+
+
+def vehicle_class_id_for_label(label: str) -> Optional[int]:
+    """Resolve a car-class label to a confirmed VehicleClassId, or None.
+
+    Returns None when the label doesn't correspond to a class the game client
+    can enforce.  Callers MUST treat None as "do not serve this event" — never
+    substitute a default class, since that would silently change the event's
+    rules and an invalid/empty requirement crashes the game.
+    """
+    return _VCLASS_LABEL_TO_ID.get(label.strip().lower())
+
+
+# ---------------------------------------------------------------------------
 # Vehicles — VehicleId maps to car metadata
 # ---------------------------------------------------------------------------
 

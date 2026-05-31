@@ -124,6 +124,36 @@
         }
     }
 
+    /* ── Create-event form: cap stages to what the game can deliver ── */
+
+    function setupEventForm() {
+        var loc = document.getElementById('ev_location');
+        var stages = document.getElementById('ev_num_stages');
+        if (!loc || !stages) return;
+
+        var caps;
+        try { caps = JSON.parse(loc.getAttribute('data-stage-caps') || '{}'); }
+        catch (e) { caps = {}; }
+
+        var hint = document.getElementById('ev_stage_hint');
+
+        function applyCap() {
+            var cap = caps[loc.value];
+            if (!cap) { stages.removeAttribute('max'); if (hint) hint.textContent = 'Select a location to set the stage limit.'; return; }
+            stages.max = cap;
+            stages.min = 1;
+            var val = parseInt(stages.value, 10);
+            if (isNaN(val) || val < 1) stages.value = 1;
+            else if (val > cap) stages.value = cap;
+            if (hint) hint.textContent = cap === 1
+                ? 'This location has 1 stage.'
+                : 'This location supports up to ' + cap + ' stages.';
+        }
+
+        loc.addEventListener('change', applyCap);
+        applyCap();
+    }
+
     /* ── Init ───────────────────────────────────────── */
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -132,5 +162,6 @@
         setupNav();
         setupFlash();
         setupDonate();
+        setupEventForm();
     });
 })();
