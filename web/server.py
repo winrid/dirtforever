@@ -696,20 +696,23 @@ RX_LOCATIONS: frozenset[str] = frozenset(
     loc.display_name for loc in Location if loc.discipline == 'rallycross'
 )
 
-# Max distinct stages the game can actually deliver for a location.  The game
-# server only serves *verified* track routes, and assigns one per stage; asking
-# for more than it has just repeats routes.  Cap event creation at the verified
-# count so events never contain duplicate stages.  Locations with no verified
-# tracks (e.g. rallycross circuits, Monte Carlo) are not blocked — they keep
-# their full enum count here — but such events won't appear in-game until their
-# routes are verified.
-STAGE_CAPS: dict[str, int] = {
-    loc.display_name: (
-        len(get_tracks_for_location(int(loc)))
-        or len(STAGES[loc.display_name])
-    )
+# Number of *verified* track routes the game can actually deliver per location.
+# 0 means no in-game routes are confirmed yet (e.g. rallycross circuits, Monte
+# Carlo); such events won't appear in-game until their routes are verified.
+VERIFIED_STAGE_COUNTS: dict[str, int] = {
+    loc.display_name: len(get_tracks_for_location(int(loc)))
     for loc in Location
     if loc.display_name in STAGES
+}
+
+# Max distinct stages the create-event form allows.  The game assigns one
+# verified route per stage; asking for more just repeats routes, so cap at the
+# verified count.  Locations with no verified tracks are NOT blocked from the
+# form — they fall back to their full enum count (the event simply won't appear
+# in-game until routes are verified).
+STAGE_CAPS: dict[str, int] = {
+    name: (count or len(STAGES[name]))
+    for name, count in VERIFIED_STAGE_COUNTS.items()
 }
 
 CAR_CLASSES = {

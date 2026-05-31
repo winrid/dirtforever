@@ -28,6 +28,7 @@ from server import (
     CAR_CLASSES,
     CONDITIONS,
     LOCATION_SURFACE,
+    VERIFIED_STAGE_COUNTS,
 )
 
 VARIANTS = 3                 # mirrors DR2 Standard / Bonus / D+
@@ -126,7 +127,14 @@ def generate_event(
     """
     rng = _rng_for(slot_id)
 
-    loc_pool = sorted(l for l in STAGES if l not in used_locations)
+    # Only roll locations the game can actually deliver in-game (verified track
+    # routes).  Official events must always be playable, so unverified locations
+    # (rallycross circuits, Monte Carlo) are excluded entirely — unlike the
+    # create-event form, which leaves them selectable.
+    loc_pool = sorted(
+        l for l in STAGES
+        if l not in used_locations and VERIFIED_STAGE_COUNTS.get(l, 0) > 0
+    )
     cls_pool = sorted(c for c in CAR_CLASSES if c not in used_classes)
     location = rng.choice(loc_pool)
     car_class = rng.choice(cls_pool)
@@ -134,11 +142,15 @@ def generate_event(
     surface = LOCATION_SURFACE.get(location, 'Gravel')
 
     location_stages = STAGES[location]
+    # Cap at the verified-route count so the rally never contains duplicate
+    # stages (the game assigns one verified route per stage, wrapping if asked
+    # for more).  Monthly = full (verified) rally; daily/weekly are shorter.
+    verified_cap = VERIFIED_STAGE_COUNTS.get(location, len(location_stages))
     if event_type == 'monthly':
-        picked = list(location_stages)
+        k = verified_cap
     else:
-        k = min(STAGES_PER_TYPE[event_type], len(location_stages))
-        picked = rng.sample(location_stages, k)
+        k = min(STAGES_PER_TYPE[event_type], verified_cap)
+    picked = rng.sample(location_stages, min(k, len(location_stages)))
 
     stage_list = [
         {'name': name, 'distance_km': dist, 'conditions': conditions}
