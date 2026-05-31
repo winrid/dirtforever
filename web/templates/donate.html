@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block title %}Support DirtForever - Fuel the Servers{% endblock %}
+
+{% block content %}
+<section class="page-header donate-hero">
+    <div class="container page-header-content">
+        <div class="page-header-badges">
+            <span class="hdr-badge">&#9883; KEEP THE LIGHTS ON</span>
+        </div>
+        <h1 class="page-title">FUEL THE <span class="accent">SERVERS</span></h1>
+        <p class="page-subtitle">DirtForever is free and open source. Donations cover the hosting,
+            domain, and bandwidth that keep the clubs and leaderboards online.</p>
+    </div>
+</section>
+
+<div class="container donate-wrap">
+
+    <!-- ── Fuel gauge ─────────────────────────────────── -->
+    <section class="fuel-card" aria-label="Monthly budget coverage">
+        <div class="fuel-head">
+            <span class="fuel-kicker">BUDGET COVERAGE &middot; THIS MONTH</span>
+            <span class="fuel-pct mono" id="fuelPct" data-pct-target="{{ status.percent }}">0%</span>
+        </div>
+
+        <div class="fuel-readout">
+            <span class="fuel-raised" id="fuelRaised" data-cents="{{ status.raised_cents }}">${{ status.raised_cents // 100 }}</span>
+            <span class="fuel-goal">/ ${{ status.goal_cents // 100 }}<span class="fuel-permo">/mo</span></span>
+        </div>
+
+        <div class="fuel-gauge">
+            <div class="fuel-fill" id="fuelFill" data-percent="{{ status.percent }}" style="width:0%"></div>
+            <div class="fuel-ticks" aria-hidden="true">
+                {% for i in range(11) %}<span class="fuel-tick{% if i in [0, 5, 10] %} major{% endif %}"></span>{% endfor %}
+            </div>
+        </div>
+        <div class="fuel-ends" aria-hidden="true">
+            <span>E</span>
+            <span>F</span>
+        </div>
+    </section>
+
+    <!-- ── Donate + direct fallback ───────────────────── -->
+    <section class="donate-grid">
+        <div class="donate-action card-pad">
+            <h2 class="donate-h2">Chip in via PayPal</h2>
+            <p class="donate-blurb">Any amount helps &mdash; one-time, takes a minute.</p>
+
+            <div id="paypalDonate" class="paypal-mount"{% if donate_button_id %} data-button-id="{{ donate_button_id }}"{% endif %}></div>
+
+            <!-- Always-present fallback so the page works without JS / without a button id. -->
+            <div class="donate-direct">
+                <p class="donate-direct-label">Prefer to send directly? PayPal to:</p>
+                <div class="donate-email-wrap">
+                    <button class="btn btn-primary btn-sm donate-reveal" id="donateReveal"
+                        data-a="d2lucmlk" data-b="K3BheXBhbA==" data-c="QGdtYWlsLmNvbQ==">
+                        Click to Show Email
+                    </button>
+                    <span class="donate-email mono" id="donateEmail"></span>
+                </div>
+            </div>
+
+            <p class="donate-thanks">Thank you for keeping the community online.</p>
+        </div>
+
+        <div class="donate-where card-pad">
+            <h2 class="donate-h2">Where it goes</h2>
+            <ul class="where-list">
+                <li>
+                    <span class="where-ico">&#128268;</span>
+                    <div><strong>Server hosting</strong><span>Game + web servers running 24/7</span></div>
+                </li>
+                <li>
+                    <span class="where-ico">&#127760;</span>
+                    <div><strong>Domain &amp; bandwidth</strong><span>dirtforever.net + leaderboard traffic</span></div>
+                </li>
+                <li>
+                    <span class="where-ico">&#128295;</span>
+                    <div><strong>Upkeep</strong><span>Backups, monitoring, fresh events</span></div>
+                </li>
+            </ul>
+            <p class="where-note">100% community-funded. No ads, no paywalls, no DLC gates. Ever.</p>
+        </div>
+    </section>
+
+    <!-- ── Monthly history ────────────────────────────── -->
+    {% if status.history %}
+    <section class="donate-history">
+        <h2 class="section-title"><span class="accent">//</span> Coverage History</h2>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>Month</th>
+                    <th>Raised</th>
+                    <th>Goal</th>
+                    <th class="hist-cov-h">Coverage</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for m in status.history %}
+                <tr>
+                    <td class="hist-month mono">{{ m.month }}</td>
+                    <td class="hist-raised mono">${{ m.raised_cents // 100 }}</td>
+                    <td class="hist-goal mono">${{ m.goal_cents // 100 }}</td>
+                    <td class="hist-cov">
+                        <span class="hist-bar"><span class="hist-bar-fill{% if m.percent >= 100 %} full{% endif %}" style="width:{{ m.percent }}%"></span></span>
+                        <span class="hist-pct mono">{{ m.percent }}%</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+</div>
+
+<div class="donate-toast" id="donateToast" role="status" aria-live="polite">
+    <span class="donate-toast-ico">&#10003;</span>
+    <span class="donate-toast-text">Thanks! Updating the gauge&hellip;</span>
+</div>
+{% endblock %}
