@@ -26,7 +26,10 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
-from .game_data import Location, Track, VehicleClass, VERIFIED_TRACK_IDS
+from .game_data import (
+    Location, Track, VERIFIED_TRACK_IDS,
+    vehicle_class_id_for_label,
+)
 
 log = logging.getLogger(__name__)
 
@@ -85,32 +88,13 @@ def _location_id_for(name: str) -> Optional[int]:
     return _LOCATION_BY_NAME.get(name.strip().lower())
 
 
-# vehicle class label (case-insensitive) -> VehicleClass int ID
-_VCLASS_BY_LABEL: Dict[str, int] = {}
-for _vc in VehicleClass:
-    _VCLASS_BY_LABEL[_vc.label.lower()] = int(_vc)
-# Normalisation aliases so web UI names (with various formats) match game IDs
-_EXTRA_VCLASS_ALIASES: Dict[str, int] = {
-    "h1 (fwd)":       int(VehicleClass.H1_FWD),
-    "h2 (fwd)":       int(VehicleClass.H2_FWD),
-    "h2 (rwd)":       int(VehicleClass.H2_RWD),
-    "h3 (rwd)":       int(VehicleClass.H3_RWD),
-    "group b (4wd)":  int(VehicleClass.GROUP_B_4WD),
-    "group b (awd)":  int(VehicleClass.GROUP_B_4WD),
-    "group b (rwd)":  int(VehicleClass.GROUP_B_RWD),
-    "group b rallycross": int(VehicleClass.GROUP_B_RX),
-    "f2 kit cars":    int(VehicleClass.F2_KIT_CAR),
-    "rally gt":       int(VehicleClass.NR4_R4),  # no confirmed Rally GT ID
-    "2000cc 4wd":     int(VehicleClass.CC_4WD),
-    "4wd <= 2000cc":  int(VehicleClass.CC_4WD),
-    "cross kart":     int(VehicleClass.CROSS_KART),
-}
-_VCLASS_BY_LABEL.update(_EXTRA_VCLASS_ALIASES)
-
-
 def _vclass_id_for(label: str) -> Optional[int]:
-    """Return the integer VehicleClassId for a car-class label, or None."""
-    return _VCLASS_BY_LABEL.get(label.strip().lower())
+    """Return the integer VehicleClassId for a car-class label, or None.
+
+    Delegates to the canonical resolver in game_data so the web UI and the
+    game server stay in lock-step (single source of truth).
+    """
+    return vehicle_class_id_for_label(label)
 
 
 # location ID -> list[int] of VERIFIED Track IDs for that location.

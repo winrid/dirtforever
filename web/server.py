@@ -47,6 +47,9 @@ from dr2server.game_data import (  # noqa: E402
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
     VEHICLES as GAME_VEHICLES,
     stage_conditions_label,
+    get_tracks_for_location,
+    vehicle_class_id_for_label,
+    CONFIRMED_VEHICLE_CLASS_IDS,
 )
 
 
@@ -692,6 +695,22 @@ STAGES: dict[str, list[tuple[str, float]]] = {
 RX_LOCATIONS: frozenset[str] = frozenset(
     loc.display_name for loc in Location if loc.discipline == 'rallycross'
 )
+
+# Max distinct stages the game can actually deliver for a location.  The game
+# server only serves *verified* track routes, and assigns one per stage; asking
+# for more than it has just repeats routes.  Cap event creation at the verified
+# count so events never contain duplicate stages.  Locations with no verified
+# tracks (e.g. rallycross circuits, Monte Carlo) are not blocked — they keep
+# their full enum count here — but such events won't appear in-game until their
+# routes are verified.
+STAGE_CAPS: dict[str, int] = {
+    loc.display_name: (
+        len(get_tracks_for_location(int(loc)))
+        or len(STAGES[loc.display_name])
+    )
+    for loc in Location
+    if loc.display_name in STAGES
+}
 
 CAR_CLASSES = {
     'Group A': [
@@ -1696,6 +1715,7 @@ def club_detail(club_id: str) -> str:
         rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
         rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+        stage_caps=STAGE_CAPS,
         active_event_exists=active_event_exists,
         is_owner=user_is_owner(club, uname),
         is_member=user_is_member(club, uname),
@@ -2312,13 +2332,17 @@ def create_club_event(club_id: str) -> Response:
         errors.append('Event name must be under 60 characters.')
     if location not in STAGES:
         errors.append('Invalid location.')
-    if car_class not in CAR_CLASSES:
-        errors.append('Invalid vehicle class.')
+    # The class must map to a confirmed game vehicle class, otherwise the game
+    # server can't build a valid challenge and would have to drop the event.
+    vclass_id = vehicle_class_id_for_label(car_class)
+    if car_class not in CAR_CLASSES or vclass_id is None \
+            or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+        errors.append('Invalid or unsupported vehicle class.')
     if cond not in CONDITIONS:
         errors.append('Invalid conditions.')
     if duration not in DURATION_OPTIONS:
         errors.append('Invalid duration.')
-    available = len(STAGES.get(location, []))
+    available = STAGE_CAPS.get(location, len(STAGES.get(location, [])))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
     active_events = [e for e in get_all_events() if e.get('club_id') == club_id and event_is_active(e)]
@@ -2585,9 +2609,12 @@ def api_game_clubs() -> Response:
         return jsonify({'ok': True, 'clubs': [], 'events': []})
     # Events still need a directory scan — there's no club->events index yet.
     # When the project moves to a real DB, add an index on event.club_id.
+    # Filter on event_is_active() (which checks end_time), not the raw `active`
+    # flag: expired events keep active=True until the cron sweep runs, and we
+    # must never serve a finished event to the game even if that sweep lags.
     events = [
         e for e in get_all_events()
-        if e.get('active') and e.get('club_id') in seen
+        if event_is_active(e) and e.get('club_id') in seen
     ]
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
 

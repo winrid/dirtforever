@@ -165,9 +165,15 @@ def generate_event(
 
 
 def deactivate_expired(now: datetime) -> list[str]:
+    """Flip ``active`` to False on every event whose ``end_time`` has passed.
+
+    Covers both system-generated events and user/club events — club events
+    have no ``system`` flag, so the old system-only filter left them active
+    forever, which kept finished events showing up in-game.
+    """
     expired: list[str] = []
     for e in get_all_events():
-        if not e.get('system') or not e.get('active'):
+        if not e.get('active'):
             continue
         try:
             end = datetime.fromisoformat(e['end_time'])

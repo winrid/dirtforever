@@ -132,7 +132,8 @@
                         </div>
                         <div class="form-group">
                             <label for="ev_location" class="form-label">Location</label>
-                            <select id="ev_location" name="location" class="form-input form-select" required>
+                            <select id="ev_location" name="location" class="form-input form-select" required
+                                    data-stage-caps='{{ stage_caps|tojson }}'>
                                 <option value="">Select location...</option>
                                 <optgroup label="Rally">
                                 {% for loc in rally_locs %}
@@ -167,7 +168,7 @@
                             <label for="ev_num_stages" class="form-label">Number of Stages</label>
                             <input type="number" id="ev_num_stages" name="num_stages" class="form-input"
                                    min="1" max="12" value="3" required>
-                            <span class="form-hint">Rally locations have up to 12 stages; rallycross locations have 1.</span>
+                            <span class="form-hint" id="ev_stage_hint">Select a location to set the stage limit.</span>
                         </div>
                         <div class="form-group">
                             <label for="ev_duration" class="form-label">Duration</label>
