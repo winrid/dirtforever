@@ -1236,7 +1236,12 @@ def run_gui():
                 shutdown_flag.wait(timeout=1.0)
 
             if streaming_writer["instance"] is not None:
-                streaming_writer["instance"].stop()
+                _writer = streaming_writer["instance"]
+                _writer.stop()
+                # Clear overlay files on shutdown so streamers' OBS / SimHub
+                # text sources go blank when DirtForever isn't running, rather
+                # than holding the last race's values.
+                _writer.clear_files()
                 streaming_writer["instance"] = None
 
             for s in servers:

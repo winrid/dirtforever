@@ -5,9 +5,10 @@ files into a target directory (defaults to ~/dirtforever/). OBS Text (GDI+)
 and SimHub Text sources can read these files directly to display the player's
 current club, event, car, etc. on stream.
 
-Idle behaviour: when no current event is known the writer skips writing rather
-than blanking the files, so overlays keep their last known values between
-sessions.
+Idle behaviour: while the writer is running but no current event is known it
+skips writing rather than blanking the files, so overlays keep their last known
+values between races. On shutdown the files are deleted (see clear_files) so
+overlays go clean when DirtForever isn't running.
 """
 from __future__ import annotations
 
@@ -171,6 +172,32 @@ class StreamingWriter:
         if thread is not None:
             thread.join(timeout=timeout)
         self._log("[STREAM] writer stopped")
+
+    def clear_files(self) -> None:
+        """Delete the overlay .txt files (and any leftover .tmp) from the
+        output dir.
+
+        Called on shutdown so a streamer's OBS / SimHub text sources go blank
+        when DirtForever isn't running, rather than holding the last race's
+        values. Only the files this writer owns (the FILES map) are touched;
+        the directory and anything else in it are left alone. Missing files
+        are ignored.
+        """
+        out_dir = self._current_output_dir()
+        removed: List[str] = []
+        for filename in FILES.values():
+            for path in (out_dir / filename, out_dir / (filename + ".tmp")):
+                try:
+                    path.unlink()
+                    removed.append(path.name)
+                except FileNotFoundError:
+                    pass
+                except OSError as exc:
+                    self._log(f"[STREAM] could not delete {path.name}: {exc}")
+        # Force a full rewrite if the writer is ever restarted into this dir.
+        self._last_written.clear()
+        if removed:
+            self._log(f"[STREAM] cleared {len(removed)} overlay file(s) from {out_dir}")
 
     def _loop(self) -> None:
         self._vlog(
