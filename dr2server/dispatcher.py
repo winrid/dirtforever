@@ -9,7 +9,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from .account_store import AccountStore
 from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
-from .game_data import Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS
+from .game_data import (
+    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS, stage_conditions_for_web,
+)
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
     Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward,
@@ -498,13 +500,15 @@ class RpcDispatcher:
                 web_stages = wevt.get("stages", [])
                 stages: List[Stage] = []
                 lb_base = chal_id * 10
-                for si, _ws in enumerate(web_stages or [None]):  # at least 1 stage
+                for si, ws in enumerate(web_stages or [None]):  # at least 1 stage
                     track_id = track_ids[si % len(track_ids)]
+                    cond_label = (ws or {}).get("conditions", "")
                     stages.append(Stage(
                         stage_id=si,
                         track_model_id=track_id,
                         has_service_area=(si % 2 == 0),
                         leaderboard_id=lb_base + si,
+                        stage_conditions=stage_conditions_for_web(cond_label),
                     ))
                 if not stages:
                     stages.append(Stage(
@@ -559,13 +563,15 @@ class RpcDispatcher:
             web_stages = wevt.get("stages", [])
             stages = []
             lb_base = chal_id * 10
-            for si, _ws in enumerate(web_stages or [None]):
+            for si, ws in enumerate(web_stages or [None]):
                 track_id = track_ids[si % len(track_ids)]
+                cond_label = (ws or {}).get("conditions", "")
                 stages.append(Stage(
                     stage_id=si,
                     track_model_id=track_id,
                     has_service_area=(si % 2 == 0),
                     leaderboard_id=lb_base + si,
+                    stage_conditions=stage_conditions_for_web(cond_label),
                 ))
             if not stages:
                 stages.append(Stage(
