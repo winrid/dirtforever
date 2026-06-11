@@ -9,7 +9,9 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from .account_store import AccountStore
 from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
-from .game_data import Location, Track, VEHICLES, stage_conditions_for_web
+from .game_data import (
+    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS, stage_conditions_for_web,
+)
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
     Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward,
@@ -479,6 +481,14 @@ class RpcDispatcher:
 
                 car_class_label: str = wevt.get("car_class", "")
                 vclass_id = self.api_client.resolve_vclass_id(car_class_label)
+                # A club challenge must carry a confirmed vehicle-class
+                # Requirement.  An unmappable class would otherwise produce an
+                # empty/invalid Requirement, which crashes the game client, so
+                # skip the event rather than guess a fallback class.
+                if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+                    print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
+                          f"event {wevt.get('id')} — skipping")
+                    continue
 
                 track_ids = self.api_client.tracks_for_location(location_id)
                 if not track_ids:
@@ -508,14 +518,9 @@ class RpcDispatcher:
                         leaderboard_id=lb_base,
                     ))
 
-                # Requirements: vehicle class if confirmed, else open class.
-                # All IDs verified by in-game testing. Invalid IDs crash the game.
-                _CONFIRMED_CLASSES = {72, 73, 74, 78, 86, 89, 92, 93, 94, 95,
-                                      96, 97, 98, 99, 100, 101, 102}
-                if vclass_id is not None and vclass_id in _CONFIRMED_CLASSES:
-                    requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
-                else:
-                    requirements = []
+                # vclass_id is confirmed (checked above); invalid IDs crash the
+                # game, so the Requirement is always a known-good class.
+                requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
 
                 num_entrants = len(wevt.get("entries", [])) if "entries" in wevt else 0
 
@@ -576,11 +581,13 @@ class RpcDispatcher:
 
             car_class_label = wevt.get("car_class", "")
             vclass_id = self.api_client.resolve_vclass_id(car_class_label)
-            requirements = (
-                [{"Type": 1, "Value": UInt32(vclass_id)}]
-                if vclass_id is not None
-                else [{"Type": 1, "Value": UInt32(100)}]
-            )
+            # Must carry a confirmed class Requirement — an unmappable class
+            # crashes the game, so skip rather than guess a fallback.
+            if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+                print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
+                      f"global event {wevt.get('id')} — skipping")
+                continue
+            requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
 
             # Use a synthetic club_id = 0 for global events
             global_club_id = 9000 + evt_idx

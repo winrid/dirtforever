@@ -47,6 +47,9 @@ from dr2server.game_data import (  # noqa: E402
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
     VEHICLES as GAME_VEHICLES,
     stage_conditions_label,
+    get_tracks_for_location,
+    vehicle_class_id_for_label,
+    CONFIRMED_VEHICLE_CLASS_IDS,
 )
 
 
@@ -692,6 +695,22 @@ STAGES: dict[str, list[tuple[str, float]]] = {
 RX_LOCATIONS: frozenset[str] = frozenset(
     loc.display_name for loc in Location if loc.discipline == 'rallycross'
 )
+
+# Max distinct stages the game can actually deliver for a location.  The game
+# server only serves *verified* track routes, and assigns one per stage; asking
+# for more than it has just repeats routes.  Cap event creation at the verified
+# count so events never contain duplicate stages.  Locations with no verified
+# tracks (e.g. rallycross circuits, Monte Carlo) are not blocked — they keep
+# their full enum count here — but such events won't appear in-game until their
+# routes are verified.
+STAGE_CAPS: dict[str, int] = {
+    loc.display_name: (
+        len(get_tracks_for_location(int(loc)))
+        or len(STAGES[loc.display_name])
+    )
+    for loc in Location
+    if loc.display_name in STAGES
+}
 
 CAR_CLASSES = {
     'Group A': [
@@ -1457,7 +1476,9 @@ def leaderboards() -> str | Response:
 
     else:
         # ── Time Trial tab ──────────────────────────────
-        boards = _list_tt_boards()
+        # Boards are grouped by (vclass, track, conditions); the per-category
+        # split is merged away here (see _list_tt_groups / _merge_tt_entries).
+        boards = _list_tt_groups()
 
         # Collect all tracks that have at least one board, decorated with
         # human-readable names from the game_data tables.
@@ -1510,20 +1531,18 @@ def leaderboards() -> str | Response:
         if selected_vclass is None or not any(v['id'] == selected_vclass for v in vclass_options):
             selected_vclass = vclass_options[0]['id'] if vclass_options else None
 
-        # Variants (conditions, category) that exist for this (track, class).
+        # Conditions variants that exist for this (track, class). Category is
+        # merged away, so a variant is just a conditions value.
         variant_boards = [b for b in track_boards if b['vclass'] == selected_vclass]
 
         selected_cond = request.args.get('cond', type=int)
-        selected_cat = request.args.get('cat', type=int)
         selected_variant = next(
-            (b for b in variant_boards
-             if b['conditions'] == selected_cond and b['category'] == selected_cat),
+            (b for b in variant_boards if b['conditions'] == selected_cond),
             None,
         )
         if selected_variant is None and variant_boards:
             selected_variant = variant_boards[0]
             selected_cond = selected_variant['conditions']
-            selected_cat = selected_variant['category']
 
         # Only expose a variant picker when there's more than one.
         variant_options: list[dict[str, Any]] = []
@@ -1531,21 +1550,18 @@ def leaderboards() -> str | Response:
             for b in variant_boards:
                 variant_options.append({
                     'conditions': b['conditions'],
-                    'category': b['category'],
                     'label': stage_conditions_label(b['conditions']),
                     'count': b['count'],
-                    'active': (b['conditions'] == selected_cond and b['category'] == selected_cat),
+                    'active': (b['conditions'] == selected_cond),
                 })
 
-        # Load entries for the selected board.
+        # Load entries for the selected board (merged across categories).
         tt_entries: list[dict[str, Any]] = []
         tt_leader_time: int | None = None
         if selected_variant is not None and selected_vclass is not None and selected_track_id is not None:
-            key = _tt_key(
-                str(selected_vclass), str(selected_track_id),
-                str(selected_cond), str(selected_cat),
+            raw = _load_tt_merged(
+                str(selected_vclass), str(selected_track_id), str(selected_cond),
             )
-            raw = _load_tt(key)
             for i, e in enumerate(raw):
                 vid = e.get('vehicle_id', 0)
                 vmeta = GAME_VEHICLES.get(vid)
@@ -1572,7 +1588,6 @@ def leaderboards() -> str | Response:
             tt_selected_vclass=selected_vclass,
             tt_variant_options=variant_options,
             tt_selected_cond=selected_cond,
-            tt_selected_cat=selected_cat,
             tt_entries=tt_entries,
             tt_leader_time=tt_leader_time,
         )
@@ -1700,6 +1715,7 @@ def club_detail(club_id: str) -> str:
         rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
         rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+        stage_caps=STAGE_CAPS,
         active_event_exists=active_event_exists,
         is_owner=user_is_owner(club, uname),
         is_member=user_is_member(club, uname),
@@ -2316,13 +2332,17 @@ def create_club_event(club_id: str) -> Response:
         errors.append('Event name must be under 60 characters.')
     if location not in STAGES:
         errors.append('Invalid location.')
-    if car_class not in CAR_CLASSES:
-        errors.append('Invalid vehicle class.')
+    # The class must map to a confirmed game vehicle class, otherwise the game
+    # server can't build a valid challenge and would have to drop the event.
+    vclass_id = vehicle_class_id_for_label(car_class)
+    if car_class not in CAR_CLASSES or vclass_id is None \
+            or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+        errors.append('Invalid or unsupported vehicle class.')
     if cond not in CONDITIONS:
         errors.append('Invalid conditions.')
     if duration not in DURATION_OPTIONS:
         errors.append('Invalid duration.')
-    available = len(STAGES.get(location, []))
+    available = STAGE_CAPS.get(location, len(STAGES.get(location, [])))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
     active_events = [e for e in get_all_events() if e.get('club_id') == club_id and event_is_active(e)]
@@ -2589,9 +2609,12 @@ def api_game_clubs() -> Response:
         return jsonify({'ok': True, 'clubs': [], 'events': []})
     # Events still need a directory scan — there's no club->events index yet.
     # When the project moves to a real DB, add an index on event.club_id.
+    # Filter on event_is_active() (which checks end_time), not the raw `active`
+    # flag: expired events keep active=True until the cron sweep runs, and we
+    # must never serve a finished event to the game even if that sweep lags.
     events = [
         e for e in get_all_events()
-        if e.get('active') and e.get('club_id') in seen
+        if event_is_active(e) and e.get('club_id') in seen
     ]
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
 
@@ -2953,16 +2976,31 @@ def _save_tt(key: str, entries: list[Any]) -> None:
     _save(_tt_path(key), entries)
 
 
-def _list_tt_boards() -> list[dict[str, Any]]:
-    """Scan TIME_TRIALS_DIR and return one record per leaderboard file.
+def _merge_tt_entries(entry_lists: list[list[Any]]) -> list[Any]:
+    """Merge per-category boards into one ranking.
 
-    Each record: vclass, track, conditions, category, count.
-    Files whose names don't match the `{vclass}_{track}_{cond}_{cat}.json`
-    shape are skipped.
+    Time trials are stored per `category` (the game posts to a category-keyed
+    leaderboard), but for ranking "who is fastest on this stage in this class
+    and conditions" the category is not a meaningful split. Splitting by it
+    fragments the ranking and hides the overall fastest lap on a second board.
+    Here we collapse the categories: keep each user's best time across all of
+    them, sorted ascending. The per-category files stay on disk untouched, so
+    the split can be rebuilt later if category ever proves meaningful.
     """
-    boards: list[dict[str, Any]] = []
+    best: dict[str, Any] = {}
+    for entries in entry_lists:
+        for e in entries:
+            u = e['username']
+            if u not in best or e['stage_time_ms'] < best[u]['stage_time_ms']:
+                best[u] = e
+    return sorted(best.values(), key=lambda e: e['stage_time_ms'])
+
+
+def _tt_board_files() -> list[tuple[int, int, int, int, str]]:
+    """Return (vclass, track, conditions, category, stem) for each board file."""
+    out: list[tuple[int, int, int, int, str]] = []
     if not os.path.isdir(TIME_TRIALS_DIR):
-        return boards
+        return out
     for fn in sorted(os.listdir(TIME_TRIALS_DIR)):
         if not fn.endswith('.json'):
             continue
@@ -2974,15 +3012,38 @@ def _list_tt_boards() -> list[dict[str, Any]]:
             vclass, track, conditions, category = (int(p) for p in parts)
         except ValueError:
             continue
-        entries = _load_tt(stem)
-        boards.append({
+        out.append((vclass, track, conditions, category, stem))
+    return out
+
+
+def _load_tt_merged(vclass: str, track: str, conditions: str) -> list[Any]:
+    """Load and merge every category board for a (vclass, track, conditions)."""
+    lists = [
+        _load_tt(stem)
+        for v, t, c, _cat, stem in _tt_board_files()
+        if str(v) == vclass and str(t) == track and str(c) == conditions
+    ]
+    return _merge_tt_entries(lists)
+
+
+def _list_tt_groups() -> list[dict[str, Any]]:
+    """One record per (vclass, track, conditions), merging across category.
+
+    `count` is the number of unique users after merging the per-category
+    boards, so the UI never surfaces category as a separate leaderboard.
+    """
+    grouped: dict[tuple[int, int, int], list[list[Any]]] = {}
+    for vclass, track, conditions, _category, stem in _tt_board_files():
+        grouped.setdefault((vclass, track, conditions), []).append(_load_tt(stem))
+    return [
+        {
             'vclass': vclass,
             'track': track,
             'conditions': conditions,
-            'category': category,
-            'count': len(entries),
-        })
-    return boards
+            'count': len(_merge_tt_entries(lists)),
+        }
+        for (vclass, track, conditions), lists in grouped.items()
+    ]
 
 
 # ── Time Trial API endpoints ──────────────────────────────
@@ -3042,6 +3103,10 @@ def api_game_time_trial_submit() -> Response | tuple[Response, int]:
         'using_wheel': using_wheel,
         'using_assists': using_assists,
         'ghost_data_b64': ghost_data_b64,
+        # The board file is keyed by category, but stamp it on the entry too so
+        # entries stay self-describing if boards are ever merged on disk. The
+        # web view collapses categories on read (see _merge_tt_entries).
+        'category': int(category),
         'submitted_at': datetime.now().isoformat(),
     })
     entries.sort(key=lambda e: e['stage_time_ms'])
@@ -3056,17 +3121,20 @@ def api_game_time_trial_submit() -> Response | tuple[Response, int]:
 @csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
 def api_game_time_trial_leaderboard() -> Response | tuple[Response, int]:
-    """Return time trial leaderboard entries for a given 4-tuple."""
+    """Return time trial leaderboard entries for a (vclass, track, conditions).
+
+    `category` is accepted for backward compatibility but ignored: entries are
+    merged across categories so the in-game board shows one unified ranking,
+    matching the web leaderboard (see _merge_tt_entries).
+    """
     try:
         vclass = str(int(request.args['vclass']))
         track = str(int(request.args['track']))
         conditions = str(int(request.args['conditions']))
-        category = str(int(request.args['category']))
     except (KeyError, TypeError, ValueError) as exc:
         return _api_error(f'invalid query params: {exc}')
 
-    key = _tt_key(vclass, track, conditions, category)
-    entries = _load_tt(key)
+    entries = _load_tt_merged(vclass, track, conditions)
 
     out = []
     for i, e in enumerate(entries):

@@ -178,7 +178,7 @@
                 <span class="tt-filter-label">Variant</span>
                 <div class="tt-chips">
                     {% for v in tt_variant_options %}
-                    <a href="/leaderboards?tab=tt&track={{ tt_selected_track.track_id }}&vclass={{ tt_selected_vclass }}&cond={{ v.conditions }}&cat={{ v.category }}"
+                    <a href="/leaderboards?tab=tt&track={{ tt_selected_track.track_id }}&vclass={{ tt_selected_vclass }}&cond={{ v.conditions }}"
                        class="tt-chip tt-chip-sm {% if v.active %}active{% endif %}">
                         {{ v.label }}
                     </a>
