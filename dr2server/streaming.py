@@ -333,6 +333,14 @@ class StreamingWriter:
             )
             return
 
+        # If shutdown was requested while this tick was building values (e.g.
+        # blocked in the leaderboard fetch above), bail before writing. stop()
+        # joins this thread and then clear_files() deletes the overlay files;
+        # writing here would re-create them after the clear, defeating it.
+        if self._stop.is_set():
+            self._vlog(f"[STREAM] tick {tick_n}: stop requested mid-tick, not writing")
+            return
+
         wrote: List[str] = []
         skipped_unchanged: List[str] = []
         for key, content in values.items():

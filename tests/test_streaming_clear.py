@@ -63,3 +63,42 @@ def test_clear_files_is_safe_when_dir_missing(tmp_path: Path) -> None:
     missing = tmp_path / "does-not-exist"
     _make_writer(missing).clear_files()
     assert not missing.exists(), "clear_files should not create the output dir"
+
+
+class _StubDispatcher:
+    """Dispatcher whose streaming state would write the 'club' overlay file."""
+
+    api_client = None
+
+    def get_streaming_state(self):
+        return {
+            "clubs_snapshot": {
+                "clubs": [{"id": "c1", "name": "Test Club"}],
+                "events": [{"id": "e1", "club_id": "c1"}],
+            },
+            "event_id": "e1",
+            "club_id": "c1",
+            "vehicle_id": None,
+        }
+
+
+def test_tick_does_not_write_after_stop_requested(tmp_path: Path) -> None:
+    # Regression: a tick that resumes (e.g. from a slow leaderboard fetch)
+    # after shutdown was signalled must not re-create files clear_files()
+    # just deleted. With _stop set, _tick must write nothing.
+    writer = StreamingWriter(dispatcher=_StubDispatcher(), logger=lambda _m: None)
+    writer.set_output_dir(tmp_path)
+
+    # Sanity: without stop set, this tick writes the club file.
+    writer._tick(1)
+    assert (tmp_path / FILES["club"]).exists()
+
+    writer.clear_files()
+    assert not (tmp_path / FILES["club"]).exists()
+
+    # Now simulate shutdown signalled mid-tick: the next tick must not write.
+    writer._stop.set()
+    writer._tick(2)
+    assert not (tmp_path / FILES["club"]).exists(), (
+        "_tick wrote after stop was requested, re-creating cleared files"
+    )

@@ -1016,7 +1016,12 @@ def run_gui():
                  fg=TEXT, bg=BG_CARD, width=22, anchor="w").pack(side="left")
         tk.Label(row, text=desc, font=(UI_FONT, 8),
                  fg=MUTED, bg=BG_CARD, anchor="w").pack(side="left")
-    tk.Label(files_card, text="", bg=BG_CARD).pack(pady=(0, 4))
+    tk.Label(files_card,
+             text="These files are deleted when the server stops, so overlays go "
+                  "blank off-stream. Use a dedicated folder.",
+             font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD,
+             wraplength=460, justify="left", anchor="w").pack(
+        fill="x", padx=12, pady=(2, 6))
 
     streaming_status_label = tk.Label(
         streaming_tab,
