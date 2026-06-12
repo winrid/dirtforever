@@ -916,7 +916,17 @@ def run_gui():
     dash_link.bind("<Button-1>", lambda e: webbrowser.open(DASHBOARD_URL))
 
     # --- Streaming tab ---
-    OVERLAY_DIR = Path.home() / "dirtforever"
+    # Overlay output folder. Defaults to ~/dirtforever, but the user can
+    # repoint it on this tab; the choice is persisted in config.json under
+    # "streaming_output_dir" so it survives restarts.
+    DEFAULT_OVERLAY_DIR = Path.home() / "dirtforever"
+    _saved_overlay_dir = str(config.get("streaming_output_dir") or "").strip()
+    streaming_dir_var = tk.StringVar(
+        value=_saved_overlay_dir or str(DEFAULT_OVERLAY_DIR))
+
+    def _overlay_dir() -> Path:
+        val = (streaming_dir_var.get() or "").strip()
+        return Path(val).expanduser() if val else DEFAULT_OVERLAY_DIR
 
     stream_header = tk.Frame(streaming_tab, bg=BG)
     stream_header.pack(fill="x", padx=20, pady=(20, 5))
@@ -962,18 +972,33 @@ def run_gui():
              fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
     path_row = tk.Frame(path_card, bg=BG_CARD)
     path_row.pack(fill="x", padx=12, pady=(0, 8))
-    tk.Label(path_row, text=str(OVERLAY_DIR), font=(MONO_FONT, 9),
-             fg=TEXT, bg=BG_CARD).pack(side="left")
+    tk.Label(path_row, textvariable=streaming_dir_var, font=(MONO_FONT, 9),
+             fg=TEXT, bg=BG_CARD, anchor="w", justify="left",
+             wraplength=300).pack(side="left")
 
     def _open_overlay_dir():
+        out_dir = _overlay_dir()
         try:
-            OVERLAY_DIR.mkdir(parents=True, exist_ok=True)
+            out_dir.mkdir(parents=True, exist_ok=True)
             if IS_WIN:
-                os.startfile(str(OVERLAY_DIR))  # type: ignore[attr-defined]
+                os.startfile(str(out_dir))  # type: ignore[attr-defined]
             else:
-                subprocess.Popen(["xdg-open", str(OVERLAY_DIR)])
+                subprocess.Popen(["xdg-open", str(out_dir)])
         except Exception as exc:
             log(f"Could not open overlay folder: {exc}")
+
+    def _choose_overlay_dir():
+        from tkinter import filedialog
+        chosen = filedialog.askdirectory(
+            parent=streaming_tab,
+            initialdir=str(_overlay_dir()),
+            title="Choose overlay output folder",
+            mustexist=False,
+        )
+        if chosen:
+            # Setting the var fires the trace -> _apply_streaming_state, which
+            # persists the new path and repoints a running writer.
+            streaming_dir_var.set(str(Path(chosen)))
 
     tk.Button(
         path_row, text="Open folder", font=(UI_FONT, 8, "bold"),
@@ -981,6 +1006,12 @@ def run_gui():
         relief="flat", cursor="hand2", padx=10, pady=2,
         command=_open_overlay_dir,
     ).pack(side="right")
+    tk.Button(
+        path_row, text="Change...", font=(UI_FONT, 8, "bold"),
+        bg=BG_ELEVATED, fg=TEXT, activebackground=BORDER, activeforeground=TEXT,
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=_choose_overlay_dir,
+    ).pack(side="right", padx=(0, 6))
 
     from dr2server.streaming import FILES as STREAMING_FILES
 
@@ -1042,8 +1073,10 @@ def run_gui():
         except (tk.TclError, ValueError):
             interval = 5
         files_enabled = _enabled_files_set()
+        out_dir = _overlay_dir()
         config["streaming_enabled"] = enabled
         config["streaming_interval_seconds"] = interval
+        config["streaming_output_dir"] = str(out_dir)
         config["streaming_files"] = {k: (k in files_enabled) for k in streaming_file_vars}
         save_config(config)
         inst = streaming_writer["instance"]
@@ -1053,9 +1086,9 @@ def run_gui():
             if inst is not None:
                 if inst.is_running():
                     inst.set_interval(interval)
-                    inst.set_output_dir(OVERLAY_DIR)
+                    inst.set_output_dir(out_dir)
                 else:
-                    inst.start(interval=interval, output_dir=OVERLAY_DIR)
+                    inst.start(interval=interval, output_dir=out_dir)
                 streaming_status_label.configure(
                     text=f"Writing every {interval}s ({len(files_enabled)} files)",
                     fg=GREEN)
@@ -1070,6 +1103,7 @@ def run_gui():
 
     streaming_enabled_var.trace_add("write", _apply_streaming_state)
     streaming_interval_var.trace_add("write", _apply_streaming_state)
+    streaming_dir_var.trace_add("write", _apply_streaming_state)
     for _var in streaming_file_vars.values():
         _var.trace_add("write", _apply_streaming_state)
 
@@ -1213,11 +1247,12 @@ def run_gui():
             streaming_writer["instance"].set_enabled(_enabled_files_set())
             if config.get("streaming_enabled", False):
                 _si = max(2, int(config.get("streaming_interval_seconds", 5) or 5))
+                _odir = _overlay_dir()
                 streaming_writer["instance"].start(
-                    interval=_si, output_dir=OVERLAY_DIR,
+                    interval=_si, output_dir=_odir,
                 )
-                root.after(0, lambda iv=_si: log(
-                    f"Streaming writer started, {OVERLAY_DIR} every {iv}s"))
+                root.after(0, lambda iv=_si, d=_odir: log(
+                    f"Streaming writer started, {d} every {iv}s"))
 
             servers = []
             http_server = create_server(args.host, args.port, app)

@@ -115,11 +115,20 @@ class StreamingWriter:
             self._interval = max(MIN_INTERVAL_SECONDS, float(seconds))
 
     def set_output_dir(self, output_dir: Path) -> None:
+        new_dir = Path(output_dir)
         with self._lock:
-            self._output_dir = Path(output_dir)
+            old_dir = self._output_dir
+            self._output_dir = new_dir
         # New directory invalidates the change-detection cache so the first
         # tick into a fresh dir actually writes the files.
         self._last_written.clear()
+        # If the folder is repointed while the writer is already running, clear
+        # the overlay files we left behind in the previous directory so they
+        # don't linger there as stale values once we stop writing into it. Not
+        # on the initial start() (the writer isn't running yet) so we never
+        # touch the default folder before the user has opted in.
+        if old_dir != new_dir and self.is_running():
+            self._clear_dir(old_dir)
 
     def set_enabled(self, enabled: Iterable[str]) -> None:
         with self._lock:
@@ -175,7 +184,7 @@ class StreamingWriter:
 
     def clear_files(self) -> None:
         """Delete the overlay .txt files (and any leftover .tmp) from the
-        output dir.
+        current output dir.
 
         Called on shutdown so a streamer's OBS / SimHub text sources go blank
         when DirtForever isn't running, rather than holding the last race's
@@ -183,7 +192,12 @@ class StreamingWriter:
         the directory and anything else in it are left alone. Missing files
         are ignored.
         """
-        out_dir = self._current_output_dir()
+        self._clear_dir(self._current_output_dir())
+        # Force a full rewrite if the writer is ever restarted into this dir.
+        self._last_written.clear()
+
+    def _clear_dir(self, out_dir: Path) -> None:
+        """Delete the overlay files this writer owns from ``out_dir``."""
         removed: List[str] = []
         for filename in FILES.values():
             for path in (out_dir / filename, out_dir / (filename + ".tmp")):
@@ -194,8 +208,6 @@ class StreamingWriter:
                     pass
                 except OSError as exc:
                     self._log(f"[STREAM] could not delete {path.name}: {exc}")
-        # Force a full rewrite if the writer is ever restarted into this dir.
-        self._last_written.clear()
         if removed:
             self._log(f"[STREAM] cleared {len(removed)} overlay file(s) from {out_dir}")
 
