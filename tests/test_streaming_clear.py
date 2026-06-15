@@ -65,6 +65,54 @@ def test_clear_files_is_safe_when_dir_missing(tmp_path: Path) -> None:
     assert not missing.exists(), "clear_files should not create the output dir"
 
 
+class _NoStateDispatcher:
+    """Dispatcher whose streaming state makes _tick a no-op (no clubs_snapshot),
+    so a running writer never writes or clears files on its own."""
+
+    api_client = None
+
+    def get_streaming_state(self):
+        return {}
+
+
+def test_set_output_dir_clears_old_dir_when_running(tmp_path: Path) -> None:
+    # Repointing the output folder while the writer is running must clear the
+    # overlay files left behind in the previous directory, so OBS / SimHub
+    # stop showing stale values from the old folder.
+    old_dir = tmp_path / "old"
+    new_dir = tmp_path / "new"
+    old_dir.mkdir()
+
+    writer = StreamingWriter(dispatcher=_NoStateDispatcher(), logger=lambda _m: None)
+    writer.start(interval=60, output_dir=old_dir)
+    try:
+        for filename in FILES.values():
+            (old_dir / filename).write_text("stale", encoding="utf-8")
+
+        writer.set_output_dir(new_dir)
+
+        for filename in FILES.values():
+            assert not (old_dir / filename).exists(), f"{filename} left in old dir"
+    finally:
+        writer.stop()
+
+
+def test_set_output_dir_does_not_clear_when_not_running(tmp_path: Path) -> None:
+    # The initial start() calls set_output_dir() before the writer thread is
+    # alive; that path must never delete files from the previous directory.
+    old_dir = tmp_path / "old"
+    new_dir = tmp_path / "new"
+    old_dir.mkdir()
+    keep = old_dir / next(iter(FILES.values()))
+    keep.write_text("not running", encoding="utf-8")
+
+    writer = StreamingWriter(dispatcher=object(), logger=lambda _m: None)
+    writer.set_output_dir(old_dir)  # not running -> no clear
+    writer.set_output_dir(new_dir)  # still not running -> no clear
+
+    assert keep.exists(), "set_output_dir cleared old dir while not running"
+
+
 class _StubDispatcher:
     """Dispatcher whose streaming state would write the 'club' overlay file."""
 
