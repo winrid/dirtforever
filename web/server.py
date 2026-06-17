@@ -716,6 +716,19 @@ STAGE_CAPS: dict[str, int] = {
 }
 
 CAR_CLASSES = {
+    'H1 (FWD)': [
+        'Mini Cooper S', 'DS Automobiles DS 21', 'Lancia Fulvia HF',
+    ],
+    'H2 (FWD)': [
+        'Volkswagen Golf GTI 16V', 'Peugeot 205 GTI',
+    ],
+    'H3 (RWD)': [
+        'BMW E30 M3 Evo Rally', 'Opel Ascona 400', 'Lancia Stratos',
+        'Datsun 240Z', 'Renault 5 Turbo', 'Ford Sierra Cosworth RS500',
+    ],
+    'R2': [
+        'Ford Fiesta R2', 'Opel Adam R2', 'Peugeot 208 R2',
+    ],
     'Group A': [
         'Subaru Impreza 1995', 'Mitsubishi Lancer Evo VI',
         'Ford Escort RS Cosworth', 'Subaru Legacy RS',
