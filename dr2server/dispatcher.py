@@ -105,6 +105,10 @@ class RpcDispatcher:
         # Maps numeric challenge_id -> web event_id string, populated when
         # clubs are fetched from the API.
         self._challenge_event_map: Dict[int, str] = {}
+        # Maps the per-sub-event challenge_id of a multi-event championship to
+        # its sub-event index (0-based).  Only populated for multi-event
+        # championships; single-event challenges are absent (index 0).
+        self._challenge_subevent_map: Dict[int, int] = {}
         # Maps numeric club_id -> web club_id string
         self._club_id_map: Dict[int, str] = {}
         # Maps time-trial LeaderboardId -> (vclass, track, conditions, category) tuple
@@ -455,6 +459,25 @@ class RpcDispatcher:
             if not club_events:
                 continue  # skip clubs with no active events
 
+            # A club whose single championship has >1 sub-event follows the
+            # verified RaceNet multi-event model: serve one active event at a
+            # time and advertise AmountOfEvents=N / EventIndex=current on the
+            # Club (see notes/protocol_notes.md).  Every other club keeps the
+            # original one-Challenge-per-championship behaviour untouched.
+            if len(club_events) == 1:
+                layout = [len(ev.get("stages", []) or [])
+                          for ev in self._events_of(club_events[0])]
+                if len(layout) > 1:
+                    served = self._serve_multi_event_club(
+                        club_events[0], club_str_id, club_int_id,
+                        club_name, creator, layout,
+                    )
+                    if served is not None:
+                        club_egonet, challenge_egonet = served
+                        clubs_egonet.append(club_egonet)
+                        challenges_egonet.append(challenge_egonet)
+                    continue
+
             # Emit the Club entry ONCE per club (outside the event loop)
             clubs_egonet.append(
                 Club(
@@ -602,38 +625,124 @@ class RpcDispatcher:
             "stages": wevt.get("stages", []),
         }]
 
-    def _build_events_for_champ(self, wevt: Dict[str, Any], chal_id: int) -> List[Event]:
-        """Build the list of game Events for one championship.
+    def _build_subevent(self, wevt: Dict[str, Any], chal_id: int, ei: int,
+                        ev: Dict[str, Any]) -> Optional[Event]:
+        """Build one game Event (a championship sub-event); None if the
+        location/tracks can't be resolved.
 
-        Each sub-event resolves its own location + verified routes and builds
-        stages from the stored per-stage route/conditions/surface-deg/service-
-        area values (with backward-compatible fallbacks for legacy files).
+        Resolves its own location + verified routes and builds stages from the
+        stored per-stage route/conditions/surface-deg/service-area values (with
+        backward-compatible fallbacks for legacy files).
         """
+        assert self.api_client is not None  # only called with an api_client present
+        loc_name = ev.get("location", "") or wevt.get("location", "")
+        location_id = self.api_client.resolve_location_id(loc_name)
+        if location_id is None:
+            print(f"[CLUBS] Unknown location '{loc_name}' in event "
+                  f"{wevt.get('id')} #{ei} — skipping sub-event")
+            return None
+        track_ids = self.api_client.tracks_for_location(location_id)
+        if not track_ids:
+            print(f"[CLUBS] No tracks for location {location_id} "
+                  f"('{loc_name}') in event {wevt.get('id')} #{ei} — skipping")
+            return None
+        try:
+            discipline_id = 2 if Location(location_id).discipline == "rallycross" else 1
+        except (ValueError, AttributeError):
+            discipline_id = 1
+        return Event(
+            event_id=chal_id + ei * 10_000_000,
+            location_id=location_id,
+            discipline_id=discipline_id,
+            stages=self._stages_for_subevent(ev, chal_id, ei, track_ids),
+            leaderboard_id=chal_id + 900000 + ei * 10_000_000,
+        )
+
+    def _build_events_for_champ(self, wevt: Dict[str, Any], chal_id: int) -> List[Event]:
+        """Build the list of game Events for one championship (all sub-events)."""
         events_out: List[Event] = []
         for ei, ev in enumerate(self._events_of(wevt)):
-            loc_name = ev.get("location", "") or wevt.get("location", "")
-            location_id = self.api_client.resolve_location_id(loc_name)
-            if location_id is None:
-                print(f"[CLUBS] Unknown location '{loc_name}' in event "
-                      f"{wevt.get('id')} #{ei} — skipping sub-event")
-                continue
-            track_ids = self.api_client.tracks_for_location(location_id)
-            if not track_ids:
-                print(f"[CLUBS] No tracks for location {location_id} "
-                      f"('{loc_name}') in event {wevt.get('id')} #{ei} — skipping")
-                continue
-            try:
-                discipline_id = 2 if Location(location_id).discipline == "rallycross" else 1
-            except (ValueError, AttributeError):
-                discipline_id = 1
-            events_out.append(Event(
-                event_id=chal_id + ei * 10_000_000,
-                location_id=location_id,
-                discipline_id=discipline_id,
-                stages=self._stages_for_subevent(ev, chal_id, ei, track_ids),
-                leaderboard_id=chal_id + 900000 + ei * 10_000_000,
-            ))
+            event = self._build_subevent(wevt, chal_id, ei, ev)
+            if event is not None:
+                events_out.append(event)
         return events_out
+
+    @staticmethod
+    def _active_event_index(layout: List[int], ep: Optional[Dict[str, Any]]) -> int:
+        """Sub-event the player is currently on in a multi-event championship.
+
+        Equals the number of fully-completed leading sub-events, capped at
+        ``N-1`` so the last event stays 'active' once the championship is
+        finished (matching RaceNet's ``EventIndex == AmountOfEvents-1`` at
+        completion).
+
+        The web backend stores completed stages in flat championship-ordinal
+        slots (``_global_stage_index``) without a per-stage ``event_index``
+        (see tests/test_championship_results.py), so progression is derived
+        from the flat completed-stage count against the per-event stage layout.
+        Stages complete in order within a championship, so a running count is
+        sufficient.
+        """
+        completed_count = len((ep or {}).get("completed_stages", []))
+        k = 0
+        cumulative = 0
+        for count in layout:
+            cumulative += count
+            if count > 0 and completed_count >= cumulative:
+                k += 1
+            else:
+                break
+        return min(k, max(len(layout) - 1, 0))
+
+    def _serve_multi_event_club(
+        self, wevt: Dict[str, Any], club_str_id: str, club_int_id: int,
+        club_name: str, creator: str, layout: List[int],
+    ) -> Optional[tuple[Dict[str, Any], Dict[str, Any]]]:
+        """Serve a multi-event championship the RaceNet way: only the active
+        sub-event, as its own single-event Challenge, with the Club advertising
+        ``AmountOfEvents=N`` / ``EventIndex=current``.
+
+        Returns ``(club_egonet, challenge_egonet)`` or ``None`` if unresolvable.
+        A distinct ChallengeID per sub-event makes the client re-fetch a fresh
+        challenge when the championship advances (real RaceNet 946876->946877).
+        """
+        assert self.api_client is not None
+        num_events = len(layout)
+        wevt_id = wevt.get("id", "")
+
+        car_class_label: str = wevt.get("car_class", "")
+        vclass_id = self.api_client.resolve_vclass_id(car_class_label)
+        if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+            print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
+                  f"championship {wevt_id} — skipping")
+            return None
+
+        ep = self._user_progress_for_event(wevt_id) if wevt_id else None
+        active = self._active_event_index(layout, ep)
+
+        base_chal_id = _stable_int_id(wevt_id or f"{club_str_id}-0",
+                                      base=200000, offset=0)
+        active_chal_id = base_chal_id + active
+        self._challenge_event_map[active_chal_id] = wevt_id
+        self._challenge_subevent_map[active_chal_id] = active
+
+        event = self._build_subevent(wevt, base_chal_id, active,
+                                     self._events_of(wevt)[active])
+        if event is None:
+            print(f"[CLUBS] Active event {active} of {wevt_id} unresolvable — skipping")
+            return None
+
+        num_entrants = len(wevt.get("entries", [])) if "entries" in wevt else 0
+        club_egonet = Club(
+            id=club_int_id, name=club_name, creator_name=creator,
+            amount_of_events=num_events, event_index=active,
+        ).to_egonet()
+        challenge_egonet = self._challenge_egonet(
+            wevt, active_chal_id, club_int_id,
+            [{"Type": 1, "Value": UInt32(vclass_id)}],
+            [event], num_entrants, club_name,
+        )
+        return club_egonet, challenge_egonet
 
     def _stages_for_subevent(self, ev: Dict[str, Any], chal_id: int,
                              ei: int, track_ids: List[int]) -> List[Stage]:
@@ -1756,8 +1865,11 @@ class RpcDispatcher:
               f"tyres={req.tyres_remaining} compound={req.tyre_compound}")
 
         event_id = self._resolve_event_id(req.challenge_id, "Begin")
+        # The game always reports event_index=0 (each championship event is a
+        # separate challenge); recover the real sub-event from the challenge_id.
+        sub_index = self._challenge_subevent_map.get(req.challenge_id, req.event_index)
         # Flat championship-wide stage ordinal; == stage_index for event 0.
-        gidx = req.stage_index + (self._stage_offset(event_id, req.event_index) if event_id else 0)
+        gidx = req.stage_index + (self._stage_offset(event_id, sub_index) if event_id else 0)
 
         if event_id:
             self._current_event_id = event_id
@@ -1781,7 +1893,7 @@ class RpcDispatcher:
                 self.api_client.submit_stage_begin(
                     event_id=event_id,
                     stage_index=req.stage_index,
-                    event_index=req.event_index,
+                    event_index=sub_index,
                     vehicle_id=req.vehicle_id if req.vehicle_id else None,
                     livery_id=req.livery_id,
                     tuning_setup_b64=tuning_b64,
@@ -1837,6 +1949,8 @@ class RpcDispatcher:
               f"wheel={req.using_wheel} assists={req.using_assists}")
 
         event_id = self._resolve_event_id(req.challenge_id, "Complete")
+        # Recover the real sub-event index (the game always sends event_index=0).
+        sub_index = self._challenge_subevent_map.get(req.challenge_id, req.event_index)
 
         # Convert the request payloads back to plain dicts for the API call.
         mud_dict = dataclasses.asdict(req.vehicle_mud)
@@ -1854,7 +1968,7 @@ class RpcDispatcher:
                     event_id=event_id,
                     username="",  # server uses g.game_user from token
                     stage_index=req.stage_index,
-                    event_index=req.event_index,
+                    event_index=sub_index,
                     time_ms=time_ms,
                     vehicle_id=req.vehicle_id if req.vehicle_id else None,
                     meters_driven=req.meters_driven,

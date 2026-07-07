@@ -1,0 +1,94 @@
+{
+  "source": "real RaceNet upstream 159.153.126.42, proxy-captured 2026-07-07",
+  "description": "Ground-truth multi-event (2-event) club championship transition. Sanitized: only our own \"devon test 3\" club is included.",
+  "club_states": [
+    {
+      "label": "event1_active",
+      "club": {
+        "Name": "devon test 3",
+        "AmountOfEvents": 2,
+        "EventIndex": 0
+      },
+      "challenge": {
+        "ChallengeID": 946876,
+        "num_events_in_challenge": 1,
+        "EntryWindow": {
+          "Visible": 1783411200,
+          "Start": 1783411200,
+          "LastEntry": 1783412280,
+          "End": 1783412280
+        }
+      },
+      "event": {
+        "EventId": 948431,
+        "LocationId": 4,
+        "num_stages": 1
+      }
+    },
+    {
+      "label": "event2_active",
+      "club": {
+        "Name": "devon test 3",
+        "AmountOfEvents": 2,
+        "EventIndex": 1
+      },
+      "challenge": {
+        "ChallengeID": 946877,
+        "num_events_in_challenge": 1,
+        "EntryWindow": {
+          "Visible": 1783412280,
+          "Start": 1783412280,
+          "LastEntry": 1783415880,
+          "End": 1783415880
+        }
+      },
+      "event": {
+        "EventId": 948432,
+        "LocationId": 4,
+        "num_stages": 1
+      }
+    }
+  ],
+  "stage_requests": [
+    {
+      "fn": "RaceNetChallenges.StageBegin",
+      "ChallengeId": 946876,
+      "EventIndex": 0,
+      "StageIndex": 0
+    },
+    {
+      "fn": "RaceNetChallenges.StageBegin",
+      "ChallengeId": 946877,
+      "EventIndex": 0,
+      "StageIndex": 0
+    },
+    {
+      "fn": "RaceNetChallenges.StageComplete",
+      "ChallengeId": 946877,
+      "EventIndex": 0,
+      "StageIndex": 0
+    }
+  ],
+  "telemetry": [
+    {
+      "event": "ChampionshipEnded",
+      "challenge_id": 946877,
+      "player_finished": true
+    },
+    {
+      "event": "EventEnded",
+      "event_index": 0,
+      "event_count": 1,
+      "player_finished": true
+    },
+    {
+      "event": "StageEnded",
+      "event_index": 0,
+      "event_count": 1,
+      "stage_index": 0,
+      "stage_count": 1,
+      "challenge_id": 946877,
+      "player_finished": true
+    }
+  ]
+}

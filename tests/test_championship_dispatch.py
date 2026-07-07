@@ -1,8 +1,11 @@
-"""Stage-2: the dispatcher turns a v2 championship into ONE Challenge with N
-game Events, each stage carrying the chosen route / conditions / surface-deg /
-service-area, plus a real EntryWindow and the advanced-settings toggles.
+"""Dispatcher championship building.
 
-Event index 0 must keep the exact ids the single-event path always produced.
+A multi-event championship is served the RaceNet way: ONE active sub-event at a
+time, as its own single-event Challenge, with the Club advertising
+AmountOfEvents=N / EventIndex=current and advancing on completion (verified
+2026-07-07 — see notes/protocol_notes.md).  ``_build_events_for_champ`` still
+builds every sub-event for the single-event / legacy paths, and event index 0
+keeps the exact ids the single-event path always produced.
 """
 from __future__ import annotations
 
@@ -39,14 +42,15 @@ class _StubClient:
 
 
 class _FullStubClient(_StubClient):
-    def __init__(self, clubs, events):
+    def __init__(self, clubs, events, my_progress=None):
         self._data = {"clubs": clubs, "events": events}
+        self._my_progress = my_progress
 
     def get_clubs(self):
         return self._data
 
     def get_my_progress(self):
-        return None
+        return self._my_progress
 
 
 def _dispatcher() -> RpcDispatcher:
@@ -117,7 +121,7 @@ def test_multi_event_challenge_structure() -> None:
     s1 = e0.stages[1]
     assert s1.surface_degrad == 0.5            # "Medium"
     assert s1.has_service_area is True         # "Long"
-    assert s1.svc_settings_id == 3
+    assert s1.svc_settings_id == 4             # "Long" (verified RaceNet ordinal)
 
     # Challenge-level: advanced toggles + entry window.
     egonet = disp._challenge_egonet(
@@ -168,26 +172,47 @@ def test_clubs_from_api_multi_event_full_path() -> None:
                          "surface_deg": "Low", "service_area": "None"}]},
         ],
     }
-    client = _FullStubClient(
-        clubs=[{"id": "club-x", "name": "Club X", "created_by": "me"}],
-        events=[champ],
-    )
-    disp = RpcDispatcher(account_store=MagicMock(), api_client=client)
+    club = [{"id": "club-x", "name": "Club X", "created_by": "me"}]
+
+    # No progress yet: the club serves ONLY event 0, as its own single-event
+    # Challenge, and advertises AmountOfEvents=2 / EventIndex=0.
+    disp = RpcDispatcher(account_store=MagicMock(),
+                         api_client=_FullStubClient(clubs=club, events=[champ]))
     out = disp._clubs_from_api()
 
     assert out and out["ok"]
-    challenges = out["Challenges"]
-    assert len(challenges) == 1
-    ch = challenges[0]
+    assert len(out["Challenges"]) == 1
+    ch = out["Challenges"][0]
     assert ch["Name"] == "Full Path Champ"
-    assert len(ch["Events"]) == 2
+    assert len(ch["Events"]) == 1              # ONE event per challenge (not 2 inline)
     assert ch["IsHardcore"] is False
     assert ch["ExteriorCams"] is False         # force cockpit => no exterior cams
     assert ch["AllowAssists"] is False
     assert ch["UnxpectdMoments"] is True
-    # Each game Event carries its own stage(s).
-    assert len(ch["Events"][0]["Stages"]) == 1
-    assert len(ch["Events"][1]["Stages"]) == 1
+    # The served (active) event is event 0 — loc_a's track.
+    assert ch["Events"][0]["Stages"][0]["TrackModelId"].value == ra[0][0]
+
+    assert len(out["Clubs"]) == 1
+    club_out = out["Clubs"][0]
+    assert club_out["AmountOfEvents"] == 2     # total events in the championship
+    assert club_out["EventIndex"] == 0         # currently on event 0
+    chal_id_e0 = ch["ChallengeID"]
+
+    # After completing event 0, the club advances to event 1: a DISTINCT
+    # ChallengeID, EventIndex=1, now serving loc_b's track.
+    progressed = {"events": [{"event_id": "evt-full01",
+                              "completed_stages": [{"event_index": 0, "stage_index": 0}]}]}
+    disp2 = RpcDispatcher(account_store=MagicMock(),
+                          api_client=_FullStubClient(clubs=club, events=[champ],
+                                                     my_progress=progressed))
+    out2 = disp2._clubs_from_api()
+    ch2 = out2["Challenges"][0]
+    club2 = out2["Clubs"][0]
+    assert club2["AmountOfEvents"] == 2
+    assert club2["EventIndex"] == 1                       # advanced to event 1
+    assert ch2["ChallengeID"] != chal_id_e0              # distinct per-event challenge
+    assert len(ch2["Events"]) == 1
+    assert ch2["Events"][0]["Stages"][0]["TrackModelId"].value == rb[0][0]
 
 
 def test_dispatcher_layout_offset_and_total() -> None:

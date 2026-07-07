@@ -31,7 +31,7 @@ Usage examples::
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -1140,17 +1140,21 @@ STAGE_CONDITIONS_LABELS: Dict[int, str] = {
     5:  "Dusk / Overcast / Dry",
     9:  "Daytime / Heavy Rain / Wet",
     11: "Daytime / Cloudy / Wet",
-    16: "Sunset / Cloudy / Dry",
+    16: "Sunset / Cloudy / Dry",   # verified via RaceNet club builder 2026-07-07
     17: "Sunset / Overcast / Dry",
-    20: "Sunset / Cloudy / Wet",
+    20: "Sunset / Cloudy / Wet",   # in-game OCR variant; RaceNet builder emits 34 for this label
     26: "Daytime / Showers / Wet",
+    32: "Daytime / Rain / Wet",    # verified via RaceNet club builder 2026-07-07 (distinct from 9 "Heavy Rain")
+    34: "Sunset / Cloudy / Wet",   # verified via RaceNet club builder 2026-07-07 (builder-canonical; cf. 20)
     35: "Sunset / Light Showers / Wet",
     38: "Daytime / Overcast / Dry",
     39: "Sunset / Light Rain / Wet",
     40: "Dusk / Showers / Wet",
-    42: "Sunset / Cloudy / Dry",   # matches SC=16 in our OCR — needs re-probe
     47: "Sunset / Clear / Dry",
 }
+# NOTE: id 42 ("Sunset / Cloudy / Dry") was a hypothesised duplicate of 16 and is
+# NOT reachable from the RaceNet builder — its single "Sunset / Cloudy / Dry"
+# option emits 16 (proxy-captured 2026-07-07).  Removed as a dead guess.
 
 
 def stage_conditions_label(value: int) -> str:
@@ -1196,19 +1200,45 @@ def stage_conditions_for_web(label: str) -> int:
 # time-trial captures).  Kept as a sorted list for UI dropdowns.
 OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
 
+# StageConditions ids the RaceNet club builder itself emits, verified 2026-07-07
+# by proxy-capturing Clubs.GetClubs from a championship built on real RaceNet.
+# When two ids render as the same in-game label (e.g. 20 and 34 both read
+# "Sunset / Cloudy / Wet"), the builder canonically uses the id listed here.
+RACENET_BUILDER_CONDITION_IDS: frozenset[int] = frozenset({1, 3, 4, 11, 16, 17, 26, 32, 34})
+
+
+def _build_stage_conditions_options() -> List[tuple[int, str]]:
+    """(composite_id, label) pairs for the championship-builder "Time of Day /
+    Conditions" dropdown — one row per distinct label.
+
+    Where several ids share a label, the RaceNet-builder-canonical id
+    (:data:`RACENET_BUILDER_CONDITION_IDS`) wins, so the builder writes the same
+    StageConditions int RaceNet's own builder would and the stage loads correctly
+    in-game.
+    """
+    by_label: Dict[str, int] = {}
+    for cid, label in sorted(STAGE_CONDITIONS_LABELS.items()):
+        current = by_label.get(label)
+        if current is None:
+            by_label[label] = cid
+        elif cid in RACENET_BUILDER_CONDITION_IDS and current not in RACENET_BUILDER_CONDITION_IDS:
+            by_label[label] = cid
+    return sorted((cid, label) for label, cid in by_label.items())
+
+
 # (composite_id, label) pairs for the championship-builder "Time of Day /
 # Conditions" dropdown.  These are the CONFIRMED values from the table above,
 # so the per-stage conditions the user picks always load correctly in-game.
-STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = sorted(STAGE_CONDITIONS_LABELS.items())
+STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_options()
 
 
 # ---------------------------------------------------------------------------
-# Surface degradation levels  (BEST-GUESS mapping — verify in-game)
+# Surface degradation levels  (VERIFIED via RaceNet club builder 2026-07-07)
 # ---------------------------------------------------------------------------
 # RaceNet's championship builder exposes a per-stage "Surface Deg" dropdown
-# (Max / Medium confirmed from screenshots).  The game field is the raw float
-# Stage.surface_degrad (0.0-1.0, default 0.25).  The label->float mapping below
-# is an UNVERIFIED best guess to be pinned via the debug-clubs probe path.
+# (None / Low / Medium / High / Max).  The game field is the raw float
+# Stage.surface_degrad (0.0-1.0, default 0.25).  Proxy-captured Clubs.GetClubs
+# ground truth confirmed the full label->float mapping below exactly.
 SURFACE_DEGRAD_LEVELS: List[tuple[str, float]] = [
     ("None",   0.0),
     ("Low",    0.25),   # == Stage.surface_degrad default (upstream-observed)
@@ -1229,16 +1259,18 @@ def surface_degrad_for_level(label: str) -> float:
 
 
 # ---------------------------------------------------------------------------
-# Service area levels  (BEST-GUESS mapping — verify in-game)
+# Service area levels  (VERIFIED via RaceNet club builder 2026-07-07)
 # ---------------------------------------------------------------------------
-# RaceNet exposes a per-stage "Service Area" dropdown (None / Medium confirmed).
-# Maps to Stage.has_service_area (bool) + Stage.svc_settings_id (int, default 2).
-# The svc_settings_id ordinals below are an UNVERIFIED best guess.
+# RaceNet exposes a per-stage "Service Area" dropdown: None / Short / Medium /
+# Long.  Maps to Stage.has_service_area (bool) + Stage.svc_settings_id (int).
+# Proxy-captured Clubs.GetClubs ground truth: the ordinals are 0=off, 2=Short,
+# 3=Medium, 4=Long — svc_settings_id 1 is never emitted (an unexposed gap), and
+# the previously-observed default of 2 is "Short", NOT "Medium" as once assumed.
 SERVICE_AREA_LEVELS: List[tuple[str, bool, int]] = [
     ("None",   False, 0),
-    ("Short",  True,  1),
-    ("Medium", True,  2),   # == Stage.svc_settings_id default (upstream-observed)
-    ("Long",   True,  3),
+    ("Short",  True,  2),   # == Stage.svc_settings_id default (upstream-observed)
+    ("Medium", True,  3),
+    ("Long",   True,  4),
 ]
 
 _SERVICE_AREA_BY_LABEL: Dict[str, tuple[bool, int]] = {
@@ -1249,7 +1281,8 @@ _SERVICE_AREA_BY_LABEL: Dict[str, tuple[bool, int]] = {
 def service_area_for_level(label: str) -> tuple[bool, int]:
     """Resolve a Service Area label to ``(has_service_area, svc_settings_id)``.
 
-    Unknown labels fall back to ``(True, 2)`` (the engine default / "Medium").
+    Unknown labels fall back to ``(True, 2)`` (the upstream-observed default,
+    which is "Short").
     """
     return _SERVICE_AREA_BY_LABEL.get(label, (True, 2))
 

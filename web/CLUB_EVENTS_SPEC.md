@@ -138,3 +138,22 @@ Game server → GET /api/game/clubs → reads clubs + events → serves to game
 ```
 
 No real-time sync needed — the game server fetches fresh data on each Clubs.GetClubs call.
+
+## Multi-event championships (verified against real RaceNet 2026-07-07)
+
+A championship with more than one sub-event (v2 `events[]` shape) is **not**
+served as one `Challenge` containing several events. Real RaceNet serves the
+events **one at a time** and tracks progression on the club object. See
+`notes/protocol_notes.md` → "Club Championships — Multi-Event Model" for the
+captured ground truth. The game server therefore must, for an N-event
+championship:
+
+- Set the club's `AmountOfEvents = N` and `EventIndex =` the player's current
+  event (0-based; from their completion progress).
+- Serve **only the current event** as its own single-event `Challenge` (distinct
+  `ChallengeID`/`EventId`, its own entry window).
+- Advance `EventIndex` when that event's stages are completed; the next
+  `Clubs.GetClubs` then serves the next event.
+
+The game always reports `EventIndex=0` in `StageBegin`/`StageComplete`; the
+active event is identified by its `ChallengeID`, not by a game-supplied index.
