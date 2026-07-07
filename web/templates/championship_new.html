@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+{% block title %}New Championship - {{ club.name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb">
+                    <a href="/clubs">Clubs</a> <span class="accent">/</span>
+                    <a href="/clubs/{{ club.id }}">{{ club.name }}</a> <span class="accent">/</span>
+                </p>
+                <h1 class="page-title">Create Championship</h1>
+                <p class="page-subtitle text-muted">Pick how many events and stages, then customise each rally.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container">
+    <div class="card reveal">
+        <div class="card-header">
+            <h2 class="card-title"><span class="accent">//</span> New Championship</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" action="/clubs/{{ club.id }}/championship/new" class="create-event-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="create-event-grid">
+                    <div class="form-group">
+                        <label for="num_events" class="form-label">Number of Events</label>
+                        <input type="number" id="num_events" name="num_events" class="form-input"
+                               min="1" max="{{ max_events }}" value="3" required>
+                        <span class="form-hint">Each event is a rally at one location (max {{ max_events }}).</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="num_stages" class="form-label">Stages per Event</label>
+                        <input type="number" id="num_stages" name="num_stages" class="form-input"
+                               min="1" max="{{ max_stages }}" value="5" required>
+                        <span class="form-hint">Starting stage count for each event — tune it per event afterwards.</span>
+                    </div>
+                </div>
+                <div class="create-event-actions">
+                    <button type="submit" class="btn btn-primary">Generate Championship</button>
+                    <a href="/clubs/{{ club.id }}" class="btn btn-ghost">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

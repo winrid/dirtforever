@@ -47,9 +47,15 @@ from dr2server.game_data import (  # noqa: E402
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
     VEHICLES as GAME_VEHICLES,
     stage_conditions_label,
+    stage_conditions_for_web,
     get_tracks_for_location,
+    get_verified_routes_for_location,
     vehicle_class_id_for_label,
     CONFIRMED_VEHICLE_CLASS_IDS,
+    STAGE_CONDITIONS_OPTIONS,
+    STAGE_CONDITIONS_LABELS,
+    SURFACE_DEGRAD_LEVELS,
+    SERVICE_AREA_LEVELS,
 )
 
 
@@ -91,8 +97,12 @@ CLUBS_DIR  = os.path.join(DATA_DIR, 'clubs')
 EVENTS_DIR = os.path.join(DATA_DIR, 'events')
 RESULTS_DIR = os.path.join(DATA_DIR, 'results')
 TIME_TRIALS_DIR = os.path.join(DATA_DIR, 'time_trials')
+# Championship builder drafts live in their OWN directory so they never leak
+# into get_all_events() (which would serve them to the game and the /events
+# list before the user has submitted).
+CHAMP_DRAFTS_DIR = os.path.join(DATA_DIR, 'championship_drafts')
 
-for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR, TIME_TRIALS_DIR):
+for d in (USERS_DIR, CLUBS_DIR, EVENTS_DIR, RESULTS_DIR, TIME_TRIALS_DIR, CHAMP_DRAFTS_DIR):
     os.makedirs(d, exist_ok=True)
 
 
@@ -533,6 +543,16 @@ def get_events_by_type(t: str) -> list[Any]:
 def event_is_active(e: dict[str, Any], now: datetime | None = None) -> bool:
     if not e.get('active'):
         return False
+    now = now or datetime.now()
+    # Start gate: a scheduled/future championship isn't live until its start
+    # time passes, so it isn't served to the game (or shown as active) early.
+    raw_start = e.get('start_time')
+    if raw_start:
+        try:
+            if datetime.fromisoformat(raw_start) > now:
+                return False
+        except ValueError:
+            pass
     raw = e.get('end_time')
     if not raw:
         return True
@@ -540,7 +560,7 @@ def event_is_active(e: dict[str, Any], now: datetime | None = None) -> bool:
         end = datetime.fromisoformat(raw)
     except ValueError:
         return True
-    return end > (now or datetime.now())
+    return end > now
 
 
 # ── Result ops ───────────────────────────────────────────
@@ -715,6 +735,22 @@ STAGE_CAPS: dict[str, int] = {
     for name, count in VERIFIED_STAGE_COUNTS.items()
 }
 
+# Per-location VERIFIED routes for the championship-builder ROUTE dropdown:
+# {location_display_name: [(track_id, route_name, length_km), ...]}.  Unlike
+# STAGES (which lists every route), this is filtered to routes the game can
+# actually deliver, because an unverified track_id loads the wrong stage.
+# Locations with no verified routes map to an empty list (the editor shows a
+# hint and such a championship won't appear in-game until routes are verified).
+STAGE_ROUTES: dict[str, list[tuple[int, str, float]]] = {
+    loc.display_name: get_verified_routes_for_location(int(loc))
+    for loc in Location
+    if loc.display_name in STAGES
+}
+
+# Ordered label lists for the per-stage Surface Deg / Service Area dropdowns.
+SURFACE_DEG_OPTIONS: list[str] = [label for label, _ in SURFACE_DEGRAD_LEVELS]
+SERVICE_AREA_OPTIONS: list[str] = [label for label, _has, _sid in SERVICE_AREA_LEVELS]
+
 CAR_CLASSES = {
     'H1 (FWD)': [
         'Mini Cooper S', 'DS Automobiles DS 21', 'Lancia Fulvia HF',
@@ -858,6 +894,328 @@ DURATION_OPTIONS = {
     '1week': ('weekly', timedelta(weeks=1)),
     '1month': ('monthly', timedelta(days=30)),
 }
+
+
+# ── Championship schema helpers ──────────────────────────
+
+# Total championship duration bounds (sum of all per-event durations).
+MIN_CHAMP_DURATION = timedelta(hours=1)
+MAX_CHAMP_DURATION = timedelta(days=60)
+
+# Defaults for the four championship-wide advanced toggles.  force_cockpit is
+# stored as its own boolean; the dispatcher inverts it into Challenge.exterior_cams.
+DEFAULT_CHAMP_SETTINGS: dict[str, bool] = {
+    'hardcore_damage': True,
+    'force_cockpit_camera': False,
+    'allow_assists': True,
+    'unexpected_moments': True,
+}
+
+
+def _event_timedelta(d: dict[str, Any]) -> timedelta:
+    """Return the timedelta for a per-event ``{days, hours, mins}`` dict."""
+    try:
+        days = int(d.get('days', 0) or 0)
+        hours = int(d.get('hours', 0) or 0)
+        mins = int(d.get('mins', 0) or 0)
+    except (TypeError, ValueError):
+        return timedelta(0)
+    return timedelta(days=days, hours=hours, minutes=mins)
+
+
+def championship_duration(events: list[dict[str, Any]]) -> timedelta:
+    """Sum every event's duration into the total championship length."""
+    total = timedelta(0)
+    for ev in events:
+        total += _event_timedelta(ev.get('duration', {}))
+    return total
+
+
+def _validate_duration(d: dict[str, Any]) -> list[str]:
+    """Validate one event's ``{days, hours, mins}``; return error strings."""
+    errors: list[str] = []
+    for key in ('days', 'hours', 'mins'):
+        try:
+            v = int(d.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            errors.append(f'Invalid {key} in event duration.')
+            continue
+        if v < 0:
+            errors.append(f'Event {key} cannot be negative.')
+    return errors
+
+
+def bucket_for_duration(total: timedelta) -> str:
+    """Map a total championship duration to a daily/weekly/monthly bucket.
+
+    Used only for the ``/events`` list filter and badges.
+    """
+    if total <= timedelta(hours=24):
+        return 'daily'
+    if total <= timedelta(days=7):
+        return 'weekly'
+    return 'monthly'
+
+
+def _duration_for_type(event_type: str) -> dict[str, int]:
+    """Legacy adapter: map an old daily/weekly/monthly ``type`` to a duration dict."""
+    key = {'daily': '24h', 'weekly': '1week', 'monthly': '1month'}.get(event_type, '1week')
+    _t, delta = DURATION_OPTIONS[key]
+    total_min = int(delta.total_seconds() // 60)
+    days, rem = divmod(total_min, 24 * 60)
+    hours, mins = divmod(rem, 60)
+    return {'days': days, 'hours': hours, 'mins': mins}
+
+
+def normalize_championship(raw: dict[str, Any]) -> dict[str, Any]:
+    """Return a canonical v2 championship dict (``events[]`` + ``settings``).
+
+    Accepts both the new multi-event shape and the legacy single-event shape
+    (no ``events`` key) so every consumer — chiefly the game dispatcher — can
+    treat all stored events uniformly.  Never mutates the input.
+
+    Per stage, ``conditions_id`` is filled from the ``conditions`` label when
+    absent (legacy files); ``track_id``/``surface_deg``/``service_area`` are
+    left as-is so the dispatcher can apply its backward-compatible fallbacks.
+    """
+    champ = dict(raw)
+
+    settings = dict(DEFAULT_CHAMP_SETTINGS)
+    settings.update(champ.get('settings') or {})
+    champ['settings'] = settings
+
+    events = champ.get('events')
+    if not events:
+        events = [{
+            'location': champ.get('location', ''),
+            'car_class': champ.get('car_class', ''),
+            'surface': champ.get('surface', 'Gravel'),
+            'duration': _duration_for_type(champ.get('type', 'weekly')),
+            'stages': champ.get('stages', []),
+        }]
+
+    norm_events: list[dict[str, Any]] = []
+    for ev in events:
+        ev = dict(ev)
+        ev.setdefault('surface', 'Gravel')
+        ev.setdefault('duration', {'days': 0, 'hours': 0, 'mins': 0})
+        stages: list[dict[str, Any]] = []
+        for s in ev.get('stages', []):
+            s = dict(s)
+            if s.get('conditions_id') is None:
+                s['conditions_id'] = stage_conditions_for_web(s.get('conditions', ''))
+            stages.append(s)
+        ev['stages'] = stages
+        norm_events.append(ev)
+    champ['events'] = norm_events
+    return champ
+
+
+def _champ_stage_layout(event: dict[str, Any]) -> list[int]:
+    """Stage counts per sub-event; ``[len(stages)]`` for legacy single events."""
+    evs = event.get('events')
+    if evs:
+        return [len(ev.get('stages', []) or []) for ev in evs]
+    return [len(event.get('stages', []) or [])]
+
+
+def _global_stage_index(event: dict[str, Any], event_index: int, stage_index: int) -> int:
+    """Map a per-event ``(event_index, stage_index)`` to a flat championship-wide
+    stage ordinal so results for different sub-events don't collide.
+
+    For ``event_index == 0`` this is exactly ``stage_index``, so single-event
+    championships (every event today) store results identically to before.
+    """
+    if event_index <= 0:
+        return stage_index
+    layout = _champ_stage_layout(event)
+    return sum(layout[:event_index]) + stage_index
+
+
+# ── Championship builder: drafts & form parsing ──────────
+
+MAX_CHAMP_EVENTS = 8
+MAX_STAGES_PER_EVENT = 12
+
+
+def _draft_path(draft_id: str) -> str:
+    _validate_id(draft_id)
+    return os.path.join(CHAMP_DRAFTS_DIR, f'{draft_id}.json')
+
+
+def get_draft(draft_id: str) -> dict[str, Any] | None:
+    p = _draft_path(draft_id)
+    return _load(p) if os.path.exists(p) else None
+
+
+def save_draft(d: dict[str, Any]) -> None:
+    _save(_draft_path(d['id']), d)
+
+
+def delete_draft(draft_id: str) -> None:
+    p = _draft_path(draft_id)
+    if os.path.exists(p):
+        os.remove(p)
+
+
+def _service_area_for_pos(pos: int) -> str:
+    """Default service area: Medium every 2 stages (indices 0, 2, 4, ...)."""
+    return 'Medium' if pos % 2 == 0 else 'None'
+
+
+def _blank_stage(pos: int = 0) -> dict[str, Any]:
+    return {'track_id': None, 'conditions_id': None,
+            'surface_deg': 'Medium', 'service_area': _service_area_for_pos(pos)}
+
+
+def _blank_event(num_stages: int = 1) -> dict[str, Any]:
+    return {
+        'location': '',
+        'car_class': '',
+        'duration': {'days': 2, 'hours': 0, 'mins': 0},
+        'stages': [_blank_stage(i) for i in range(max(1, num_stages))],
+    }
+
+
+# Surface-degradation spread for the semi-random generated fill — skips
+# "None"/"Low" so a freshly-generated rally reads like RaceNet's Medium/High/Max.
+_RANDOM_SURFACE_DEG = ['Medium', 'High', 'Max']
+
+
+def _condition_weight(label: str) -> float:
+    """Weight a "Time / Weather / Surface" conditions label, biased toward
+    Daytime and Dry so a generated rally leans clear-and-bright (like RaceNet)
+    while still occasionally rolling dusk/sunset/wet stages for variety."""
+    parts = [p.strip() for p in label.split('/')]
+    tod = parts[0] if parts else ''
+    wet = parts[2] if len(parts) > 2 else ''
+    weight = 1.0
+    if tod == 'Daytime':
+        weight *= 4.0
+    elif tod in ('Sunset', 'Dusk'):
+        weight *= 1.5
+    # Night keeps the base weight.
+    if wet == 'Dry':
+        weight *= 3.0
+    return weight
+
+
+# Conditions ids + matching weights for the generated fill (Daytime/Dry favoured).
+_COND_IDS = [cid for cid, _label in STAGE_CONDITIONS_OPTIONS]
+_COND_WEIGHTS = [_condition_weight(label) for _cid, label in STAGE_CONDITIONS_OPTIONS]
+
+
+def _random_championship_events(num_events: int, num_stages: int) -> list[dict[str, Any]]:
+    """Build a semi-randomly filled set of events (RaceNet-style) so the editor
+    opens pre-populated instead of blank.
+
+    Picks ONE confirmed vehicle class for the whole championship (the game
+    applies one class per championship) and a distinct verified location per
+    event, then fills each stage with a real verified route, a random confirmed
+    conditions preset, a surface-deg level, and the Medium-every-2-stages
+    service-area pattern.
+    """
+    rng = random.Random()
+    loc_pool = [l for l in STAGES if VERIFIED_STAGE_COUNTS.get(l, 0) > 0]
+    class_pool = [
+        c for c in CAR_CLASSES
+        if (vehicle_class_id_for_label(c) or 0) in CONFIRMED_VEHICLE_CLASS_IDS
+    ]
+    car_class = rng.choice(class_pool) if class_pool else ''
+
+    used_locs: set[str] = set()
+    events: list[dict[str, Any]] = []
+    for _ in range(num_events):
+        avail = [l for l in loc_pool if l not in used_locs] or loc_pool
+        # Prefer a location with enough verified routes to fill every stage.
+        rich = [l for l in avail if VERIFIED_STAGE_COUNTS.get(l, 0) >= num_stages]
+        location = rng.choice(rich or avail) if avail else ''
+        used_locs.add(location)
+
+        routes = list(STAGE_ROUTES.get(location, []))
+        rng.shuffle(routes)
+        picked = routes[:num_stages]
+        stages = [
+            {
+                'track_id': tid,
+                'conditions_id': rng.choices(_COND_IDS, weights=_COND_WEIGHTS, k=1)[0],
+                'surface_deg': rng.choice(_RANDOM_SURFACE_DEG),
+                'service_area': _service_area_for_pos(i),
+            }
+            for i, (tid, _name, _km) in enumerate(picked)
+        ] or [_blank_stage(i) for i in range(num_stages)]
+
+        events.append({
+            'location': location,
+            'car_class': car_class,
+            'duration': {'days': 2, 'hours': 0, 'mins': 0},
+            'stages': stages,
+        })
+    return events
+
+
+def _to_int_or_none(v: Any) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int_or_zero(v: Any) -> int:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return 0
+
+
+_CHAMP_FIELD_RE = re.compile(r'^events\[(\d+)\](?:\[stages\]\[(\d+)\])?\[(\w+)\]$')
+
+
+def parse_championship_form(form: Any) -> dict[str, Any]:
+    """Reconstruct ``{name, events:[{location,car_class,duration,stages:[...]}]}``
+    from bracketed indexed form fields.
+
+    Sparse indices left by client-side deletes are compacted to 0..N-1 (submit
+    order is ascending), so the server never has to trust the raw indices.
+    """
+    events: dict[int, dict[str, Any]] = {}
+    for key in form.keys():
+        m = _CHAMP_FIELD_RE.match(key)
+        if not m:
+            continue
+        ei = int(m.group(1))
+        sj = m.group(2)
+        field = m.group(3)
+        ev = events.setdefault(ei, {'fields': {}, 'stages': {}})
+        if sj is None:
+            ev['fields'][field] = form.get(key, '')
+        else:
+            ev['stages'].setdefault(int(sj), {})[field] = form.get(key, '')
+
+    out_events: list[dict[str, Any]] = []
+    for ei in sorted(events):
+        raw = events[ei]
+        f = raw['fields']
+        stages_out: list[dict[str, Any]] = []
+        for sj in sorted(raw['stages']):
+            s = raw['stages'][sj]
+            stages_out.append({
+                'track_id': _to_int_or_none(s.get('route')),
+                'conditions_id': _to_int_or_none(s.get('conditions')),
+                'surface_deg': (s.get('surface_deg') or 'Medium').strip(),
+                'service_area': (s.get('service_area') or 'Medium').strip(),
+            })
+        out_events.append({
+            'location': (f.get('location') or '').strip(),
+            'car_class': (f.get('car_class') or '').strip(),
+            'duration': {
+                'days': _to_int_or_zero(f.get('duration_days')),
+                'hours': _to_int_or_zero(f.get('duration_hours')),
+                'mins': _to_int_or_zero(f.get('duration_mins')),
+            },
+            'stages': stages_out or [_blank_stage()],
+        })
+    return {'name': (form.get('name') or '').strip(), 'events': out_events}
 
 
 def _seed_users() -> list[dict[str, Any]]:
@@ -2361,9 +2719,6 @@ def create_club_event(club_id: str) -> Response:
     available = STAGE_CAPS.get(location, len(STAGES.get(location, [])))
     if num_stages < 1 or (available and num_stages > available):
         errors.append(f'Stage count must be between 1 and {available}.')
-    active_events = [e for e in get_all_events() if e.get('club_id') == club_id and event_is_active(e)]
-    if active_events:
-        errors.append('This club already has an active event. You must wait for it to finish before creating a new one.')
 
     if errors:
         for e in errors:
@@ -2397,6 +2752,318 @@ def create_club_event(club_id: str) -> Response:
 
     save_event(event)
     flash(f'Event "{name}" created!', 'success')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+# ── Championship builder (RaceNet-style multi-event) ─────
+
+def _require_club_owner(club_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load the club and current user, enforcing 404/403; returns (club, user)."""
+    club = get_club(club_id)
+    if not club:
+        abort(404)
+    user = current_user()
+    assert user is not None
+    if club['created_by'] != user['username']:
+        abort(403)
+    return club, user
+
+
+def _require_draft(club_id: str, draft_id: str, user: dict[str, Any]) -> dict[str, Any]:
+    draft = get_draft(draft_id)
+    if not draft or draft.get('club_id') != club_id or draft.get('owner') != user['username']:
+        abort(404)
+    return draft
+
+
+def _championship_edit_context(club: dict[str, Any], draft: dict[str, Any]) -> dict[str, Any]:
+    return dict(
+        club=club, draft=draft,
+        rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
+        rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
+        car_classes=list(CAR_CLASSES.keys()),
+        condition_options=STAGE_CONDITIONS_OPTIONS,
+        surface_deg_options=SURFACE_DEG_OPTIONS,
+        service_area_options=SERVICE_AREA_OPTIONS,
+        stage_routes=STAGE_ROUTES, stage_caps=STAGE_CAPS,
+        blank_stage=_blank_stage(),
+        max_events=MAX_CHAMP_EVENTS, max_stages=MAX_STAGES_PER_EVENT,
+    )
+
+
+@app.route('/clubs/<club_id>/championship/new', methods=['GET'])
+@verified_required
+def championship_new(club_id: str) -> str:
+    club, _user = _require_club_owner(club_id)
+    return render_template('championship_new.html', club=club,
+                           max_events=MAX_CHAMP_EVENTS, max_stages=MAX_STAGES_PER_EVENT)
+
+
+@app.route('/clubs/<club_id>/championship/new', methods=['POST'])
+@verified_required
+def championship_generate(club_id: str) -> Response:
+    club, user = _require_club_owner(club_id)
+    num_events = _to_int_or_zero(request.form.get('num_events'))
+    num_stages = _to_int_or_zero(request.form.get('num_stages'))
+    errors: list[str] = []
+    if not (1 <= num_events <= MAX_CHAMP_EVENTS):
+        errors.append(f'Number of events must be between 1 and {MAX_CHAMP_EVENTS}.')
+    if not (1 <= num_stages <= MAX_STAGES_PER_EVENT):
+        errors.append(f'Number of stages must be between 1 and {MAX_STAGES_PER_EVENT}.')
+    if errors:
+        for e in errors:
+            flash(e, 'error')
+        return redirect(url_for('championship_new', club_id=club_id))
+
+    draft = {
+        'id': f'champ-draft-{uuid.uuid4().hex[:8]}',
+        'club_id': club_id,
+        'owner': user['username'],
+        'created_at': datetime.now().isoformat(),
+        'name': '',
+        'start_at': '',
+        'settings': dict(DEFAULT_CHAMP_SETTINGS),
+        'events': _random_championship_events(num_events, num_stages),
+    }
+    save_draft(draft)
+    return redirect(url_for('championship_edit', club_id=club_id, draft_id=draft['id']))
+
+
+@app.route('/clubs/<club_id>/championship/<draft_id>', methods=['GET'])
+@verified_required
+def championship_edit(club_id: str, draft_id: str) -> str:
+    club, user = _require_club_owner(club_id)
+    draft = _require_draft(club_id, draft_id, user)
+    return render_template('championship_edit.html',
+                           **_championship_edit_context(club, draft))
+
+
+@app.route('/clubs/<club_id>/championship/<draft_id>', methods=['POST'])
+@verified_required
+def championship_action(club_id: str, draft_id: str) -> Response:
+    _club, user = _require_club_owner(club_id)
+    draft = _require_draft(club_id, draft_id, user)
+
+    # Always persist the whole editor form first so nothing is lost on a bounce.
+    parsed = parse_championship_form(request.form)
+    draft['name'] = parsed['name']
+    draft['events'] = parsed['events'] or [_blank_event()]
+
+    action = request.form.get('action', 'save')
+    anchor = ''
+    if action == 'add_event':
+        if len(draft['events']) < MAX_CHAMP_EVENTS:
+            draft['events'].append(_blank_event(1))
+            anchor = f"#event-{len(draft['events']) - 1}"
+        else:
+            flash(f'A championship can have at most {MAX_CHAMP_EVENTS} events.', 'error')
+    elif action.startswith('delete_event:'):
+        i = _to_int_or_zero(action.split(':', 1)[1])
+        if len(draft['events']) > 1 and 0 <= i < len(draft['events']):
+            draft['events'].pop(i)
+    elif action.startswith('add_stage:'):
+        i = _to_int_or_zero(action.split(':', 1)[1])
+        if 0 <= i < len(draft['events']):
+            stages_i = draft['events'][i]['stages']
+            if len(stages_i) < MAX_STAGES_PER_EVENT:
+                stages_i.append(_blank_stage(len(stages_i)))
+            else:
+                flash(f'An event can have at most {MAX_STAGES_PER_EVENT} stages.', 'error')
+            anchor = f"#event-{i}"
+    elif action.startswith('delete_stage:'):
+        parts = action.split(':')
+        i = _to_int_or_zero(parts[1]) if len(parts) > 1 else 0
+        j = _to_int_or_zero(parts[2]) if len(parts) > 2 else 0
+        if 0 <= i < len(draft['events']):
+            st = draft['events'][i]['stages']
+            if len(st) > 1 and 0 <= j < len(st):
+                st.pop(j)
+            anchor = f"#event-{i}"
+
+    save_draft(draft)
+    if action == 'preview':
+        return redirect(url_for('championship_preview', club_id=club_id, draft_id=draft_id))
+    return redirect(url_for('championship_edit', club_id=club_id, draft_id=draft_id) + anchor)
+
+
+def _championship_summary(draft: dict[str, Any]) -> dict[str, Any]:
+    """Per-event summary rows + computed end time for the preview screen."""
+    rows = []
+    for ev in draft.get('events', []):
+        d = ev.get('duration', {}) or {}
+        parts = []
+        if d.get('days'):
+            parts.append(f"{d['days']} Day" + ('s' if d['days'] != 1 else ''))
+        if d.get('hours'):
+            parts.append(f"{d['hours']} Hour" + ('s' if d['hours'] != 1 else ''))
+        if d.get('mins'):
+            parts.append(f"{d['mins']} Min" + ('s' if d['mins'] != 1 else ''))
+        dur_label = ' '.join(parts) if parts else '0 Mins'
+        rows.append({
+            'location': ev.get('location') or '(none)',
+            'stages': len(ev.get('stages', [])),
+            'duration_label': dur_label,
+        })
+    return {'rows': rows, 'total': championship_duration(draft.get('events', []))}
+
+
+@app.route('/clubs/<club_id>/championship/<draft_id>/preview', methods=['GET'])
+@verified_required
+def championship_preview(club_id: str, draft_id: str) -> str:
+    club, user = _require_club_owner(club_id)
+    draft = _require_draft(club_id, draft_id, user)
+    summary = _championship_summary(draft)
+    now = datetime.now()
+    end_display = ''
+    if summary['total'].total_seconds() > 0:
+        start_ref = now
+        if draft.get('start_at'):
+            try:
+                start_ref = datetime.fromisoformat(draft['start_at'])
+            except ValueError:
+                start_ref = now
+        end_display = (start_ref + summary['total']).strftime('%a %d %b %Y, %H:%M')
+    return render_template(
+        'championship_preview.html', club=club, draft=draft,
+        summary_rows=summary['rows'], end_display=end_display,
+        total_seconds=int(summary['total'].total_seconds()),
+        now_iso=now.strftime('%Y-%m-%dT%H:%M'),
+    )
+
+
+def _enrich_stage(location: str, s: dict[str, Any]) -> dict[str, Any]:
+    routes = {tid: (name, km) for tid, name, km in STAGE_ROUTES.get(location, [])}
+    tid = s.get('track_id')
+    name, km = routes.get(tid, ('', 0.0)) if tid is not None else ('', 0.0)
+    cid = s.get('conditions_id')
+    label = STAGE_CONDITIONS_LABELS.get(cid, '') if cid is not None else ''
+    return {
+        'name': name, 'track_id': tid, 'distance_km': km,
+        'conditions_id': cid, 'conditions': label,
+        'surface_deg': s.get('surface_deg', 'Medium'),
+        'service_area': s.get('service_area', 'Medium'),
+    }
+
+
+def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
+    errors: list[str] = []
+    if not events:
+        return ['A championship needs at least one event.']
+    classes = set()
+    for i, ev in enumerate(events, start=1):
+        loc = ev.get('location', '')
+        cls = ev.get('car_class', '')
+        classes.add(cls)
+        if loc not in STAGES:
+            errors.append(f'Event {i}: invalid location.')
+        vclass_id = vehicle_class_id_for_label(cls)
+        if cls not in CAR_CLASSES or vclass_id is None \
+                or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+            errors.append(f'Event {i}: invalid or unsupported vehicle class.')
+        errors.extend(f'Event {i}: {e}' for e in _validate_duration(ev.get('duration', {})))
+        stages = ev.get('stages', [])
+        cap = STAGE_CAPS.get(loc, len(STAGES.get(loc, [])))
+        if not (1 <= len(stages) <= MAX_STAGES_PER_EVENT):
+            errors.append(f'Event {i}: must have 1-{MAX_STAGES_PER_EVENT} stages.')
+        if loc in STAGES and cap and len(stages) > cap:
+            errors.append(f'Event {i}: {loc} supports at most {cap} stages.')
+        valid_track_ids = {tid for tid, _n, _km in STAGE_ROUTES.get(loc, [])}
+        for sj, s in enumerate(stages, start=1):
+            tid = s.get('track_id')
+            if tid is None or tid not in valid_track_ids:
+                errors.append(f'Event {i} stage {sj}: pick a route.')
+            cid = s.get('conditions_id')
+            if cid is None or cid not in STAGE_CONDITIONS_LABELS:
+                errors.append(f'Event {i} stage {sj}: pick conditions.')
+            if s.get('surface_deg') not in SURFACE_DEG_OPTIONS:
+                errors.append(f'Event {i} stage {sj}: invalid surface degradation.')
+            if s.get('service_area') not in SERVICE_AREA_OPTIONS:
+                errors.append(f'Event {i} stage {sj}: invalid service area.')
+    if len(classes) > 1:
+        errors.append('All events must use the same vehicle class '
+                      '(the game applies one class per championship).')
+    return errors
+
+
+@app.route('/clubs/<club_id>/championship/<draft_id>/submit', methods=['POST'])
+@verified_required
+def championship_submit(club_id: str, draft_id: str) -> Response:
+    club, user = _require_club_owner(club_id)
+    draft = _require_draft(club_id, draft_id, user)
+
+    name = (request.form.get('name') or draft.get('name') or '').strip()
+    start_at = (request.form.get('start_at') or '').strip()
+    settings = {
+        'hardcore_damage': request.form.get('adv_hardcore_damage') == '1',
+        'unexpected_moments': request.form.get('adv_unexpected_moments') == '1',
+        'force_cockpit_camera': request.form.get('adv_force_cockpit') == '1',
+        'allow_assists': request.form.get('adv_allow_assists') == '1',
+    }
+    draft['start_at'] = start_at
+    draft['settings'] = settings
+    save_draft(draft)
+
+    events = draft.get('events', [])
+    errors = _validate_championship(events)
+    if not name:
+        errors.insert(0, 'Championship name is required.')
+    elif len(name) > 60:
+        errors.insert(0, 'Championship name must be under 60 characters.')
+
+    now = datetime.now()
+    start_dt = now
+    if start_at:
+        try:
+            start_dt = datetime.fromisoformat(start_at)
+        except ValueError:
+            errors.append('Invalid start date/time.')
+    if start_dt < now - timedelta(minutes=5):
+        errors.append('Start time cannot be in the past.')
+    total = championship_duration(events)
+    if total.total_seconds() <= 0:
+        errors.append('Total championship duration must be greater than zero.')
+    if total > MAX_CHAMP_DURATION:
+        errors.append('Total championship duration is too long.')
+
+    if errors:
+        for e in errors:
+            flash(e, 'error')
+        return redirect(url_for('championship_preview', club_id=club_id, draft_id=draft_id))
+
+    end_dt = start_dt + total
+    v2_events = [
+        {
+            'location': ev['location'],
+            'car_class': ev['car_class'],
+            'surface': LOCATION_SURFACE.get(ev['location'], 'Gravel'),
+            'duration': ev.get('duration', {}),
+            'stages': [_enrich_stage(ev['location'], s) for s in ev.get('stages', [])],
+        }
+        for ev in events
+    ]
+    first = v2_events[0]
+    event = {
+        'id': f'evt-{uuid.uuid4().hex[:8]}',
+        'schema_version': 2,
+        'name': name,
+        'type': bucket_for_duration(total),
+        'club_id': club_id,
+        'start_time': start_dt.isoformat(),
+        'end_time': end_dt.isoformat(),
+        'active': True,
+        'featured': False,
+        'settings': settings,
+        # Top-level mirrors of events[0] so legacy readers/templates keep working.
+        'location': first['location'],
+        'car_class': first['car_class'],
+        'surface': first['surface'],
+        'conditions': first['stages'][0]['conditions'] if first['stages'] else '',
+        'stages': first['stages'],
+        'events': v2_events,
+    }
+    save_event(event)
+    delete_draft(draft_id)
+    flash(f'Championship "{name}" created!', 'success')
     return redirect(url_for('club_detail', club_id=club_id))
 
 
@@ -2629,7 +3296,8 @@ def api_game_clubs() -> Response:
     # flag: expired events keep active=True until the cron sweep runs, and we
     # must never serve a finished event to the game even if that sweep lags.
     events = [
-        e for e in get_all_events()
+        normalize_championship(e)
+        for e in get_all_events()
         if event_is_active(e) and e.get('club_id') in seen
     ]
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
@@ -2697,12 +3365,16 @@ def api_game_stage_begin() -> Response | tuple[Response, int]:
             return _api_error('not a member of this club', 403)
 
     stage_index = int(data.get('stage_index', 0))
+    event_index = int(data.get('event_index', 0) or 0)
+    # Flatten (event_index, stage_index) so multi-event championships don't
+    # collide; identity for single-event (event_index 0).
+    pos = _global_stage_index(event, event_index, stage_index)
 
     results = get_results(event_id)
-    # Store in_progress keyed by username -> stage_index
+    # Store in_progress keyed by username -> flat stage ordinal
     in_progress = results.setdefault('in_progress', {})
     user_progress = in_progress.setdefault(username, {})
-    user_progress[str(stage_index)] = {
+    user_progress[str(pos)] = {
         'vehicle_id': data.get('vehicle_id'),
         'livery_id': data.get('livery_id'),
         'tuning_setup_b64': data.get('tuning_setup_b64', ''),
@@ -2741,6 +3413,9 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
             return _api_error('not a member of this club', 403)
 
     stage_index = int(data.get('stage_index', 0))
+    event_index = int(data.get('event_index', 0) or 0)
+    # Flatten (event_index, stage_index); identity for single-event.
+    pos = _global_stage_index(event, event_index, stage_index)
     time_ms = int(data.get('time_ms', 0))
     vehicle_id = data.get('vehicle_id')
     penalties_ms = int(data.get('penalties_ms', 0))
@@ -2752,7 +3427,7 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     in_progress_entry: dict[str, Any] = (
         results.get('in_progress', {})
         .get(username, {})
-        .get(str(stage_index), {})
+        .get(str(pos), {})
     )
 
     existing = next((e for e in entries if e['username'] == username), None)
@@ -2760,7 +3435,7 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     if existing is None:
         # New entry — pad all previous stages with 0 so indices stay consistent
         pad = [{'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None}
-               for _ in range(stage_index)]
+               for _ in range(pos)]
         existing = {
             'username': username,
             'car': str(vehicle_id) if vehicle_id is not None else '',
@@ -2774,13 +3449,13 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
         existing.setdefault('attempts_used', 0)
 
     # Extend padding to the target index so we can preserve any prior entry.
-    while len(existing['stages']) <= stage_index:
+    while len(existing['stages']) <= pos:
         existing['stages'].append({'time_ms': 0, 'penalties_ms': 0, 'submitted_at': None})
-    prev_stage_entry: dict[str, Any] = existing['stages'][stage_index] or {}
+    prev_stage_entry: dict[str, Any] = existing['stages'][pos] or {}
 
     # Routing/identity fields the dispatcher sends in the JSON body but that
     # don't belong inside a stage entry.
-    _routing_keys = {'event_id', 'username', 'stage_index'}
+    _routing_keys = {'event_id', 'username', 'stage_index', 'event_index'}
 
     # Merge layers in oldest→newest order so newer wins:
     #   1. prev_stage_entry  — preserves data from a previous submission
@@ -2806,7 +3481,7 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     stage_entry.setdefault('penalties_ms', 0)
     stage_entry.setdefault('race_status', 0)
 
-    existing['stages'][stage_index] = stage_entry
+    existing['stages'][pos] = stage_entry
 
     # Count a DNF/retired finish as a consumed attempt. race_status==0 ("UNKNOWN"
     # in the game's enum) is what the client actually sends for a clean finish,

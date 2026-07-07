@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Edit Championship - {{ club.name }}{% endblock %}
+
+{% block content %}
+{# ── Reusable row / event markup (also cloned by enhance.js) ── #}
+{% macro stage_row(ei, sj, stage, routes) %}
+<tr class="champ-stage-row">
+    <td class="champ-col-stage mono">{{ '%02d'|format(sj + 1) }}</td>
+    <td>
+        <select name="events[{{ ei }}][stages][{{ sj }}][route]" class="form-input form-select champ-route">
+            <option value="">{% if routes %}Select route...{% else %}Select a location first{% endif %}</option>
+            {% for tid, rname, km in routes %}
+            <option value="{{ tid }}" {% if stage.track_id == tid %}selected{% endif %}>{{ rname }} - {{ '%.2f'|format(km) }} km</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <select name="events[{{ ei }}][stages][{{ sj }}][conditions]" class="form-input form-select">
+            {% for cid, label in condition_options %}
+            <option value="{{ cid }}" {% if stage.conditions_id == cid %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <select name="events[{{ ei }}][stages][{{ sj }}][surface_deg]" class="form-input form-select">
+            {% for opt in surface_deg_options %}
+            <option value="{{ opt }}" {% if stage.surface_deg == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <select name="events[{{ ei }}][stages][{{ sj }}][service_area]" class="form-input form-select">
+            {% for opt in service_area_options %}
+            <option value="{{ opt }}" {% if stage.service_area == opt %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td class="champ-col-actions">
+        <button type="submit" name="action" value="delete_stage:{{ ei }}:{{ sj }}"
+                class="btn btn-ghost btn-sm" data-cc="del-stage" aria-label="Remove stage">&times;</button>
+    </td>
+</tr>
+{% endmacro %}
+
+{% macro event_section(ei, event, total) %}
+<section class="card champ-event" id="event-{{ ei }}" data-event-index="{{ ei }}">
+    <div class="card-header champ-event-head">
+        <h2 class="card-title">
+            <span class="accent">//</span> Event
+            <span class="champ-event-num">{{ ei + 1 }}</span> of
+            <span class="champ-event-total">{{ total }}</span>
+        </h2>
+        <div class="champ-event-nav">
+            {% if ei > 0 %}<a href="#event-{{ ei - 1 }}" class="btn btn-ghost btn-sm" data-cc="prev" aria-label="Previous event">&larr;</a>{% endif %}
+            {% if ei < total - 1 %}<a href="#event-{{ ei + 1 }}" class="btn btn-ghost btn-sm" data-cc="next" aria-label="Next event">&rarr;</a>{% endif %}
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="create-event-grid">
+            <div class="form-group">
+                <label class="form-label">Location</label>
+                <select name="events[{{ ei }}][location]" class="form-input form-select champ-location" data-event="{{ ei }}" required>
+                    <option value="">Select location...</option>
+                    <optgroup label="Rally">
+                    {% for loc in rally_locs %}<option value="{{ loc }}" {% if event.location == loc %}selected{% endif %}>{{ loc }}</option>{% endfor %}
+                    </optgroup>
+                    <optgroup label="Rallycross">
+                    {% for loc in rx_locs %}<option value="{{ loc }}" {% if event.location == loc %}selected{% endif %}>{{ loc }}</option>{% endfor %}
+                    </optgroup>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Vehicle Class</label>
+                <select name="events[{{ ei }}][car_class]" class="form-input form-select" required>
+                    <option value="">Select class...</option>
+                    {% for cls in car_classes %}<option value="{{ cls }}" {% if event.car_class == cls %}selected{% endif %}>{{ cls }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Event Duration</label>
+                <div class="champ-duration">
+                    <select name="events[{{ ei }}][duration_days]" class="form-input form-select" aria-label="Days">
+                        {% for d in range(0, 8) %}<option value="{{ d }}" {% if event.duration.days == d %}selected{% endif %}>{{ d }} Day{{ 's' if d != 1 else '' }}</option>{% endfor %}
+                    </select>
+                    <select name="events[{{ ei }}][duration_hours]" class="form-input form-select" aria-label="Hours">
+                        {% for h in range(0, 24) %}<option value="{{ h }}" {% if event.duration.hours == h %}selected{% endif %}>{{ h }} Hour{{ 's' if h != 1 else '' }}</option>{% endfor %}
+                    </select>
+                    <select name="events[{{ ei }}][duration_mins]" class="form-input form-select" aria-label="Minutes">
+                        {% for m in [0, 15, 30, 45] %}<option value="{{ m }}" {% if event.duration.mins == m %}selected{% endif %}>{{ m }} Min{{ 's' if m != 1 else '' }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="lb-table-wrap champ-stage-wrap">
+            <table class="lb-table champ-stage-table">
+                <thead>
+                    <tr>
+                        <th class="champ-col-stage">Stage</th>
+                        <th>Route</th>
+                        <th>Time of Day / Conditions</th>
+                        <th>Surface Deg</th>
+                        <th>Service Area</th>
+                        <th class="champ-col-actions">Remove</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for stage in event.stages %}
+                    {{ stage_row(ei, loop.index0, stage, stage_routes.get(event.location, [])) }}
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="6">
+                            <button type="submit" name="action" value="add_stage:{{ ei }}"
+                                    class="btn btn-ghost btn-sm" data-cc="add-stage" data-event="{{ ei }}">+ Add Additional Stage</button>
+                            <span class="form-hint champ-stage-hint" data-event="{{ ei }}"></span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="create-event-actions">
+            <button type="submit" name="action" value="add_event" class="btn btn-ghost" data-cc="add-event">+ Add New Event</button>
+            <button type="submit" name="action" value="delete_event:{{ ei }}" class="btn btn-ghost"
+                    data-cc="del-event" {% if total == 1 %}disabled{% endif %}>Delete Event</button>
+        </div>
+    </div>
+</section>
+{% endmacro %}
+
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb">
+                    <a href="/clubs">Clubs</a> <span class="accent">/</span>
+                    <a href="/clubs/{{ club.id }}">{{ club.name }}</a> <span class="accent">/</span>
+                </p>
+                <h1 class="page-title">Edit Championship</h1>
+                <p class="page-subtitle text-muted">Customise each rally: routes, conditions, surface degradation and service areas.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container">
+    <form id="championshipForm" method="post"
+          action="/clubs/{{ club.id }}/championship/{{ draft.id }}" class="champ-form"
+          data-max-events="{{ max_events }}" data-max-stages="{{ max_stages }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card">
+            <div class="card-body">
+                <div class="form-group">
+                    <label for="champ_name" class="form-label">Championship Name</label>
+                    <input type="text" id="champ_name" name="name" class="form-input" maxlength="60"
+                           value="{{ draft.name or '' }}" placeholder="e.g. Nordic Winter Series">
+                </div>
+            </div>
+        </div>
+
+        {% for event in draft.events %}
+        {{ event_section(loop.index0, event, draft.events|length) }}
+        {% endfor %}
+
+        <div class="champ-footer create-event-actions">
+            <button type="submit" name="action" value="save" class="btn btn-ghost">Save Draft</button>
+            <button type="submit" name="action" value="preview" class="btn btn-primary">Create Championship</button>
+        </div>
+    </form>
+</section>
+
+<script type="application/json" id="routesByLocation">{{ stage_routes|tojson }}</script>
+<script type="application/json" id="stageCaps">{{ stage_caps|tojson }}</script>
+{% endblock %}
