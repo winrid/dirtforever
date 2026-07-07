@@ -2934,7 +2934,7 @@ def championship_preview(club_id: str, draft_id: str) -> str:
 def _enrich_stage(location: str, s: dict[str, Any]) -> dict[str, Any]:
     routes = {tid: (name, km) for tid, name, km in STAGE_ROUTES.get(location, [])}
     tid = s.get('track_id')
-    name, km = routes.get(tid, ('', 0.0))
+    name, km = routes.get(tid, ('', 0.0)) if tid is not None else ('', 0.0)
     cid = s.get('conditions_id')
     label = STAGE_CONDITIONS_LABELS.get(cid, '') if cid is not None else ''
     return {

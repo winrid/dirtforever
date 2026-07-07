@@ -21,6 +21,8 @@ import random
 from datetime import datetime, timedelta
 from typing import Any
 
+from dr2server.game_data import stage_conditions_for_web
+
 from server import (
     save_event,
     get_all_events,
@@ -31,7 +33,6 @@ from server import (
     LOCATION_SURFACE,
     VERIFIED_STAGE_COUNTS,
     DEFAULT_CHAMP_SETTINGS,
-    stage_conditions_for_web,
     _duration_for_type,
 )
 
