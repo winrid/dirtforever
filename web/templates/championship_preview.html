@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Championship Preview - {{ club.name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb">
+                    <a href="/clubs">Clubs</a> <span class="accent">/</span>
+                    <a href="/clubs/{{ club.id }}">{{ club.name }}</a> <span class="accent">/</span>
+                    <a href="/clubs/{{ club.id }}/championship/{{ draft.id }}">Edit</a> <span class="accent">/</span>
+                </p>
+                <h1 class="page-title">Championship Preview</h1>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container">
+    <div class="card reveal">
+        <div class="card-header">
+            <h2 class="card-title"><span class="accent">//</span> {{ draft.name or 'Championship' }}</h2>
+        </div>
+        <div class="card-body">
+            <form method="post" action="/clubs/{{ club.id }}/championship/{{ draft.id }}/submit"
+                  id="championshipPreview" class="champ-preview-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="name" value="{{ draft.name or '' }}">
+
+                <div class="form-group">
+                    <label for="start_at" class="form-label">Set Start Date and Time</label>
+                    <input type="datetime-local" id="start_at" name="start_at" class="form-input"
+                           min="{{ now_iso }}" value="{{ draft.start_at or now_iso }}"
+                           data-total-seconds="{{ total_seconds }}">
+                </div>
+
+                <div class="lb-table-wrap">
+                    <table class="lb-table">
+                        <thead><tr><th>Location</th><th>Duration</th></tr></thead>
+                        <tbody>
+                            {% for row in summary_rows %}
+                            <tr>
+                                <td>{{ loop.index }} - {{ row.location }}</td>
+                                <td>{{ row.stages }} Stages - {{ row.duration_label }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if end_display %}
+                <p class="champ-ends-on">Championship ends on <strong id="endsOn">{{ end_display }}</strong></p>
+                {% endif %}
+
+                <h3 class="champ-adv-title"><span class="accent">+</span> Advanced Settings</h3>
+                <div class="champ-adv">
+                    <label class="check-row"><input type="checkbox" name="adv_hardcore_damage" value="1" {% if draft.settings.hardcore_damage %}checked{% endif %}> Use Hardcore Damage</label>
+                    <label class="check-row"><input type="checkbox" name="adv_unexpected_moments" value="1" {% if draft.settings.unexpected_moments %}checked{% endif %}> Use Unexpected Moments</label>
+                    <label class="check-row"><input type="checkbox" name="adv_force_cockpit" value="1" {% if draft.settings.force_cockpit_camera %}checked{% endif %}> Force Cockpit Camera</label>
+                    <label class="check-row"><input type="checkbox" name="adv_allow_assists" value="1" {% if draft.settings.allow_assists %}checked{% endif %}> Allow Assists</label>
+                </div>
+
+                <div class="create-event-actions">
+                    <a href="/clubs/{{ club.id }}/championship/{{ draft.id }}" class="btn btn-ghost">Back to Edit</a>
+                    <button type="submit" class="btn btn-primary">Submit Championship</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}

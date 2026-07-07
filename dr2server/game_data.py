@@ -1196,6 +1196,63 @@ def stage_conditions_for_web(label: str) -> int:
 # time-trial captures).  Kept as a sorted list for UI dropdowns.
 OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
 
+# (composite_id, label) pairs for the championship-builder "Time of Day /
+# Conditions" dropdown.  These are the CONFIRMED values from the table above,
+# so the per-stage conditions the user picks always load correctly in-game.
+STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = sorted(STAGE_CONDITIONS_LABELS.items())
+
+
+# ---------------------------------------------------------------------------
+# Surface degradation levels  (BEST-GUESS mapping — verify in-game)
+# ---------------------------------------------------------------------------
+# RaceNet's championship builder exposes a per-stage "Surface Deg" dropdown
+# (Max / Medium confirmed from screenshots).  The game field is the raw float
+# Stage.surface_degrad (0.0-1.0, default 0.25).  The label->float mapping below
+# is an UNVERIFIED best guess to be pinned via the debug-clubs probe path.
+SURFACE_DEGRAD_LEVELS: List[tuple[str, float]] = [
+    ("None",   0.0),
+    ("Low",    0.25),   # == Stage.surface_degrad default (upstream-observed)
+    ("Medium", 0.5),
+    ("High",   0.75),
+    ("Max",    1.0),
+]
+
+_SURFACE_DEGRAD_BY_LABEL: Dict[str, float] = {lbl: val for lbl, val in SURFACE_DEGRAD_LEVELS}
+
+
+def surface_degrad_for_level(label: str) -> float:
+    """Resolve a Surface Deg label to a ``Stage.surface_degrad`` float.
+
+    Unknown labels fall back to 0.25 (the engine default / "Low").
+    """
+    return _SURFACE_DEGRAD_BY_LABEL.get(label, 0.25)
+
+
+# ---------------------------------------------------------------------------
+# Service area levels  (BEST-GUESS mapping — verify in-game)
+# ---------------------------------------------------------------------------
+# RaceNet exposes a per-stage "Service Area" dropdown (None / Medium confirmed).
+# Maps to Stage.has_service_area (bool) + Stage.svc_settings_id (int, default 2).
+# The svc_settings_id ordinals below are an UNVERIFIED best guess.
+SERVICE_AREA_LEVELS: List[tuple[str, bool, int]] = [
+    ("None",   False, 0),
+    ("Short",  True,  1),
+    ("Medium", True,  2),   # == Stage.svc_settings_id default (upstream-observed)
+    ("Long",   True,  3),
+]
+
+_SERVICE_AREA_BY_LABEL: Dict[str, tuple[bool, int]] = {
+    lbl: (has_area, sid) for lbl, has_area, sid in SERVICE_AREA_LEVELS
+}
+
+
+def service_area_for_level(label: str) -> tuple[bool, int]:
+    """Resolve a Service Area label to ``(has_service_area, svc_settings_id)``.
+
+    Unknown labels fall back to ``(True, 2)`` (the engine default / "Medium").
+    """
+    return _SERVICE_AREA_BY_LABEL.get(label, (True, 2))
+
 
 def decode_stage_conditions(value: int) -> Dict[str, Any]:
     """Backwards-compatible shim used by scripts/watch_testing.py.
@@ -1374,6 +1431,23 @@ def get_tracks_for_location(location_id: int) -> List[int]:
     loc = Location(location_id)
     return [
         int(t) for t in Track
+        if _TRACK_META[t]["location"] == loc and int(t) in VERIFIED_TRACK_IDS
+    ]
+
+
+def get_verified_routes_for_location(location_id: int) -> List[tuple[int, str, float]]:
+    """Return ``(track_id, display_name, length_km)`` for a location's verified routes.
+
+    Only tracks in ``VERIFIED_TRACK_IDS`` are returned (same filter as
+    :func:`get_tracks_for_location`), because an unverified route loads the
+    wrong stage in-game.  This is the source for the championship-builder ROUTE
+    dropdown: the caller stores the ``track_id`` (canonical, locale-independent)
+    and shows ``display_name`` + ``length_km``.
+    """
+    loc = Location(location_id)
+    return [
+        (int(t), _TRACK_META[t]["display_name"], _TRACK_META[t].get("length_km", 0.0))
+        for t in Track
         if _TRACK_META[t]["location"] == loc and int(t) in VERIFIED_TRACK_IDS
     ]
 

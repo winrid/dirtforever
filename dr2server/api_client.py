@@ -221,6 +221,7 @@ class DirtForeverClient:
         tyre_compound: int = 2,
         tyres_remaining: int = 3,
         nationality_id: int = 0,
+        event_index: int = 0,
     ) -> bool:
         """Store pre-stage setup data on the web server before a stage starts.
 
@@ -229,6 +230,7 @@ class DirtForeverClient:
         payload: Dict[str, Any] = {
             "event_id": event_id,
             "stage_index": stage_index,
+            "event_index": event_index,
             "livery_id": livery_id,
             "tuning_setup_b64": tuning_setup_b64,
             "tyre_compound": tyre_compound,
@@ -252,6 +254,7 @@ class DirtForeverClient:
         username: str,
         stage_index: int,
         time_ms: int,
+        event_index: int = 0,
         vehicle_id: Optional[int] = None,
         penalties_ms: Optional[int] = None,
         meters_driven: Optional[int] = None,
@@ -285,6 +288,7 @@ class DirtForeverClient:
             "event_id": event_id,
             "username": username,
             "stage_index": stage_index,
+            "event_index": event_index,
             "time_ms": time_ms,
         }
         for key, value in (

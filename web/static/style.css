@@ -2098,3 +2098,72 @@ th.lb-setup, td.lb-setup { width: 120px; text-align: right; }
     .event-type-tabs { width: 100%; }
     .type-tab { flex: 1; justify-content: center; padding: .5rem .75rem; font-size: .8rem; }
 }
+
+/* ── Championship builder ─────────────────────────────── */
+
+.champ-form .card,
+.champ-event { margin-bottom: 1.25rem; }
+
+.champ-event-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.champ-event-nav { display: flex; gap: .4rem; }
+
+.champ-duration { display: flex; gap: .5rem; }
+.champ-duration select { flex: 1; min-width: 0; }
+
+.champ-stage-wrap { margin-bottom: 1.25rem; }
+
+/* Selects sit inside table cells: keep them compact and full-width. */
+.champ-stage-table td select { width: 100%; min-width: 8rem; }
+.champ-stage-table td { vertical-align: middle; }
+.champ-col-stage { width: 3.5rem; text-align: center; color: var(--text); }
+.champ-col-actions { width: 4rem; text-align: center; }
+
+.champ-stage-hint { margin-left: .75rem; color: var(--text-muted); }
+
+.champ-footer { justify-content: flex-end; margin-top: .5rem; }
+
+.champ-adv-title {
+    font-family: var(--font-display);
+    letter-spacing: .04em;
+    margin: 1.5rem 0 .75rem;
+    color: var(--text);
+}
+
+.champ-adv {
+    display: flex;
+    flex-direction: column;
+    gap: .6rem;
+    margin-bottom: 1.25rem;
+}
+
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    font-family: var(--font-ui);
+    font-size: .95rem;
+    color: var(--text);
+    cursor: pointer;
+}
+.check-row input[type="checkbox"] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+
+.champ-ends-on {
+    font-family: var(--font-ui);
+    color: var(--text);
+    margin: .75rem 0 0;
+}
+.champ-ends-on strong { color: var(--accent-bright); }
+
+/* Carousel mode: enhance.js hides all but the active event when JS is present. */
+.champ-form.js-carousel .champ-event { display: none; }
+.champ-form.js-carousel .champ-event.champ-event--active { display: block; }
+
+@media (max-width: 640px) {
+    .champ-duration { flex-direction: column; }
+}

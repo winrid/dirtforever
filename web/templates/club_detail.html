@@ -112,11 +112,15 @@
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Club Events</h2>
                 {% if current_user and current_user.username == club.created_by %}
-                <button type="button" class="btn btn-primary btn-sm"
-                        onclick="document.getElementById('createEvent').classList.toggle('hidden')"
-                        {% if active_event_exists %}disabled title="The club already has an active event."{% endif %}>
-                    + Create Event
-                </button>
+                <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
+                    <a href="/clubs/{{ club.id }}/championship/new" class="btn btn-primary btn-sm">
+                        + Create Championship
+                    </a>
+                    <button type="button" class="btn btn-ghost btn-sm"
+                            onclick="document.getElementById('createEvent').classList.toggle('hidden')">
+                        + Quick Event
+                    </button>
+                </div>
                 {% endif %}
             </div>
 

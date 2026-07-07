@@ -25,10 +25,14 @@ from server import (
     save_event,
     get_all_events,
     STAGES,
+    STAGE_ROUTES,
     CAR_CLASSES,
     CONDITIONS,
     LOCATION_SURFACE,
     VERIFIED_STAGE_COUNTS,
+    DEFAULT_CHAMP_SETTINGS,
+    stage_conditions_for_web,
+    _duration_for_type,
 )
 
 VARIANTS = 3                 # mirrors DR2 Standard / Bonus / D+
@@ -141,24 +145,32 @@ def generate_event(
     conditions = rng.choice(CONDITIONS)
     surface = LOCATION_SURFACE.get(location, 'Gravel')
 
-    location_stages = STAGES[location]
-    # Cap at the verified-route count so the rally never contains duplicate
-    # stages (the game assigns one verified route per stage, wrapping if asked
-    # for more).  Monthly = full (verified) rally; daily/weekly are shorter.
-    verified_cap = VERIFIED_STAGE_COUNTS.get(location, len(location_stages))
+    # Pick from the location's VERIFIED routes so the stage names match the
+    # routes the game actually loads.  Cap at the verified-route count so a
+    # rally never repeats a stage.  Monthly = full rally; daily/weekly shorter.
+    verified_routes = STAGE_ROUTES.get(location, [])  # [(track_id, name, km), ...]
+    verified_cap = VERIFIED_STAGE_COUNTS.get(location, len(verified_routes))
     if event_type == 'monthly':
         k = verified_cap
     else:
         k = min(STAGES_PER_TYPE[event_type], verified_cap)
-    picked = rng.sample(location_stages, min(k, len(location_stages)))
+    picked = rng.sample(verified_routes, min(k, len(verified_routes)))
 
+    cond_id = stage_conditions_for_web(conditions)
     stage_list = [
-        {'name': name, 'distance_km': dist, 'conditions': conditions}
-        for name, dist in picked
+        {
+            'name': name, 'track_id': track_id, 'distance_km': km,
+            'conditions_id': cond_id, 'conditions': conditions,
+            'surface_deg': 'Medium',
+            # Alternate parity mirrors the engine's old service-area behaviour.
+            'service_area': 'Medium' if i % 2 == 0 else 'None',
+        }
+        for i, (track_id, name, km) in enumerate(picked)
     ]
 
     return {
         'id': _event_id_for(slot_id),
+        'schema_version': 2,
         'name': _name_for(event_type, location, variant_index, start),
         'type': event_type,
         'location': location,
@@ -166,6 +178,14 @@ def generate_event(
         'surface': surface,
         'conditions': conditions,
         'stages': stage_list,
+        'settings': dict(DEFAULT_CHAMP_SETTINGS),
+        'events': [{
+            'location': location,
+            'car_class': car_class,
+            'surface': surface,
+            'duration': _duration_for_type(event_type),
+            'stages': stage_list,
+        }],
         'start_time': start.isoformat(),
         'end_time': end.isoformat(),
         'active': True,

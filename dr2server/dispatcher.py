@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import calendar
 import hashlib
 import secrets
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -11,6 +13,7 @@ from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
 from .game_data import (
     Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS, stage_conditions_for_web,
+    STAGE_CONDITIONS_LABELS, surface_degrad_for_level, service_area_for_level,
 )
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
@@ -434,16 +437,11 @@ class RpcDispatcher:
             cid = evt.get("club_id") or "__global__"
             events_by_club.setdefault(cid, []).append(evt)
 
-        now = int(time.time())
-        window = EntryWindow(
-            visible=now - 172800, start=now - 86400,
-            last_entry=now + 86400, end=now + 86400,
-        )
-
         clubs_egonet: List[Dict] = []
         challenges_egonet: List[Dict] = []
 
-        # Convert web clubs with their associated events
+        # Convert web clubs with their associated events.  Each web "event" is a
+        # championship: one Challenge holding one or more game Events.
         for idx, wclub in enumerate(web_clubs):
             club_str_id: str = wclub.get("id", f"club-{idx}")
             club_name: str = wclub.get("name", f"Club {idx}")
@@ -472,76 +470,30 @@ class RpcDispatcher:
                                          base=200000, offset=evt_idx)
                 # Remember the mapping so StageComplete can reverse it
                 self._challenge_event_map[chal_id] = wevt.get("id", "")
-                loc_name: str = wevt.get("location", "")
-                location_id = self.api_client.resolve_location_id(loc_name)
-                if location_id is None:
-                    print(f"[CLUBS] Unknown location '{loc_name}' for event "
-                          f"{wevt.get('id')} — skipping")
-                    continue
 
                 car_class_label: str = wevt.get("car_class", "")
                 vclass_id = self.api_client.resolve_vclass_id(car_class_label)
                 # A club challenge must carry a confirmed vehicle-class
                 # Requirement.  An unmappable class would otherwise produce an
                 # empty/invalid Requirement, which crashes the game client, so
-                # skip the event rather than guess a fallback class.
+                # skip the championship rather than guess a fallback class.
                 if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
                     print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
                           f"event {wevt.get('id')} — skipping")
                     continue
 
-                track_ids = self.api_client.tracks_for_location(location_id)
-                if not track_ids:
-                    print(f"[CLUBS] No tracks for location {location_id} "
-                          f"('{loc_name}') — skipping")
+                events_out = self._build_events_for_champ(wevt, chal_id)
+                if not events_out:
+                    print(f"[CLUBS] No resolvable events for {wevt.get('id')} — skipping")
                     continue
 
-                # Build Stage objects — one per web stage entry where possible
-                web_stages = wevt.get("stages", [])
-                stages: List[Stage] = []
-                lb_base = chal_id * 10
-                for si, ws in enumerate(web_stages or [None]):  # at least 1 stage
-                    track_id = track_ids[si % len(track_ids)]
-                    cond_label = (ws or {}).get("conditions", "")
-                    stages.append(Stage(
-                        stage_id=si,
-                        track_model_id=track_id,
-                        has_service_area=(si % 2 == 0),
-                        leaderboard_id=lb_base + si,
-                        stage_conditions=stage_conditions_for_web(cond_label),
-                    ))
-                if not stages:
-                    stages.append(Stage(
-                        stage_id=0,
-                        track_model_id=track_ids[0],
-                        has_service_area=True,
-                        leaderboard_id=lb_base,
-                    ))
-
-                # vclass_id is confirmed (checked above); invalid IDs crash the
-                # game, so the Requirement is always a known-good class.
-                requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
-
                 num_entrants = len(wevt.get("entries", [])) if "entries" in wevt else 0
-
                 challenges_egonet.append(
-                    Challenge(
-                        name=wevt.get("name", club_name),
-                        challenge_id=chal_id,
-                        club_id=club_int_id,
-                        requirements=requirements,
-                        events=[
-                            Event(
-                                event_id=chal_id,
-                                location_id=location_id,
-                                stages=stages,
-                                leaderboard_id=chal_id + 900000,
-                            )
-                        ],
-                        entry_window=window,
-                        num_entrants=num_entrants,
-                        leaderboard_id=chal_id + 800000,
-                    ).to_egonet()
+                    self._challenge_egonet(
+                        wevt, chal_id, club_int_id,
+                        [{"Type": 1, "Value": UInt32(vclass_id)}],
+                        events_out, num_entrants, club_name,
+                    )
                 )
 
         # Also include "global" events (no club_id) as standalone entries
@@ -549,35 +501,6 @@ class RpcDispatcher:
             chal_id = _stable_int_id(wevt.get("id", f"global-{evt_idx}"),
                                      base=300000, offset=evt_idx)
             self._challenge_event_map[chal_id] = wevt.get("id", "")
-            loc_name = wevt.get("location", "")
-            location_id = self.api_client.resolve_location_id(loc_name)
-            if location_id is None:
-                print(f"[CLUBS] Unknown location '{loc_name}' for global event "
-                      f"{wevt.get('id')} — skipping")
-                continue
-
-            track_ids = self.api_client.tracks_for_location(location_id)
-            if not track_ids:
-                continue
-
-            web_stages = wevt.get("stages", [])
-            stages = []
-            lb_base = chal_id * 10
-            for si, ws in enumerate(web_stages or [None]):
-                track_id = track_ids[si % len(track_ids)]
-                cond_label = (ws or {}).get("conditions", "")
-                stages.append(Stage(
-                    stage_id=si,
-                    track_model_id=track_id,
-                    has_service_area=(si % 2 == 0),
-                    leaderboard_id=lb_base + si,
-                    stage_conditions=stage_conditions_for_web(cond_label),
-                ))
-            if not stages:
-                stages.append(Stage(
-                    stage_id=0, track_model_id=track_ids[0],
-                    has_service_area=True, leaderboard_id=lb_base,
-                ))
 
             car_class_label = wevt.get("car_class", "")
             vclass_id = self.api_client.resolve_vclass_id(car_class_label)
@@ -587,7 +510,10 @@ class RpcDispatcher:
                 print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
                       f"global event {wevt.get('id')} — skipping")
                 continue
-            requirements = [{"Type": 1, "Value": UInt32(vclass_id)}]
+
+            events_out = self._build_events_for_champ(wevt, chal_id)
+            if not events_out:
+                continue
 
             # Use a synthetic club_id = 0 for global events
             global_club_id = 9000 + evt_idx
@@ -600,23 +526,11 @@ class RpcDispatcher:
                 ).to_egonet()
             )
             challenges_egonet.append(
-                Challenge(
-                    name=wevt.get("name", "Community Event"),
-                    challenge_id=chal_id,
-                    club_id=global_club_id,
-                    requirements=requirements,
-                    events=[
-                        Event(
-                            event_id=chal_id,
-                            location_id=location_id,
-                            stages=stages,
-                            leaderboard_id=chal_id + 900000,
-                        )
-                    ],
-                    entry_window=window,
-                    num_entrants=0,
-                    leaderboard_id=chal_id + 800000,
-                ).to_egonet()
+                self._challenge_egonet(
+                    wevt, chal_id, global_club_id,
+                    [{"Type": 1, "Value": UInt32(vclass_id)}],
+                    events_out, 0, "Community Event",
+                )
             )
 
         if not challenges_egonet:
@@ -630,6 +544,163 @@ class RpcDispatcher:
             "Progress": progress_egonet,
             "Clubs": clubs_egonet,
         }
+
+    # ── Championship → Challenge conversion helpers ────────────────────────
+
+    @staticmethod
+    def _epoch_utc(iso: str) -> int:
+        """Naive-UTC ISO timestamp -> epoch seconds.
+
+        Uses ``calendar.timegm`` (NOT ``datetime.timestamp()``, which would
+        apply the host's local UTC offset) because the web app stores all
+        times as naive UTC.
+        """
+        return calendar.timegm(datetime.fromisoformat(iso).timetuple())
+
+    def _window_for(self, wevt: Dict[str, Any]) -> EntryWindow:
+        """Build the Challenge EntryWindow from the championship start/end.
+
+        Falls back to a now-relative window when the timestamps are missing or
+        unparseable, matching the pre-scheduling behaviour.
+        """
+        try:
+            start_ep = self._epoch_utc(wevt["start_time"])
+            end_ep = self._epoch_utc(wevt["end_time"])
+            if end_ep > start_ep:
+                return EntryWindow(
+                    visible=start_ep, start=start_ep,
+                    last_entry=end_ep, end=end_ep,
+                )
+        except (KeyError, ValueError, TypeError):
+            pass
+        now = int(time.time())
+        return EntryWindow(
+            visible=now - 172800, start=now - 86400,
+            last_entry=now + 86400, end=now + 86400,
+        )
+
+    @staticmethod
+    def _stage_lb(chal_id: int, event_index: int, stage_index: int) -> int:
+        """Unique stage LeaderboardId encoding (event_index, stage_index).
+
+        For event_index 0 this reduces to the original ``chal_id*10 + stage``
+        scheme, so single-event championships (every event today) keep their
+        exact ids.  The results plumbing that reverses this for events past
+        index 0 lands in a later stage.
+        """
+        return chal_id * 10 + event_index * 1_000_000 + stage_index
+
+    def _events_of(self, wevt: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Return the championship's sub-events (v2 shape), or synthesize one
+        from the legacy top-level fields so pre-v2 / debug-file events work."""
+        events = wevt.get("events")
+        if events:
+            return events
+        return [{
+            "location": wevt.get("location", ""),
+            "car_class": wevt.get("car_class", ""),
+            "stages": wevt.get("stages", []),
+        }]
+
+    def _build_events_for_champ(self, wevt: Dict[str, Any], chal_id: int) -> List[Event]:
+        """Build the list of game Events for one championship.
+
+        Each sub-event resolves its own location + verified routes and builds
+        stages from the stored per-stage route/conditions/surface-deg/service-
+        area values (with backward-compatible fallbacks for legacy files).
+        """
+        events_out: List[Event] = []
+        for ei, ev in enumerate(self._events_of(wevt)):
+            loc_name = ev.get("location", "") or wevt.get("location", "")
+            location_id = self.api_client.resolve_location_id(loc_name)
+            if location_id is None:
+                print(f"[CLUBS] Unknown location '{loc_name}' in event "
+                      f"{wevt.get('id')} #{ei} — skipping sub-event")
+                continue
+            track_ids = self.api_client.tracks_for_location(location_id)
+            if not track_ids:
+                print(f"[CLUBS] No tracks for location {location_id} "
+                      f"('{loc_name}') in event {wevt.get('id')} #{ei} — skipping")
+                continue
+            try:
+                discipline_id = 2 if Location(location_id).discipline == "rallycross" else 1
+            except (ValueError, AttributeError):
+                discipline_id = 1
+            events_out.append(Event(
+                event_id=chal_id + ei * 10_000_000,
+                location_id=location_id,
+                discipline_id=discipline_id,
+                stages=self._stages_for_subevent(ev, chal_id, ei, track_ids),
+                leaderboard_id=chal_id + 900000 + ei * 10_000_000,
+            ))
+        return events_out
+
+    def _stages_for_subevent(self, ev: Dict[str, Any], chal_id: int,
+                             ei: int, track_ids: List[int]) -> List[Stage]:
+        track_set = set(track_ids)
+        web_stages = ev.get("stages") or [None]
+        stages: List[Stage] = []
+        for si, ws in enumerate(web_stages):
+            ws = ws or {}
+            # Route: use the stored verified track_id; fall back to positional.
+            tid = ws.get("track_id")
+            try:
+                tid = int(tid) if tid is not None else None
+            except (TypeError, ValueError):
+                tid = None
+            track_id = tid if (tid is not None and tid in track_set) \
+                else track_ids[si % len(track_ids)]
+            # Conditions: prefer the stored composite id, else resolve the label.
+            cid = ws.get("conditions_id")
+            if cid is not None and int(cid) in STAGE_CONDITIONS_LABELS:
+                stage_conditions = int(cid)
+            else:
+                stage_conditions = stage_conditions_for_web(ws.get("conditions", ""))
+            # Surface degradation (best-guess mapping; default = engine value).
+            surface_degrad = (
+                surface_degrad_for_level(ws["surface_deg"])
+                if ws.get("surface_deg") is not None else 0.25
+            )
+            # Service area (best-guess mapping; legacy fallback = alternate parity).
+            if ws.get("service_area") is not None:
+                has_service_area, svc_settings_id = service_area_for_level(ws["service_area"])
+            else:
+                has_service_area, svc_settings_id = (si % 2 == 0), 2
+            stages.append(Stage(
+                stage_id=si,
+                track_model_id=track_id,
+                has_service_area=has_service_area,
+                svc_settings_id=svc_settings_id,
+                surface_degrad=surface_degrad,
+                leaderboard_id=self._stage_lb(chal_id, ei, si),
+                stage_conditions=stage_conditions,
+            ))
+        if not stages:
+            stages.append(Stage(
+                stage_id=0, track_model_id=track_ids[0],
+                has_service_area=True,
+                leaderboard_id=self._stage_lb(chal_id, ei, 0),
+            ))
+        return stages
+
+    def _challenge_egonet(self, wevt: Dict[str, Any], chal_id: int, club_int_id: int,
+                          requirements: List[Dict[str, Any]], events_out: List[Event],
+                          num_entrants: int, default_name: str) -> Dict[str, Any]:
+        settings = wevt.get("settings") or {}
+        return Challenge(
+            name=wevt.get("name", default_name),
+            challenge_id=chal_id,
+            club_id=club_int_id,
+            requirements=requirements,
+            events=events_out,
+            entry_window=self._window_for(wevt),
+            num_entrants=num_entrants,
+            leaderboard_id=chal_id + 800000,
+            is_hardcore=bool(settings.get("hardcore_damage", True)),
+            exterior_cams=not bool(settings.get("force_cockpit_camera", False)),
+            allow_assists=bool(settings.get("allow_assists", True)),
+            unxpectd_moments=bool(settings.get("unexpected_moments", True)),
+        ).to_egonet()
 
     # VehicleDamage field order MUST match upstream exactly — the game
     # parses this as an ordered struct. Used by Progress builders below.
@@ -1159,13 +1230,27 @@ class RpcDispatcher:
         # LeaderboardId is derived from challenge_id as chal_id+800000 (event-level)
         # or chal_id*10+N (stage-level). Try both schemes.
         event_id = None
-        stage_index_for_lb: Optional[int] = None  # stage-level only
+        stage_index_for_lb: Optional[int] = None  # stage-level: FLAT ordinal
         chal_id = lb_id - 800000 if lb_id >= 800000 else None
         if chal_id and chal_id in self._challenge_event_map:
             event_id = self._challenge_event_map[chal_id]
         elif (lb_id // 10) in self._challenge_event_map:
             event_id = self._challenge_event_map[lb_id // 10]
-            stage_index_for_lb = lb_id % 10
+            stage_index_for_lb = lb_id % 10  # event 0: flat ordinal == stage index
+
+        # Multi-event championship stage id: chal_id*10 + event_index*1_000_000
+        # + stage_index (event_index >= 1; event 0 is handled above). Resolve to
+        # a FLAT ordinal so the cutoff/pre-persist land on the right stage.
+        if event_id is None:
+            for cid, eid in self._challenge_event_map.items():
+                diff = lb_id - cid * 10
+                if diff <= 0:
+                    continue
+                ei, si = divmod(diff, 1_000_000)
+                if ei >= 1 and si < 100:
+                    event_id = eid
+                    stage_index_for_lb = self._stage_offset(eid, ei) + si
+                    break
 
         # Fallback: game may have cached an old leaderboard_id. Use the
         # first active event.
@@ -1628,18 +1713,40 @@ class RpcDispatcher:
             "clubs_snapshot": self._clubs_snapshot,
         }
 
-    def _total_stages_for_event(self, event_id: str) -> int:
-        """Look up the configured stage count for an event. 0 if unknown."""
+    def _champ_layout(self, event_id: str) -> List[int]:
+        """Stage counts per sub-event for a championship; [] if unknown.
+
+        For legacy / single-event events this is ``[len(stages)]``, so callers
+        that sum it get the same number the old single-event path produced.
+        """
         if self.api_client is None or not event_id:
-            return 0
+            return []
         try:
             evt = self.api_client.get_event(event_id)
         except Exception as exc:
             print(f"[STAGE] get_event({event_id}) raised: {exc}")
-            return 0
+            return []
         if not evt:
+            return []
+        evs = evt.get("events")
+        if evs:
+            return [len(ev.get("stages", []) or []) for ev in evs]
+        return [len(evt.get("stages", []) or [])]
+
+    def _stage_offset(self, event_id: str, event_index: int) -> int:
+        """Flat-ordinal offset for the first stage of sub-event ``event_index``.
+
+        Zero for event_index 0 (no fetch), so the single-event path is
+        unchanged; otherwise the sum of earlier sub-events' stage counts.
+        """
+        if event_index <= 0:
             return 0
-        return len(evt.get("stages", []) or [])
+        return sum(self._champ_layout(event_id)[:event_index])
+
+    def _total_stages_for_event(self, event_id: str) -> int:
+        """Total configured stage count across ALL sub-events (championship
+        total). 0 if unknown; equals the stage count for single-event events."""
+        return sum(self._champ_layout(event_id))
 
     def _stage_begin(self, params: Dict[str, Any]) -> Dict[str, Any]:
         import base64
@@ -1649,6 +1756,8 @@ class RpcDispatcher:
               f"tyres={req.tyres_remaining} compound={req.tyre_compound}")
 
         event_id = self._resolve_event_id(req.challenge_id, "Begin")
+        # Flat championship-wide stage ordinal; == stage_index for event 0.
+        gidx = req.stage_index + (self._stage_offset(event_id, req.event_index) if event_id else 0)
 
         if event_id:
             self._current_event_id = event_id
@@ -1672,6 +1781,7 @@ class RpcDispatcher:
                 self.api_client.submit_stage_begin(
                     event_id=event_id,
                     stage_index=req.stage_index,
+                    event_index=req.event_index,
                     vehicle_id=req.vehicle_id if req.vehicle_id else None,
                     livery_id=req.livery_id,
                     tuning_setup_b64=tuning_b64,
@@ -1689,7 +1799,7 @@ class RpcDispatcher:
         # (Vehicle/Livery/Tyres/Tuning).
         ep = self._user_progress_for_event(event_id) if event_id else None
         completed_stages = (ep or {}).get("completed_stages", []) if ep else []
-        prior_completed = [s for s in completed_stages if s.get("stage_index", 0) < req.stage_index]
+        prior_completed = [s for s in completed_stages if s.get("stage_index", 0) < gidx]
         last_prior = prior_completed[-1] if prior_completed else None
 
         if last_prior is not None:
@@ -1744,6 +1854,7 @@ class RpcDispatcher:
                     event_id=event_id,
                     username="",  # server uses g.game_user from token
                     stage_index=req.stage_index,
+                    event_index=req.event_index,
                     time_ms=time_ms,
                     vehicle_id=req.vehicle_id if req.vehicle_id else None,
                     meters_driven=req.meters_driven,
