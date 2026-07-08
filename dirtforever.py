@@ -965,6 +965,44 @@ def run_gui():
     )
     interval_spin.pack(side="left", padx=(8, 0), ipady=2)
 
+    # Exit behavior: what happens to the overlay files when the server stops.
+    # "clear" blanks them in place (OBS flags missing files as an error on
+    # startup, see issue #36), "delete" removes them. Persisted in config.json
+    # under "streaming_exit_behavior"; default is "clear".
+    from dr2server.streaming import DEFAULT_EXIT_BEHAVIOR, EXIT_BEHAVIOR_DELETE
+
+    _EXIT_BEHAVIOR_LABELS = {
+        DEFAULT_EXIT_BEHAVIOR: "Clear files (leave them blank)",
+        EXIT_BEHAVIOR_DELETE: "Delete files",
+    }
+    _EXIT_LABEL_TO_VALUE = {v: k for k, v in _EXIT_BEHAVIOR_LABELS.items()}
+    _saved_exit = str(config.get("streaming_exit_behavior") or "").strip()
+    if _saved_exit not in _EXIT_BEHAVIOR_LABELS:
+        _saved_exit = DEFAULT_EXIT_BEHAVIOR
+    streaming_exit_var = tk.StringVar(value=_EXIT_BEHAVIOR_LABELS[_saved_exit])
+
+    def _exit_behavior() -> str:
+        return _EXIT_LABEL_TO_VALUE.get(
+            streaming_exit_var.get(), DEFAULT_EXIT_BEHAVIOR)
+
+    exit_row = tk.Frame(stream_card, bg=BG_CARD)
+    exit_row.pack(fill="x", padx=12, pady=(0, 10))
+    tk.Label(exit_row, text="When the server stops:",
+             font=(UI_FONT, 9), fg=TEXT, bg=BG_CARD).pack(side="left")
+    exit_menu = tk.OptionMenu(
+        exit_row, streaming_exit_var, *_EXIT_BEHAVIOR_LABELS.values())
+    exit_menu.configure(
+        font=(UI_FONT, 9), bg=BG_ELEVATED, fg=TEXT,
+        activebackground=BORDER, activeforeground=TEXT,
+        relief="flat", cursor="hand2",
+        highlightthickness=1, highlightbackground=BORDER,
+    )
+    exit_menu["menu"].configure(
+        font=(UI_FONT, 9), bg=BG_ELEVATED, fg=TEXT,
+        activebackground=ACCENT, activeforeground="#111",
+    )
+    exit_menu.pack(side="left", padx=(8, 0))
+
     path_card = tk.Frame(streaming_tab, bg=BG_CARD,
                          highlightbackground=BORDER, highlightthickness=1)
     path_card.pack(fill="x", padx=20, pady=5)
@@ -1048,8 +1086,9 @@ def run_gui():
         tk.Label(row, text=desc, font=(UI_FONT, 8),
                  fg=MUTED, bg=BG_CARD, anchor="w").pack(side="left")
     tk.Label(files_card,
-             text="These files are deleted when the server stops, so overlays go "
-                  "blank off-stream. Use a dedicated folder.",
+             text="When the server stops these files are cleared (left blank) or "
+                  "deleted, per the setting above, so overlays go blank "
+                  "off-stream. Use a dedicated folder.",
              font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD,
              wraplength=460, justify="left", anchor="w").pack(
         fill="x", padx=12, pady=(2, 6))
@@ -1074,14 +1113,17 @@ def run_gui():
             interval = 5
         files_enabled = _enabled_files_set()
         out_dir = _overlay_dir()
+        exit_behavior = _exit_behavior()
         config["streaming_enabled"] = enabled
         config["streaming_interval_seconds"] = interval
         config["streaming_output_dir"] = str(out_dir)
+        config["streaming_exit_behavior"] = exit_behavior
         config["streaming_files"] = {k: (k in files_enabled) for k in streaming_file_vars}
         save_config(config)
         inst = streaming_writer["instance"]
         if inst is not None:
             inst.set_enabled(files_enabled)
+            inst.set_exit_behavior(exit_behavior)
         if enabled:
             if inst is not None:
                 if inst.is_running():
@@ -1104,6 +1146,7 @@ def run_gui():
     streaming_enabled_var.trace_add("write", _apply_streaming_state)
     streaming_interval_var.trace_add("write", _apply_streaming_state)
     streaming_dir_var.trace_add("write", _apply_streaming_state)
+    streaming_exit_var.trace_add("write", _apply_streaming_state)
     for _var in streaming_file_vars.values():
         _var.trace_add("write", _apply_streaming_state)
 
@@ -1245,6 +1288,8 @@ def run_gui():
                 verbose=lambda: bool(verbose_logging_var.get()),
             )
             streaming_writer["instance"].set_enabled(_enabled_files_set())
+            streaming_writer["instance"].set_exit_behavior(
+                str(config.get("streaming_exit_behavior") or "clear"))
             if config.get("streaming_enabled", False):
                 _si = max(2, int(config.get("streaming_interval_seconds", 5) or 5))
                 _odir = _overlay_dir()
@@ -1280,7 +1325,8 @@ def run_gui():
                 _writer.stop()
                 # Clear overlay files on shutdown so streamers' OBS / SimHub
                 # text sources go blank when DirtForever isn't running, rather
-                # than holding the last race's values.
+                # than holding the last race's values. Blanks or deletes the
+                # files per the Streaming tab's exit-behavior setting.
                 _writer.clear_files()
                 streaming_writer["instance"] = None
 

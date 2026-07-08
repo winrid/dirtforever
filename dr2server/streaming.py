@@ -7,8 +7,10 @@ current club, event, car, etc. on stream.
 
 Idle behaviour: while the writer is running but no current event is known it
 skips writing rather than blanking the files, so overlays keep their last known
-values between races. On shutdown the files are deleted (see clear_files) so
-overlays go clean when DirtForever isn't running.
+values between races. On shutdown the files are cleared (see clear_files) so
+overlays go clean when DirtForever isn't running. The exit behavior is
+configurable: "clear" (the default) blanks the files in place so OBS sources
+keep a valid file to point at, "delete" removes them entirely.
 """
 from __future__ import annotations
 
@@ -37,6 +39,14 @@ FILES: Dict[str, str] = {
 
 MIN_INTERVAL_SECONDS = 2.0
 DEFAULT_INTERVAL_SECONDS = 5.0
+
+# What happens to the overlay files on shutdown. "clear" blanks them in place
+# so OBS keeps a valid file to read (it reports missing files as an error on
+# startup); "delete" removes them from the output dir entirely.
+EXIT_BEHAVIOR_CLEAR = "clear"
+EXIT_BEHAVIOR_DELETE = "delete"
+EXIT_BEHAVIORS = (EXIT_BEHAVIOR_CLEAR, EXIT_BEHAVIOR_DELETE)
+DEFAULT_EXIT_BEHAVIOR = EXIT_BEHAVIOR_CLEAR
 
 # Leaderboard fetches go to the web API. Cap the refresh rate so that a fast
 # tick interval doesn't hammer the server with one request per user every 2s.
@@ -95,6 +105,7 @@ class StreamingWriter:
         self._output_dir: Path = Path.home() / "dirtforever"
         self._last_written: Dict[str, str] = {}
         self._enabled: Set[str] = set(FILES.keys())
+        self._exit_behavior: str = DEFAULT_EXIT_BEHAVIOR
         self._lb_cache_text: Optional[str] = None
         self._lb_cache_ts: float = 0.0
         self._lb_cache_event_id: Optional[str] = None
@@ -139,6 +150,15 @@ class StreamingWriter:
             k: v for k, v in self._last_written.items() if k in self._enabled
         }
 
+    def set_exit_behavior(self, behavior: str) -> None:
+        """Set what clear_files() does: EXIT_BEHAVIOR_CLEAR blanks the overlay
+        files in place, EXIT_BEHAVIOR_DELETE removes them. Unknown values fall
+        back to the default ("clear")."""
+        with self._lock:
+            self._exit_behavior = (
+                behavior if behavior in EXIT_BEHAVIORS else DEFAULT_EXIT_BEHAVIOR
+            )
+
     def _current_interval(self) -> float:
         with self._lock:
             return self._interval
@@ -182,34 +202,55 @@ class StreamingWriter:
             thread.join(timeout=timeout)
         self._log("[STREAM] writer stopped")
 
+    def _current_exit_behavior(self) -> str:
+        with self._lock:
+            return self._exit_behavior
+
     def clear_files(self) -> None:
-        """Delete the overlay .txt files (and any leftover .tmp) from the
-        current output dir.
+        """Apply the exit behavior to the overlay .txt files in the current
+        output dir.
 
         Called on shutdown so a streamer's OBS / SimHub text sources go blank
         when DirtForever isn't running, rather than holding the last race's
-        values. Only the files this writer owns (the FILES map) are touched;
-        the directory and anything else in it are left alone. Missing files
-        are ignored.
+        values. With the default "clear" behavior the files are blanked in
+        place (OBS reports missing files as an error, so the files stay);
+        with "delete" they are removed entirely. Only the files this writer
+        owns (the FILES map) are touched, plus any leftover .tmp from an
+        interrupted write; the directory and anything else in it are left
+        alone. Missing files are ignored and never created.
         """
         self._clear_dir(self._current_output_dir())
         # Force a full rewrite if the writer is ever restarted into this dir.
         self._last_written.clear()
 
     def _clear_dir(self, out_dir: Path) -> None:
-        """Delete the overlay files this writer owns from ``out_dir``."""
-        removed: List[str] = []
+        """Blank or delete (per the exit behavior) the overlay files this
+        writer owns in ``out_dir``. Leftover .tmp files are always deleted."""
+        behavior = self._current_exit_behavior()
+        touched: List[str] = []
         for filename in FILES.values():
-            for path in (out_dir / filename, out_dir / (filename + ".tmp")):
-                try:
+            tmp = out_dir / (filename + ".tmp")
+            try:
+                tmp.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                self._log(f"[STREAM] could not delete {tmp.name}: {exc}")
+            path = out_dir / filename
+            try:
+                if behavior == EXIT_BEHAVIOR_DELETE:
                     path.unlink()
-                    removed.append(path.name)
-                except FileNotFoundError:
-                    pass
-                except OSError as exc:
-                    self._log(f"[STREAM] could not delete {path.name}: {exc}")
-        if removed:
-            self._log(f"[STREAM] cleared {len(removed)} overlay file(s) from {out_dir}")
+                    touched.append(path.name)
+                elif path.exists():
+                    _atomic_write(path, "")
+                    touched.append(path.name)
+            except FileNotFoundError:
+                pass
+            except OSError as exc:
+                self._log(f"[STREAM] could not {behavior} {path.name}: {exc}")
+        if touched:
+            verb = "deleted" if behavior == EXIT_BEHAVIOR_DELETE else "blanked"
+            self._log(f"[STREAM] {verb} {len(touched)} overlay file(s) in {out_dir}")
 
     def _loop(self) -> None:
         self._vlog(
@@ -347,8 +388,9 @@ class StreamingWriter:
 
         # If shutdown was requested while this tick was building values (e.g.
         # blocked in the leaderboard fetch above), bail before writing. stop()
-        # joins this thread and then clear_files() deletes the overlay files;
-        # writing here would re-create them after the clear, defeating it.
+        # joins this thread and then clear_files() blanks or deletes the
+        # overlay files; writing here would repopulate them after the clear,
+        # defeating it.
         if self._stop.is_set():
             self._vlog(f"[STREAM] tick {tick_n}: stop requested mid-tick, not writing")
             return
