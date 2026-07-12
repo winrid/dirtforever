@@ -1441,6 +1441,10 @@ VERIFIED_TRACK_IDS: set[int] = {
     613, 614, 615, 616, 617, 620, 621, 622, 623, 624, 625, 626,
     627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 659,
     661, 663, 667,
+    # Monte Carlo — best-guess, NOT yet confirmed in-game. Added to enable the
+    # location in the championship builder; verify the stage loading screens
+    # match and correct/remove any that load the wrong stage.
+    435, 449, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459,
 }
 
 

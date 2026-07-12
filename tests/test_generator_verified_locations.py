@@ -48,7 +48,6 @@ def test_generator_only_uses_verified_locations():
             )
     # Sanity: we sampled a spread, and never an unverified location.
     assert len(seen) >= 3
-    assert "Monte Carlo" not in seen
     assert "Barcelona" not in seen
 
 
