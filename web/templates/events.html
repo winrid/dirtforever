@@ -27,6 +27,8 @@
     {% if events %}
     <div class="events-grid">
         {% for event in events %}
+        {% set n_rallies = (event.events | length) if event.events else 1 %}
+        {% set total_stages = (event.events | map(attribute='stages') | map('length') | sum) if event.events else (event.stages | length) %}
         <a href="/events/{{ event.id }}" class="event-card reveal" style="animation-delay:{{ loop.index0 * 0.08 }}s">
             <div class="event-card-top">
                 <span class="event-badge badge-{{ event.type }}">{{ event.type | upper }}</span>
@@ -35,17 +37,24 @@
             </div>
             <h3 class="event-card-name">{{ event.name }}</h3>
             <div class="event-card-meta">
+                {% if n_rallies > 1 %}
+                <div class="event-card-detail">
+                    <span class="detail-label">Rallies</span>
+                    <span class="detail-value">{{ n_rallies }}</span>
+                </div>
+                {% else %}
                 <div class="event-card-detail">
                     <span class="detail-label">Location</span>
                     <span class="detail-value">{{ event.location }}</span>
                 </div>
+                {% endif %}
                 <div class="event-card-detail">
                     <span class="detail-label">Class</span>
                     <span class="detail-value">{{ event.car_class }}</span>
                 </div>
                 <div class="event-card-detail">
                     <span class="detail-label">Stages</span>
-                    <span class="detail-value">{{ event.stages | length }}</span>
+                    <span class="detail-value">{{ total_stages }}</span>
                 </div>
                 <div class="event-card-detail">
                     <span class="detail-label">Surface</span>
@@ -53,6 +62,15 @@
                 </div>
             </div>
             <div class="event-card-stages">
+                {% if n_rallies > 1 %}
+                {% for rally in event.events %}
+                <div class="event-card-stage">
+                    <span class="stage-num mono">{{ '%02d'|format(loop.index) }}</span>
+                    <span class="stage-name">{{ rally.location }}</span>
+                    <span class="mono text-muted">{{ rally.stages | length }} stages</span>
+                </div>
+                {% endfor %}
+                {% else %}
                 {% for stage in event.stages %}
                 <div class="event-card-stage">
                     <span class="stage-num">S{{ loop.index }}</span>
@@ -60,6 +78,7 @@
                     <span class="mono text-muted">{{ "%.1f"|format(stage.distance_km) }}km</span>
                 </div>
                 {% endfor %}
+                {% endif %}
             </div>
             <div class="event-card-footer">
                 <span class="countdown-badge">

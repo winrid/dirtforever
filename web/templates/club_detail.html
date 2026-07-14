@@ -110,7 +110,7 @@
         {% endif %}
         <div class="card reveal">
             <div class="card-header">
-                <h2 class="card-title"><span class="accent">//</span> Club Events</h2>
+                <h2 class="card-title"><span class="accent">//</span> Championships</h2>
                 {% if current_user and current_user.username == club.created_by %}
                 <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
                     <a href="/clubs/{{ club.id }}/championship/new" class="btn btn-primary btn-sm">
@@ -196,16 +196,17 @@
                 {% if events %}
                 <div class="event-list-compact">
                     {% for event in events %}
+                    {% set n_rallies = (event.events | length) if event.events else 1 %}
                     <a href="/events/{{ event.id }}" class="event-row">
                         <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
                         <span class="event-row-name">{{ event.name }}</span>
-                        <span class="event-row-meta text-muted">{{ event.location }} &middot; {{ event.car_class }}</span>
+                        <span class="event-row-meta text-muted">{{ n_rallies }} {{ 'rally' if n_rallies == 1 else 'rallies' }} &middot; {{ event.car_class }}</span>
                         <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
                     </a>
                     {% endfor %}
                 </div>
                 {% else %}
-                <p class="text-muted empty-state">No events in this club yet.</p>
+                <p class="text-muted empty-state">No championships in this club yet.</p>
                 {% endif %}
             </div>
         </div>
