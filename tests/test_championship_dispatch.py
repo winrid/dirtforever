@@ -213,6 +213,25 @@ def test_clubs_from_api_multi_event_full_path() -> None:
     assert ch2["ChallengeID"] != chal_id_e0              # distinct per-event challenge
     assert len(ch2["Events"]) == 1
     assert ch2["Events"][0]["Stages"][0]["TrackModelId"].value == rb[0][0]
+    # Completing event 0 must NOT mark the now-active event 1 as done: with no
+    # stages completed in event 1, it has no Progress entry (stays enterable).
+    assert out2["Progress"] == []
+
+    # Finish event 1 too (championship complete): the Progress entry is keyed to
+    # the SERVED (last) challenge and is State=2 (finished), so the client shows
+    # it complete instead of enterable.
+    done = {"events": [{"event_id": "evt-full01", "completed_stages": [
+        {"event_index": 0, "stage_index": 0}, {"event_index": 1, "stage_index": 1}]}]}
+    disp3 = RpcDispatcher(account_store=MagicMock(),
+                          api_client=_FullStubClient(clubs=club, events=[champ],
+                                                     my_progress=done))
+    out3 = disp3._clubs_from_api()
+    served_cid = out3["Challenges"][0]["ChallengeID"]
+    assert out3["Clubs"][0]["EventIndex"] == 1            # caps at N-1 when complete
+    assert len(out3["Progress"]) == 1
+    prog = out3["Progress"][0]
+    assert prog["ChallengeID"] == served_cid             # keyed to the SERVED challenge
+    assert prog["State"] == 2                             # finished, not enterable
 
 
 def test_dispatcher_layout_offset_and_total() -> None:

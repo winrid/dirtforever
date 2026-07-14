@@ -443,6 +443,11 @@ class RpcDispatcher:
 
         clubs_egonet: List[Dict] = []
         challenges_egonet: List[Dict] = []
+        # Multi-event championships build their own (correctly-keyed) Progress
+        # entries; collect them here and exclude those events from the generic
+        # per-event Progress builder so it can't emit a wrong-challenge entry.
+        multi_progress: List[Dict[str, Any]] = []
+        multi_event_ids: set = set()
 
         # Convert web clubs with their associated events.  Each web "event" is a
         # championship: one Challenge holding one or more game Events.
@@ -473,9 +478,12 @@ class RpcDispatcher:
                         club_name, creator, layout,
                     )
                     if served is not None:
-                        club_egonet, challenge_egonet = served
+                        club_egonet, challenge_egonet, prog_entry = served
                         clubs_egonet.append(club_egonet)
                         challenges_egonet.append(challenge_egonet)
+                        if prog_entry is not None:
+                            multi_progress.append(prog_entry)
+                        multi_event_ids.add(club_events[0].get("id", ""))
                     continue
 
             # Emit the Club entry ONCE per club (outside the event loop)
@@ -559,7 +567,9 @@ class RpcDispatcher:
         if not challenges_egonet:
             return None
 
-        progress_egonet = self._build_user_progress(web_events)
+        progress_egonet = multi_progress + self._build_user_progress(
+            [e for e in web_events if e.get("id") not in multi_event_ids]
+        )
 
         return {
             "ok": True,
@@ -697,14 +707,18 @@ class RpcDispatcher:
     def _serve_multi_event_club(
         self, wevt: Dict[str, Any], club_str_id: str, club_int_id: int,
         club_name: str, creator: str, layout: List[int],
-    ) -> Optional[tuple[Dict[str, Any], Dict[str, Any]]]:
+    ) -> Optional[tuple[Dict[str, Any], Dict[str, Any], Optional[Dict[str, Any]]]]:
         """Serve a multi-event championship the RaceNet way: only the active
         sub-event, as its own single-event Challenge, with the Club advertising
         ``AmountOfEvents=N`` / ``EventIndex=current``.
 
-        Returns ``(club_egonet, challenge_egonet)`` or ``None`` if unresolvable.
-        A distinct ChallengeID per sub-event makes the client re-fetch a fresh
-        challenge when the championship advances (real RaceNet 946876->946877).
+        Returns ``(club_egonet, challenge_egonet, progress_egonet_or_None)`` or
+        ``None`` if unresolvable.  The Progress entry (when the player has
+        completed stages of the active event) is keyed to the ACTIVE challenge
+        id and reflects THAT event's completion, so a finished event/championship
+        shows as complete instead of enterable.  A distinct ChallengeID per
+        sub-event makes the client re-fetch a fresh challenge when the
+        championship advances (real RaceNet 946876->946877).
         """
         assert self.api_client is not None
         num_events = len(layout)
@@ -742,7 +756,56 @@ class RpcDispatcher:
             [{"Type": 1, "Value": UInt32(vclass_id)}],
             [event], num_entrants, club_name,
         )
-        return club_egonet, challenge_egonet
+        progress_egonet = self._multi_event_progress(active_chal_id, layout, active, ep)
+        return club_egonet, challenge_egonet, progress_egonet
+
+    def _multi_event_progress(
+        self, challenge_id: int, layout: List[int], active: int,
+        ep: Optional[Dict[str, Any]],
+    ) -> Optional[Dict[str, Any]]:
+        """Progress entry for the active event of a multi-event championship,
+        keyed to the currently-served challenge id.
+
+        Returns None when the player hasn't completed any of THIS event's stages
+        (so the game shows it enterable).  When the event's stages are all done
+        the entry is ``State=2`` (finished) — which is how a completed event /
+        championship is shown as complete rather than re-enterable.
+        """
+        completed = (ep or {}).get("completed_stages", [])
+        completed_count = len(completed)
+        offset = sum(layout[:active])
+        event_stage_count = layout[active] if 0 <= active < len(layout) else 0
+        # Stages complete in order, so within-event progress is the flat count
+        # minus this event's starting offset, clamped to the event's stage count.
+        done_in_event = max(0, min(completed_count - offset, event_stage_count))
+        if done_in_event <= 0:
+            return None  # not started -> enterable, no Progress entry
+
+        all_done = done_in_event >= event_stage_count
+        state = 2 if all_done else 1
+        target_stage_index = (event_stage_count - 1) if all_done else done_in_event
+
+        last = completed[completed_count - 1] if completed else {}
+        vehicle_id = last.get("vehicle_id") or 0
+        if not isinstance(vehicle_id, int):
+            vehicle_id = 0
+        livery_id = last.get("livery_id", 0) or _LIVERY_FOR_VEHICLE.get(vehicle_id, 0)
+        return self._build_progress_dict(
+            challenge_id=challenge_id,
+            target_stage_index=target_stage_index,
+            state=state,
+            vehicle_id=vehicle_id,
+            livery_id=livery_id,
+            meters_driven=last.get("meters_driven", 0) or 0,
+            champ_time_ms=(ep or {}).get("total_time_ms", 0),
+            has_repaired=bool(last.get("has_repaired", False)),
+            repair_penalty_ms=int(last.get("repair_penalty_ms", 0) or 0),
+            vehicle_damage=self._damage_from_dict(last.get("vehicle_damage")),
+            tyre_compound=int(last.get("tyre_compound", 0) or 7),
+            tyres_remaining=int(last.get("tyres_remaining", 0) or 2),
+            tuning_bytes=self._decode_tuning_b64(last.get("tuning_setup_b64", "") or ""),
+            attempts_left=self._attempts_left_for(ep),
+        )
 
     def _stages_for_subevent(self, ev: Dict[str, Any], chal_id: int,
                              ei: int, track_ids: List[int]) -> List[Stage]:
