@@ -2886,25 +2886,82 @@ def championship_action(club_id: str, draft_id: str) -> Response:
     return redirect(url_for('championship_edit', club_id=club_id, draft_id=draft_id) + anchor)
 
 
+def _duration_label(d: dict[str, Any]) -> str:
+    """Human label for a {days, hours, mins} duration, e.g. "2 Days 6 Hours"."""
+    d = d or {}
+    parts = []
+    if d.get('days'):
+        parts.append(f"{d['days']} Day" + ('s' if d['days'] != 1 else ''))
+    if d.get('hours'):
+        parts.append(f"{d['hours']} Hour" + ('s' if d['hours'] != 1 else ''))
+    if d.get('mins'):
+        parts.append(f"{d['mins']} Min" + ('s' if d['mins'] != 1 else ''))
+    return ' '.join(parts) if parts else '0 Mins'
+
+
 def _championship_summary(draft: dict[str, Any]) -> dict[str, Any]:
     """Per-event summary rows + computed end time for the preview screen."""
-    rows = []
-    for ev in draft.get('events', []):
-        d = ev.get('duration', {}) or {}
-        parts = []
-        if d.get('days'):
-            parts.append(f"{d['days']} Day" + ('s' if d['days'] != 1 else ''))
-        if d.get('hours'):
-            parts.append(f"{d['hours']} Hour" + ('s' if d['hours'] != 1 else ''))
-        if d.get('mins'):
-            parts.append(f"{d['mins']} Min" + ('s' if d['mins'] != 1 else ''))
-        dur_label = ' '.join(parts) if parts else '0 Mins'
-        rows.append({
+    rows = [
+        {
             'location': ev.get('location') or '(none)',
             'stages': len(ev.get('stages', [])),
-            'duration_label': dur_label,
-        })
+            'duration_label': _duration_label(ev.get('duration', {})),
+        }
+        for ev in draft.get('events', [])
+    ]
     return {'rows': rows, 'total': championship_duration(draft.get('events', []))}
+
+
+def _championship_view(event: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per-rally view of a championship for the detail pages: one entry per
+    sub-event with its stages and the flat stage-ordinal offset/count so the
+    per-rally leaderboard can slice the flat results array."""
+    champ = normalize_championship(event)
+    out: list[dict[str, Any]] = []
+    offset = 0
+    for ei, ev in enumerate(champ['events']):
+        stages = ev.get('stages', []) or []
+        out.append({
+            'index': ei,
+            'location': ev.get('location', ''),
+            'car_class': ev.get('car_class', ''),
+            'surface': ev.get('surface', ''),
+            'duration_label': _duration_label(ev.get('duration', {})),
+            'stages': stages,
+            'offset': offset,
+            'count': len(stages),
+        })
+        offset += len(stages)
+    return out
+
+
+def _rally_standings(entries: list[dict[str, Any]], offset: int, count: int) -> list[dict[str, Any]]:
+    """Per-rally leaderboard: slice each entry's flat stages to this rally's
+    range and keep only drivers who finished every stage of it, sorted by the
+    rally subtotal."""
+    rows: list[dict[str, Any]] = []
+    for e in entries:
+        seg = (e.get('stages', []) or [])[offset:offset + count]
+        if len(seg) < count:
+            continue
+        subtotal = 0
+        complete = True
+        for s in seg:
+            t = int((s or {}).get('time_ms', 0) or 0)
+            if t <= 0:
+                complete = False
+                break
+            subtotal += t + int((s or {}).get('penalties_ms', 0) or 0)
+        if not complete:
+            continue
+        rows.append({
+            'username': e.get('username', ''),
+            'car': e.get('car', ''),
+            'stages': seg,
+            'total_time_ms': subtotal,
+        })
+    rows.sort(key=lambda r: r['total_time_ms'])
+    return rows
 
 
 @app.route('/clubs/<club_id>/championship/<draft_id>/preview', methods=['GET'])
@@ -3080,13 +3137,34 @@ def events() -> str:
 
 @app.route('/events/<event_id>')
 def event_detail(event_id: str) -> str:
+    """Championship overview: its rallies (each clickable) + overall standings."""
     event = get_event(event_id)
     if not event:
         abort(404)
     results = get_results(event_id)
     entries = results.get('entries', [])
     club = get_club(event['club_id']) if event.get('club_id') else None
-    return render_template('event_detail.html', event=event, entries=entries, club=club)
+    rallies = _championship_view(event)
+    return render_template('event_detail.html', event=event, entries=entries,
+                           club=club, rallies=rallies)
+
+
+@app.route('/events/<event_id>/rally/<int:rally_index>')
+def rally_detail(event_id: str, rally_index: int) -> str:
+    """A single rally within a championship: its stages + per-rally standings."""
+    event = get_event(event_id)
+    if not event:
+        abort(404)
+    rallies = _championship_view(event)
+    if rally_index < 0 or rally_index >= len(rallies):
+        abort(404)
+    rally = rallies[rally_index]
+    results = get_results(event_id)
+    standings = _rally_standings(results.get('entries', []),
+                                 rally['offset'], rally['count'])
+    club = get_club(event['club_id']) if event.get('club_id') else None
+    return render_template('rally_detail.html', event=event, rally=rally,
+                           standings=standings, club=club, rally_count=len(rallies))
 
 
 @app.route('/profile/<username>')
