@@ -521,7 +521,10 @@ def _relaunch_with_auto_start() -> None:
     pass DIRTFOREVER_AUTO_START so the new instance auto-clicks START.
     """
     env = {**os.environ, "DIRTFOREVER_AUTO_START": "1"}
-    os.execve(sys.executable, [sys.executable, *sys.argv[1:]], env)
+    # Frozen: [exe]. Source: [python, dirtforever.py]. Passing sys.argv[1:]
+    # alone would drop the script path and re-exec a bare interpreter.
+    argv = [*_self_invocation_args(), *sys.argv[1:]]
+    os.execve(argv[0], argv, env)
 
 
 def has_port_capability(binary: Path) -> bool:
@@ -1510,14 +1513,35 @@ def run_gui():
         root.after(800, on_start)
 
     def on_close():
-        if server_running.is_set():
-            if messagebox.askyesno("DirtForever", "Server is running. Stop it and exit?"):
-                shutdown_flag.set()
-                if server_thread:
-                    server_thread.join(timeout=3)
-                root.destroy()
-        else:
-            root.destroy()
+        # Quitting with the server up leaves the hosts redirect in place, so
+        # the game keeps trying to reach the DirtForever Proxy and can't talk
+        # to RaceNet.
+        # Only Stop restores the hosts file (it's the elevated path), so warn
+        # and default to keeping the window open.
+        leftover_hosts = easy_setup_var.get() and hosts_configured()
+        if server_running.is_set() or leftover_hosts:
+            if server_running.is_set():
+                lead = ("The server is still running, and your hosts file still points the game "
+                        "at the DirtForever Proxy.")
+            else:
+                lead = "Your hosts file still points the game at the DirtForever Proxy."
+            proceed = messagebox.askyesno(
+                "DirtForever",
+                f"{lead}\n\n"
+                "Click Stop first - that restores your hosts file so DiRT Rally 2.0 can reach "
+                "RaceNet again.\n\n"
+                "If you exit now, the game won't connect until you reopen DirtForever and press "
+                "Stop (or edit your hosts file by hand).\n\n"
+                "Exit anyway?",
+                icon="warning",
+                default="no",
+            )
+            if not proceed:
+                return
+            shutdown_flag.set()
+            if server_thread:
+                server_thread.join(timeout=3)
+        root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
     root.mainloop()
