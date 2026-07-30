@@ -77,6 +77,53 @@ else:
     OUTPUT_NAME = "DirtForever"
 
 
+def _windows_version_file() -> Path | None:
+    """Write a VSVersionInfo file for PyInstaller's --version-file (Windows).
+
+    Unsigned exes with no version resource (CompanyName, ProductName, ...)
+    score worse with AV machine-learning classifiers; embedding real metadata
+    reduces false-positive detections.
+    """
+    if not IS_WIN:
+        return None
+    version = (ROOT / "VERSION").read_text().strip()
+    numeric = [int(p) for p in version.split(".") if p.isdigit()]
+    filevers = tuple((numeric + [0, 0, 0, 0])[:4])
+    content = f"""\
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers={filevers},
+    prodvers={filevers},
+    mask=0x3F,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable('040904B0', [
+        StringStruct('CompanyName', 'dirtforever.net'),
+        StringStruct('FileDescription', 'DirtForever - DiRT Rally 2.0 Community Server'),
+        StringStruct('FileVersion', '{version}'),
+        StringStruct('InternalName', 'DirtForever'),
+        StringStruct('LegalCopyright', 'dirtforever.net'),
+        StringStruct('OriginalFilename', 'DirtForever.exe'),
+        StringStruct('ProductName', 'DirtForever'),
+        StringStruct('ProductVersion', '{version}'),
+      ]),
+    ]),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])]),
+  ],
+)
+"""
+    # Not under build/, since PyInstaller's --clean purges that dir at start.
+    path = ROOT / "version_info.txt"
+    path.write_text(content)
+    return path
+
+
 def check_pyinstaller() -> None:
     """Ensure PyInstaller is installed; offer to install it if missing."""
     try:
@@ -175,6 +222,11 @@ def build() -> None:
                 cmd += ["--add-binary", f"{lib}{sep}."]
         else:
             print("[build] No Tk runtime libs detected to bundle.")
+
+    # Windows version resource (AV heuristics penalize metadata-less exes).
+    version_file = _windows_version_file()
+    if version_file:
+        cmd += ["--version-file", str(version_file)]
 
     # Optional icon
     icon_path = ROOT / "icon.ico"
