@@ -14,6 +14,7 @@ data/upstream_templates/
 dist/
 build/
 *.spec
+version_info.txt
 
 # Local virtualenvs
 .venv/

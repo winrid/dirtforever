@@ -29,11 +29,16 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-tk binutils
+          sudo apt-get install -y python3-tk binutils zlib1g-dev
 
+      # --no-binary forces a source build, which compiles the PyInstaller
+      # bootloader on this runner instead of using the precompiled one from
+      # PyPI. The stock bootloader's byte patterns are heavily fingerprinted
+      # by AV heuristics (it ships in real malware too), so a freshly built
+      # bootloader avoids many false-positive detections on the exe.
       - name: Install Python dependencies
         run: |
-          pip install pyinstaller cryptography
+          pip install --no-binary pyinstaller pyinstaller cryptography
 
       - name: Write version from release tag
         shell: bash
