@@ -1419,33 +1419,49 @@ PRECIPITATION_TYPES: Dict[int, str] = {int(p): p.label for p in PrecipitationTyp
 
 RACE_STATUS: Dict[int, str] = {int(r): r.label for r in RaceStatus}
 
+VERIFIED_TRACK_IDS = (
+    # Argentina
+    572, 604, 605, 606, 607, 608, 573, 609, 610, 611, 612, 613,
 
-# ---------------------------------------------------------------------------
-# Track verification
-# ---------------------------------------------------------------------------
-# Every entry in this set has been confirmed in-game on 2026-04-11 via the
-# automated enum-mapping discovery round: the server served a probe event
-# with the given TrackModelId, and the stage name shown on the Event Details
-# panel matched the stage recorded in runtime/discovery/track_mapping.json.
-#
-# Add a track id to this set only after confirming in-game that the stage
-# loading screen matches its assigned location and display name.
+    # Australia
+    568, 584, 585, 586, 587, 588, 569, 589, 590, 591, 592, 593,
 
-VERIFIED_TRACK_IDS: set[int] = {
-    437, 439, 441, 442, 443, 446, 448, 462, 464, 467, 469, 472,
-    478, 480, 490, 496, 511, 512, 515, 516, 519, 520, 527, 528,
-    537, 538, 566, 568, 569, 570, 571, 572, 573, 574, 575, 576,
-    577, 578, 579, 580, 581, 582, 583, 584, 585, 586, 587, 588,
-    589, 590, 591, 592, 593, 594, 595, 596, 597, 598, 599, 600,
-    601, 602, 603, 604, 605, 606, 607, 608, 609, 610, 611, 612,
-    613, 614, 615, 616, 617, 620, 621, 622, 623, 624, 625, 626,
-    627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637, 659,
-    661, 663, 667,
-    # Monte Carlo — best-guess, NOT yet confirmed in-game. Added to enable the
-    # location in the championship builder; verify the stage loading screens
-    # match and correct/remove any that load the wrong stage.
+    # Finland
+    505, 506, 507, 508, 509, 510, 511, 512, 513, 514, 515, 516,
+
+    # Germany
+    472, 489, 490, 491, 492, 493, 480, 494, 495, 496, 497, 498,
+
+    # Greece
+    471, 460, 461, 462, 463, 464, 465, 466, 467, 468, 469, 470,
+
+    # Monte Carlo
     435, 449, 450, 451, 452, 453, 454, 455, 456, 457, 458, 459,
-}
+
+    # New Zealand
+    570, 594, 595, 596, 597, 598, 571, 599, 600, 601, 602, 603,
+
+    # Poland
+    614, 615, 616, 617, 618, 619, 620, 621, 622, 623, 624, 625,
+
+    # Spain
+    566, 574, 575, 576, 577, 578, 567, 579, 580, 581, 582, 583,
+
+    # Sweden
+    517, 518, 519, 520, 521, 522, 523, 524, 525, 526, 527, 528,
+
+    # New England
+    626, 627, 628, 629, 630, 631, 632, 633, 634, 635, 636, 637,
+
+    # Wales
+    437, 438, 439, 440, 441, 442, 443, 444, 445, 446, 447, 448,
+
+    # Scotland
+    657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668,
+
+    # Rallycross
+    172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176,
+)
 
 
 def is_track_verified(track_id: int) -> bool:
