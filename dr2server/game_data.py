@@ -1460,7 +1460,8 @@ VERIFIED_TRACK_IDS = (
     657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668,
 
     # Rallycross
-    172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176,
+    # 172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176, 
+    # Rallycross tracks are not verified because they should not be auto-selected for generated events.
 )
 
 
