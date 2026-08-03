@@ -255,16 +255,47 @@
         form.querySelectorAll('.champ-event').forEach(updateStageHint);
     }
 
+    // "YYYY-MM-DDTHH:MM" in the viewer's zone, which is how <input
+    // type="datetime-local"> reads and writes its value.
+    function toLocalInputValue(date) {
+        function pad(n) { return (n < 10 ? '0' : '') + n; }
+        return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' +
+            pad(date.getDate()) + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+    }
+
     function setupChampionshipPreview() {
         var input = document.getElementById('start_at');
+        if (!input) return;
         var endsOn = document.getElementById('endsOn');
-        if (!input || !endsOn) return;
+        var epochField = document.getElementById('start_at_epoch');
+        var zoneNote = document.getElementById('startAtZone');
         var totalSeconds = parseInt(input.getAttribute('data-total-seconds'), 10);
-        if (isNaN(totalSeconds) || totalSeconds <= 0) return;
+
+        // The server renders min/value in its own zone; rewrite both in the
+        // viewer's zone so "now" reads as the clock on their wall.
+        var nowEpoch = parseInt(input.getAttribute('data-now-epoch'), 10);
+        var startEpoch = parseInt(input.getAttribute('data-start-epoch'), 10);
+        if (!isNaN(nowEpoch)) input.min = toLocalInputValue(new Date(nowEpoch * 1000));
+        if (!isNaN(startEpoch)) input.value = toLocalInputValue(new Date(startEpoch * 1000));
+
+        if (zoneNote) {
+            var zone = '';
+            try {
+                zone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            } catch (err) { /* older browsers: fall back to the offset only */ }
+            var offsetLabel = new Date().toLocaleTimeString(undefined, { timeZoneName: 'short' })
+                .split(' ').pop();
+            zoneNote.textContent = 'Times shown in your local timezone' +
+                (zone ? ' (' + zone + ', ' + offsetLabel + ')' : ' (' + offsetLabel + ')') + '.';
+        }
+
         function update() {
-            if (!input.value) return;
-            var start = new Date(input.value);
-            if (isNaN(start.getTime())) return;
+            var start = input.value ? new Date(input.value) : null;
+            if (!start || isNaN(start.getTime())) return;
+            // Post the chosen instant, not the wall-clock string, so the
+            // server stores the moment the user actually meant.
+            if (epochField) epochField.value = String(Math.floor(start.getTime() / 1000));
+            if (!endsOn || isNaN(totalSeconds) || totalSeconds <= 0) return;
             var end = new Date(start.getTime() + totalSeconds * 1000);
             endsOn.textContent = end.toLocaleString(undefined, {
                 weekday: 'short', day: '2-digit', month: 'short',
@@ -273,6 +304,7 @@
         }
         input.addEventListener('change', update);
         input.addEventListener('input', update);
+        update();
     }
 
     /* ── Init ───────────────────────────────────────── */

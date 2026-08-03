@@ -2971,20 +2971,25 @@ def championship_preview(club_id: str, draft_id: str) -> str:
     draft = _require_draft(club_id, draft_id, user)
     summary = _championship_summary(draft)
     now = datetime.now()
+    start_ref = now
+    if draft.get('start_at'):
+        try:
+            start_ref = datetime.fromisoformat(draft['start_at'])
+        except ValueError:
+            start_ref = now
     end_display = ''
     if summary['total'].total_seconds() > 0:
-        start_ref = now
-        if draft.get('start_at'):
-            try:
-                start_ref = datetime.fromisoformat(draft['start_at'])
-            except ValueError:
-                start_ref = now
         end_display = (start_ref + summary['total']).strftime('%a %d %b %Y, %H:%M')
+    # Times are stored naive in the server's own zone. The date picker is read
+    # in the *viewer's* zone, so hand the browser real instants (epoch seconds)
+    # and let enhance.js render/submit them in local time.
     return render_template(
         'championship_preview.html', club=club, draft=draft,
         summary_rows=summary['rows'], end_display=end_display,
         total_seconds=int(summary['total'].total_seconds()),
         now_iso=now.strftime('%Y-%m-%dT%H:%M'),
+        now_epoch=int(now.timestamp()),
+        start_epoch=int(start_ref.timestamp()),
     )
 
 
@@ -3050,6 +3055,16 @@ def championship_submit(club_id: str, draft_id: str) -> Response:
 
     name = (request.form.get('name') or draft.get('name') or '').strip()
     start_at = (request.form.get('start_at') or '').strip()
+    # enhance.js posts the picked instant as epoch seconds so the viewer's
+    # timezone survives the trip; fall back to the raw (server-zone) field
+    # when JS is unavailable.
+    start_epoch = (request.form.get('start_at_epoch') or '').strip()
+    if start_epoch:
+        try:
+            start_at = datetime.fromtimestamp(
+                float(start_epoch)).strftime('%Y-%m-%dT%H:%M')
+        except (ValueError, OSError, OverflowError):
+            pass
     settings = {
         'hardcore_damage': request.form.get('adv_hardcore_damage') == '1',
         'unexpected_moments': request.form.get('adv_unexpected_moments') == '1',

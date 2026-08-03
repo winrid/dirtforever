@@ -32,7 +32,10 @@
                     <label for="start_at" class="form-label">Set Start Date and Time</label>
                     <input type="datetime-local" id="start_at" name="start_at" class="form-input"
                            min="{{ now_iso }}" value="{{ draft.start_at or now_iso }}"
-                           data-total-seconds="{{ total_seconds }}">
+                           data-total-seconds="{{ total_seconds }}"
+                           data-now-epoch="{{ now_epoch }}" data-start-epoch="{{ start_epoch }}">
+                    <input type="hidden" id="start_at_epoch" name="start_at_epoch" value="">
+                    <p class="form-hint" id="startAtZone"></p>
                 </div>
 
                 <div class="lb-table-wrap">

@@ -183,3 +183,65 @@ def test_championship_submit_rejects_mixed_classes() -> None:
     assert r.headers["Location"].endswith("/preview")
     assert server.get_draft(draft_id) is not None
     assert not [e for e in server.get_all_events() if e.get("name") == "Mixed Champ"]
+
+
+def test_championship_start_time_uses_browser_epoch() -> None:
+    """The picker is read in the viewer's timezone, so enhance.js posts the
+    chosen instant as epoch seconds; the server must honour it over the raw
+    (server-zone) wall-clock string."""
+    server = _load()
+    server.app.config["WTF_CSRF_ENABLED"] = False
+    uname = "champtz"
+    if not server.get_user(uname):
+        server.create_user(uname, "tz@example.com", "pw", email_verified=True)
+    server.save_club({
+        "id": "tzclub", "name": "TZ", "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    client = server.app.test_client()
+    with client.session_transaction() as sess:
+        sess["username"] = uname
+
+    r = client.post("/clubs/tzclub/championship/new",
+                    data={"num_events": "1", "num_stages": "1"})
+    draft_id = r.headers["Location"].rstrip("/").split("/")[-1]
+    la, _ = _two_locations()
+    ra = get_verified_routes_for_location(int(la))
+    client.post(f"/clubs/tzclub/championship/{draft_id}", data={
+        "action": "save", "name": "TZ Champ",
+        "events[0][location]": la.display_name, "events[0][car_class]": "Group A",
+        "events[0][duration_days]": "1", "events[0][duration_hours]": "0",
+        "events[0][duration_mins]": "0",
+        "events[0][stages][0][route]": str(ra[0][0]),
+        "events[0][stages][0][conditions]": "1",
+        "events[0][stages][0][surface_deg]": "Medium",
+        "events[0][stages][0][service_area]": "Medium",
+    })
+
+    # The preview hands the browser real instants to localize.
+    r = client.get(f"/clubs/tzclub/championship/{draft_id}/preview")
+    body = r.get_data(as_text=True)
+    assert 'data-now-epoch="' in body
+    assert 'data-start-epoch="' in body
+    assert 'name="start_at_epoch"' in body
+
+    picked = datetime.now() + timedelta(days=2)
+    epoch = picked.timestamp()
+    r = client.post(f"/clubs/tzclub/championship/{draft_id}/submit", data={
+        "name": "TZ Champ",
+        # Stale/mismatched wall-clock text; the epoch is authoritative.
+        "start_at": (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%dT%H:%M"),
+        "start_at_epoch": str(epoch),
+    })
+    assert r.status_code == 302
+    matches = [e for e in server.get_all_events()
+               if e.get("name") == "TZ Champ" and e.get("club_id") == "tzclub"]
+    assert len(matches) == 1
+    ev = matches[0]
+    try:
+        start = datetime.fromisoformat(ev["start_time"])
+        assert start == picked.replace(second=0, microsecond=0)
+    finally:
+        p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+        if os.path.exists(p):
+            os.remove(p)
