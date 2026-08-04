@@ -211,6 +211,19 @@ class DirtForeverClient:
             "events": result.get("events", []),
         }
 
+    def get_challenges(self) -> List[Dict[str, Any]]:
+        """Fetch active official (non-club) events from the web API.
+
+        These back RaceNetChallenges.GetChallenges — the game's Events page
+        (daily/weekly/monthly). Returns a list of normalized championship
+        dicts; empty list on error so the caller can serve an empty page.
+        """
+        result = self._get("/api/game/challenges")
+        if not result or not result.get("ok"):
+            log.warning("get_challenges: empty or error response, returning empty")
+            return []
+        return list(result.get("events", []))
+
     def submit_stage_begin(
         self,
         event_id: str,

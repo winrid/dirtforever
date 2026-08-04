@@ -81,6 +81,24 @@ _LIVERY_FOR_VEHICLE: Dict[int, int] = {
 }
 
 
+# Official-challenge (Events page) values observed in the real upstream
+# GetChallenges capture (data/upstream_templates/RaceNetChallenges_GetChallenges.bin,
+# decoded 2026-08-03). The game localizes the lng_* keys into "Daily Challenge"
+# etc. and groups tiles by Category: 1=daily, 2=weekly, 3=monthly, 4=special.
+_OFFICIAL_NAME_KEYS: Dict[str, str] = {
+    "daily": "lng_daily_challenge",
+    "weekly": "lng_weekly_challenge_header",
+    "monthly": "lng_monthly_challenge_header",
+}
+_OFFICIAL_CATEGORY: Dict[str, int] = {"daily": 1, "weekly": 2, "monthly": 3}
+_OFFICIAL_CATEGORY_SPECIAL = 4
+# MaxEventCredits per period, taken from representative non-AI challenges in
+# the same capture (daily 937167, weekly 937154, monthly 937098).
+_OFFICIAL_MAX_CREDITS: Dict[str, int] = {
+    "daily": 3500, "weekly": 70600, "monthly": 130900,
+}
+
+
 def _load_template(method: str) -> Optional[bytes]:
     """Load a captured upstream binary response template for the given method."""
     safe_name = method.replace(".", "_") + ".bin"
@@ -153,7 +171,7 @@ class RpcDispatcher:
             "RaceNetInventory.GetInventory": self._inventory,
             "RaceNetInventory.GetStore": self._template_or_stub("RaceNetInventory.GetStore", self._store),
             "RaceNetInventory.GetRewards": self._rewards,
-            "RaceNetChallenges.GetChallenges": self._template_or_stub("RaceNetChallenges.GetChallenges", self._challenges),
+            "RaceNetChallenges.GetChallenges": self._get_challenges,
             "RaceNetChallenges.GetStageSplits": self._stage_splits,
             "RaceNetChallenges.StageBegin": self._stage_begin,
             "RaceNetChallenges.StageComplete": self._stage_complete,
@@ -1838,9 +1856,105 @@ class RpcDispatcher:
         # Real upstream returns just {"Rewards": []}
         return {"ok": True, "Rewards": []}
 
-    @staticmethod
-    def _challenges(params: Dict[str, Any]) -> Dict[str, Any]:
-        return {"ok": True, "Challenges": []}
+    def _get_challenges(self, params: Dict[str, Any]) -> Union[Dict[str, Any], bytes]:
+        """Serve the Events page (RaceNetChallenges.GetChallenges).
+
+        Real RaceNet returned the official daily/weekly/monthly challenges
+        here — separate from club championships, which live in Clubs.GetClubs.
+        We build the same shape from the web API's active non-club events.
+
+        Without an api_client (local-only mode) fall back to the captured
+        upstream template: its entry windows have long expired so the game
+        shows an empty Events page, but the payload is structurally valid —
+        the exact behaviour this handler had before officials were wired up.
+        """
+        if self.api_client is None:
+            template = _load_template("RaceNetChallenges.GetChallenges")
+            if template:
+                return template
+            return {"ok": True, "Challenges": [], "Progress": []}
+
+        challenges, web_events = self._official_challenges_from_api()
+        return {
+            "ok": True,
+            "Challenges": challenges,
+            "Progress": self._build_user_progress(web_events),
+        }
+
+    def _official_challenges_from_api(
+        self,
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Convert active official (non-club) web events to EgoNet Challenges.
+
+        Returns ``(challenges_egonet, web_events_served)``. Populates
+        ``_challenge_event_map`` for each served challenge so StageBegin /
+        StageComplete / leaderboard lookups can route back to the web event.
+
+        Fixed field values (ClubId=0, ChallengeType=1, ScoringType=0, Mode=0,
+        UseInvVehicle=True, the lng_* display names, the Category tab ids and
+        the 10-minute EntryWindow submit grace) all mirror the real upstream
+        GetChallenges capture in data/upstream_templates/.
+        """
+        assert self.api_client is not None
+        try:
+            web_events = self.api_client.get_challenges()
+        except Exception as exc:
+            print(f"[CHALLENGES] api_client.get_challenges() raised: {exc}")
+            return [], []
+
+        challenges_egonet: List[Dict[str, Any]] = []
+        served: List[Dict[str, Any]] = []
+        for idx, wevt in enumerate(web_events):
+            wevt_id = wevt.get("id", f"official-{idx}")
+            chal_id = _stable_int_id(wevt_id, base=400000, offset=idx)
+
+            car_class_label: str = wevt.get("car_class", "")
+            vclass_id = self.api_client.resolve_vclass_id(car_class_label)
+            # Same rule as clubs: an unmappable class would produce an invalid
+            # Requirement, which crashes the game — skip rather than guess.
+            if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+                print(f"[CHALLENGES] Unmappable car class '{car_class_label}' "
+                      f"for official event {wevt_id} — skipping")
+                continue
+
+            events_out = self._build_events_for_champ(wevt, chal_id)
+            if not events_out:
+                print(f"[CHALLENGES] No resolvable events for {wevt_id} — skipping")
+                continue
+
+            self._challenge_event_map[chal_id] = wevt_id
+
+            window = self._window_for(wevt)
+            # Upstream officials keep submissions open 600s past LastEntry
+            # (End = LastEntry + 600 on every challenge in the capture).
+            window.end = window.last_entry + 600
+
+            etype = str(wevt.get("type", "") or "")
+            settings = wevt.get("settings") or {}
+            challenges_egonet.append(Challenge(
+                name=_OFFICIAL_NAME_KEYS.get(etype, wevt.get("name", "Community Challenge")),
+                challenge_type=1,
+                scoring_type=0,
+                challenge_id=chal_id,
+                club_id=0,
+                requirements=[{"Type": 1, "Value": UInt32(vclass_id)}],
+                events=events_out,
+                entry_window=window,
+                num_entrants=len(wevt.get("entries", [])) if "entries" in wevt else 0,
+                leaderboard_id=chal_id + 800000,
+                is_hardcore=bool(settings.get("hardcore_damage", True)),
+                exterior_cams=not bool(settings.get("force_cockpit_camera", False)),
+                allow_assists=bool(settings.get("allow_assists", True)),
+                unxpectd_moments=bool(settings.get("unexpected_moments", True)),
+                category=_OFFICIAL_CATEGORY.get(etype, _OFFICIAL_CATEGORY_SPECIAL),
+                mode=0,
+                use_inv_vehicle=True,
+                max_event_credits=_OFFICIAL_MAX_CREDITS.get(
+                    etype, Challenge().max_event_credits),
+            ).to_egonet())
+            served.append(wevt)
+
+        return challenges_egonet, served
 
     def _resolve_event_id(self, challenge_id: int, label: str) -> Optional[str]:
         """Map a numeric challenge_id back to a web event_id.
@@ -1862,12 +1976,14 @@ class RpcDispatcher:
             return event_id
         print(f"[STAGE] {label} unknown challenge_id={challenge_id} "
               f"(map has {len(self._challenge_event_map)} entries); "
-              f"refreshing from clubs API")
+              f"refreshing from clubs + challenges APIs")
         try:
             self._clubs_from_api()
         except Exception as exc:
             print(f"[STAGE] {label} clubs refresh raised: {exc}")
-            return None
+        # Official (Events page) challenges live in a different feed — refresh
+        # it too so a game-cached official challenge_id survives a restart.
+        self._official_challenges_from_api()
         event_id = self._challenge_event_map.get(challenge_id)
         if event_id:
             print(f"[STAGE] {label} resolved after refresh: event_id={event_id}")

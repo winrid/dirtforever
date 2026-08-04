@@ -3396,6 +3396,26 @@ def api_game_clubs() -> Response:
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
 
 
+@app.route('/api/game/challenges')
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_challenges() -> Response:
+    """Return active official (non-club) events for the game's Events page.
+
+    Serves RaceNetChallenges.GetChallenges: the daily/weekly/monthly events
+    the generator creates (plus any admin-created event without a club).
+    Club events are excluded — those are served via /api/game/clubs.
+    Same event_is_active() filter as the clubs endpoint: never serve a
+    finished or not-yet-started event even if the expiry cron sweep lags.
+    """
+    events = [
+        normalize_championship(e)
+        for e in get_all_events()
+        if event_is_active(e) and not e.get('club_id')
+    ]
+    return jsonify({'ok': True, 'events': events})
+
+
 @app.route('/api/game/profile')
 @csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required
