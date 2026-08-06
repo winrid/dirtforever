@@ -918,6 +918,21 @@ button { cursor: pointer; font-family: inherit; }
 .countdown-badge strong { color: var(--accent-bright); }
 .countdown-icon { font-size: .9rem; }
 
+/* Scheduled but not started: the game won't serve it yet, so it must never
+   read as live.  Purple keeps it distinct from the orange live countdowns. */
+.upcoming { color: var(--purple) !important; }
+
+.club-slot-note p {
+    font-family: var(--font-ui);
+    font-size: .85rem;
+    color: var(--text);
+    background: var(--accent-dim);
+    border-radius: 4px;
+    padding: .75rem 1rem;
+    margin: 0;
+}
+.club-slot-note strong { color: var(--accent-bright); }
+
 
 /* ─── Event badges ──────────────────────────────────── */
 

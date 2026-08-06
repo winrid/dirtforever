@@ -563,6 +563,71 @@ def event_is_active(e: dict[str, Any], now: datetime | None = None) -> bool:
     return end > now
 
 
+def event_is_upcoming(e: dict[str, Any], now: datetime | None = None) -> bool:
+    """True when the event is scheduled but hasn't started yet.
+
+    An upcoming event is deliberately not served to the game (see
+    ``event_is_active``), so every listing has to label it, otherwise it looks
+    identical to a live one on the site and reads as "the game lost my event".
+    """
+    if not e.get('active'):
+        return False
+    raw = e.get('start_time')
+    if not raw:
+        return False
+    try:
+        return datetime.fromisoformat(raw) > (now or datetime.now())
+    except ValueError:
+        return False
+
+
+def event_window(e: dict[str, Any]) -> tuple[datetime, datetime] | None:
+    """Parse an event's ``[start, end)`` window; None when unusable."""
+    try:
+        start = datetime.fromisoformat(e['start_time'])
+        end = datetime.fromisoformat(e['end_time'])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return (start, end) if end > start else None
+
+
+def club_event_conflict(club_id: str, start: datetime,
+                        end: datetime) -> dict[str, Any] | None:
+    """Return a club event whose window overlaps ``[start, end)``, if any.
+
+    A club carries a single ``AmountOfEvents``/``EventIndex`` cursor in the game
+    and RaceNet only ever serves the current event's Challenge
+    (notes/protocol_notes.md), so two championships live at once leaves one of
+    them unreachable in game.  Back-to-back windows are fine (that's the model
+    the game expects), so only real overlaps are rejected.
+    """
+    for raw in get_all_events():
+        e: dict[str, Any] = raw
+        if e.get('club_id') != club_id or not e.get('active'):
+            continue
+        w = event_window(e)
+        if w and w[0] < end and start < w[1]:
+            return e
+    return None
+
+
+def club_busy_until(club_id: str, now: datetime | None = None) -> datetime | None:
+    """When the club's schedule frees up, or None if nothing is running.
+
+    The latest end time across the club's events that haven't finished yet, so
+    the next championship can be scheduled to pick up where they leave off.
+    """
+    now = now or datetime.now()
+    ends: list[datetime] = []
+    for e in get_all_events():
+        if e.get('club_id') != club_id or not e.get('active'):
+            continue
+        w = event_window(e)
+        if w and w[1] > now:
+            ends.append(w[1])
+    return max(ends) if ends else None
+
+
 # ── Result ops ───────────────────────────────────────────
 
 def get_results(eid: str) -> dict[str, Any]:
@@ -681,6 +746,12 @@ def countdown_filter(dt_str: str) -> str:
         return f'{m}m'
     except Exception:
         return dt_str
+
+
+@app.template_filter('is_upcoming')
+def is_upcoming_filter(e: dict[str, Any]) -> bool:
+    """Template-side ``event_is_upcoming`` so listings can label scheduled events."""
+    return event_is_upcoming(e)
 
 
 @app.template_filter('country_flag')
@@ -2064,7 +2135,9 @@ def club_detail(club_id: str) -> str:
         abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
     events = [e for e in get_all_events() if e.get('club_id') == club_id]
-    active_event_exists = any(event_is_active(e) for e in events)
+    # The game surfaces one championship per club, so the owner needs to see
+    # what's occupying the slot before trying to create another one.
+    live_event = next((e for e in events if event_is_active(e)), None)
     uname = user['username'] if user else None
     pending_users = []
     if user_is_owner(club, uname):
@@ -2090,7 +2163,7 @@ def club_detail(club_id: str) -> str:
         rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
         stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
         stage_caps=STAGE_CAPS,
-        active_event_exists=active_event_exists,
+        live_event=live_event,
         is_owner=user_is_owner(club, uname),
         is_member=user_is_member(club, uname),
         has_pending_request=user_has_pending_request(club, uname),
@@ -2727,6 +2800,15 @@ def create_club_event(club_id: str) -> Response:
 
     event_type, delta = DURATION_OPTIONS[duration]
     now = datetime.now()
+    # A Quick Event starts immediately, so it can only go out when the club's
+    # championship slot is free: the game shows one per club at a time.
+    clash = club_event_conflict(club_id, now, now + delta)
+    if clash:
+        flash(f'"{clash.get("name", "Another event")}" is still running in this '
+              f'club ({countdown_filter(clash.get("end_time", ""))} left). The game '
+              'only shows one championship per club, so use + Create Championship '
+              'to schedule one for after it finishes.', 'error')
+        return redirect(url_for('club_detail', club_id=club_id))
     surface = LOCATION_SURFACE.get(location, 'Gravel')
 
     stage_list = [
@@ -2971,12 +3053,16 @@ def championship_preview(club_id: str, draft_id: str) -> str:
     draft = _require_draft(club_id, draft_id, user)
     summary = _championship_summary(draft)
     now = datetime.now()
-    start_ref = now
+    # Only one championship per club can be live at a time, so the earliest a
+    # new one may start is when whatever is running now finishes.
+    busy_until = club_busy_until(club_id, now)
+    earliest = max(now, busy_until) if busy_until else now
+    start_ref = earliest
     if draft.get('start_at'):
         try:
             start_ref = datetime.fromisoformat(draft['start_at'])
         except ValueError:
-            start_ref = now
+            start_ref = earliest
     end_display = ''
     if summary['total'].total_seconds() > 0:
         end_display = (start_ref + summary['total']).strftime('%a %d %b %Y, %H:%M')
@@ -2987,8 +3073,9 @@ def championship_preview(club_id: str, draft_id: str) -> str:
         'championship_preview.html', club=club, draft=draft,
         summary_rows=summary['rows'], end_display=end_display,
         total_seconds=int(summary['total'].total_seconds()),
-        now_iso=now.strftime('%Y-%m-%dT%H:%M'),
-        now_epoch=int(now.timestamp()),
+        busy_for=countdown_filter(busy_until.isoformat()) if busy_until else '',
+        min_iso=earliest.strftime('%Y-%m-%dT%H:%M'),
+        min_epoch=int(earliest.timestamp()),
         start_epoch=int(start_ref.timestamp()),
     )
 
@@ -3096,6 +3183,17 @@ def championship_submit(club_id: str, draft_id: str) -> Response:
         errors.append('Total championship duration must be greater than zero.')
     if total > MAX_CHAMP_DURATION:
         errors.append('Total championship duration is too long.')
+
+    # One championship per club at a time: the game has a single event cursor
+    # per club, so an overlapping one would be unreachable in game.
+    if total.total_seconds() > 0:
+        clash = club_event_conflict(club_id, start_dt, start_dt + total)
+        if clash:
+            errors.append(
+                f'"{clash.get("name", "Another event")}" is running in this club '
+                f'until it ends in {countdown_filter(clash.get("end_time", ""))}. '
+                'The game only shows one championship per club, so start this '
+                'one after that.')
 
     if errors:
         for e in errors:

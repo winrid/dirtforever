@@ -273,9 +273,9 @@
 
         // The server renders min/value in its own zone; rewrite both in the
         // viewer's zone so "now" reads as the clock on their wall.
-        var nowEpoch = parseInt(input.getAttribute('data-now-epoch'), 10);
+        var minEpoch = parseInt(input.getAttribute('data-min-epoch'), 10);
         var startEpoch = parseInt(input.getAttribute('data-start-epoch'), 10);
-        if (!isNaN(nowEpoch)) input.min = toLocalInputValue(new Date(nowEpoch * 1000));
+        if (!isNaN(minEpoch)) input.min = toLocalInputValue(new Date(minEpoch * 1000));
         if (!isNaN(startEpoch)) input.value = toLocalInputValue(new Date(startEpoch * 1000));
 
         if (zoneNote) {

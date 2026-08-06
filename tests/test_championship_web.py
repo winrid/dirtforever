@@ -221,7 +221,7 @@ def test_championship_start_time_uses_browser_epoch() -> None:
     # The preview hands the browser real instants to localize.
     r = client.get(f"/clubs/tzclub/championship/{draft_id}/preview")
     body = r.get_data(as_text=True)
-    assert 'data-now-epoch="' in body
+    assert 'data-min-epoch="' in body
     assert 'data-start-epoch="' in body
     assert 'name="start_at_epoch"' in body
 
@@ -241,6 +241,157 @@ def test_championship_start_time_uses_browser_epoch() -> None:
     try:
         start = datetime.fromisoformat(ev["start_time"])
         assert start == picked.replace(second=0, microsecond=0)
+    finally:
+        p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+        if os.path.exists(p):
+            os.remove(p)
+
+
+def _one_event_draft(client, server, club_id, name):
+    """Generate + fill a 1-event / 1-stage draft; returns its draft id."""
+    r = client.post(f"/clubs/{club_id}/championship/new",
+                    data={"num_events": "1", "num_stages": "1"})
+    draft_id = r.headers["Location"].rstrip("/").split("/")[-1]
+    la, _ = _two_locations()
+    ra = get_verified_routes_for_location(int(la))
+    client.post(f"/clubs/{club_id}/championship/{draft_id}", data={
+        "action": "save", "name": name,
+        "events[0][location]": la.display_name, "events[0][car_class]": "Group A",
+        "events[0][duration_days]": "1", "events[0][duration_hours]": "0",
+        "events[0][duration_mins]": "0",
+        "events[0][stages][0][route]": str(ra[0][0]),
+        "events[0][stages][0][conditions]": "1",
+        "events[0][stages][0][surface_deg]": "Medium",
+        "events[0][stages][0][service_area]": "Medium",
+    })
+    return draft_id
+
+
+def _owner_client(server, uname, club_id):
+    server.app.config["WTF_CSRF_ENABLED"] = False
+    if not server.get_user(uname):
+        server.create_user(uname, f"{uname}@example.com", "pw", email_verified=True)
+    server.save_club({
+        "id": club_id, "name": club_id, "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    client = server.app.test_client()
+    with client.session_transaction() as sess:
+        sess["username"] = uname
+    return client
+
+
+def _live_event(server, club_id, eid, name="Live One", days=3):
+    """Persist a currently-running club event and return it."""
+    now = datetime.now()
+    ev = {
+        "id": eid, "name": name, "type": "weekly", "club_id": club_id,
+        "location": "Poland", "car_class": "Group A", "surface": "Gravel",
+        "conditions": "Clear", "stages": [],
+        "start_time": (now - timedelta(hours=1)).isoformat(),
+        "end_time": (now + timedelta(days=days)).isoformat(),
+        "active": True, "featured": False,
+    }
+    server.save_event(ev)
+    return ev
+
+
+def test_one_live_championship_per_club() -> None:
+    """The game carries one event cursor per club, so overlapping club events
+    would leave one unreachable in game.  Both creation paths must refuse."""
+    server = _load()
+    client = _owner_client(server, "slotowner", "slotclub")
+    live = _live_event(server, "slotclub", "evt-slot-live")
+
+    try:
+        # Quick Event starts now -> always overlaps a live one.
+        quick = {
+            "name": "Quick Clash", "location": "Poland", "car_class": "Group A",
+            "conditions": "Clear", "duration": "24h", "num_stages": "1",
+        }
+        r = client.post("/clubs/slotclub/events", data=quick, follow_redirects=True)
+        assert r.status_code == 200
+        assert "is still running in this club" in r.get_data(as_text=True)
+        assert not [e for e in server.get_all_events() if e.get("name") == "Quick Clash"]
+
+        # Same form succeeds once the slot is free; the gate is the only reason
+        # it bounced above.
+        os.remove(os.path.join(server.EVENTS_DIR, live["id"] + ".json"))
+        client.post("/clubs/slotclub/events", data=quick)
+        made = [e for e in server.get_all_events() if e.get("name") == "Quick Clash"]
+        assert len(made) == 1
+        os.remove(os.path.join(server.EVENTS_DIR, made[0]["id"] + ".json"))
+        server.save_event(live)
+
+        # A championship starting inside the live window is refused too.
+        draft_id = _one_event_draft(client, server, "slotclub", "Champ Clash")
+        overlap = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
+        r = client.post(f"/clubs/slotclub/championship/{draft_id}/submit",
+                        data={"name": "Champ Clash", "start_at": overlap})
+        assert r.status_code == 302
+        assert r.headers["Location"].endswith("/preview")
+        assert not [e for e in server.get_all_events() if e.get("name") == "Champ Clash"]
+
+        # Starting after it ends is the supported (RaceNet back-to-back) shape.
+        after = (datetime.fromisoformat(live["end_time"]) + timedelta(minutes=1)
+                 ).strftime("%Y-%m-%dT%H:%M")
+        r = client.post(f"/clubs/slotclub/championship/{draft_id}/submit",
+                        data={"name": "Champ Clash", "start_at": after})
+        assert r.status_code == 302
+        made = [e for e in server.get_all_events() if e.get("name") == "Champ Clash"]
+        assert len(made) == 1
+    finally:
+        for e in server.get_all_events():
+            if e.get("club_id") == "slotclub":
+                p = os.path.join(server.EVENTS_DIR, e["id"] + ".json")
+                if os.path.exists(p):
+                    os.remove(p)
+
+
+def test_preview_defaults_start_to_when_the_club_frees_up() -> None:
+    server = _load()
+    client = _owner_client(server, "slotdefault", "slotdefclub")
+    live = _live_event(server, "slotdefclub", "evt-slotdef-live", days=2)
+    try:
+        draft_id = _one_event_draft(client, server, "slotdefclub", "Next Up")
+        r = client.get(f"/clubs/slotdefclub/championship/{draft_id}/preview")
+        body = r.get_data(as_text=True)
+        end_epoch = int(datetime.fromisoformat(live["end_time"]).timestamp())
+        assert f'data-min-epoch="{end_epoch}"' in body
+        assert f'data-start-epoch="{end_epoch}"' in body
+        assert "already has a championship running" in body
+    finally:
+        for e in server.get_all_events():
+            if e.get("club_id") == "slotdefclub":
+                p = os.path.join(server.EVENTS_DIR, e["id"] + ".json")
+                if os.path.exists(p):
+                    os.remove(p)
+
+
+def test_scheduled_championship_is_labelled_upcoming() -> None:
+    """A future-start event isn't served to the game, so the site must not show
+    it as if it were live: that mismatch is what reads as 'it never appeared'."""
+    server = _load()
+    client = _owner_client(server, "upcomingowner", "upcomingclub")
+    now = datetime.now()
+    ev = {
+        "id": "evt-upcoming-1", "name": "Later Champ", "type": "weekly",
+        "club_id": "upcomingclub", "location": "Poland", "car_class": "Group A",
+        "surface": "Gravel", "conditions": "Clear", "stages": [],
+        "start_time": (now + timedelta(hours=3)).isoformat(),
+        "end_time": (now + timedelta(days=7)).isoformat(),
+        "active": True, "featured": False,
+    }
+    server.save_event(ev)
+    try:
+        assert server.event_is_upcoming(ev) is True
+        assert server.event_is_active(ev) is False  # not served to the game yet
+
+        body = client.get("/clubs/upcomingclub").get_data(as_text=True)
+        assert "Starts in" in body
+
+        body = client.get("/events/evt-upcoming-1").get_data(as_text=True)
+        assert "Starts in" in body
     finally:
         p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
         if os.path.exists(p):
