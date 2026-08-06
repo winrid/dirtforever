@@ -81,10 +81,17 @@
                 {% endif %}
             </div>
             <div class="event-card-footer">
+                {% if event | is_upcoming %}
+                <span class="countdown-badge upcoming">
+                    <span class="countdown-icon">&#9201;</span>
+                    Starts in {{ event.start_time | countdown }}
+                </span>
+                {% else %}
                 <span class="countdown-badge">
                     <span class="countdown-icon">&#9201;</span>
                     {{ event.end_time | countdown }}
                 </span>
+                {% endif %}
                 {% if event.system %}
                 <span class="event-card-club text-muted">Official event</span>
                 {% elif event.club_id %}

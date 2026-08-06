@@ -116,13 +116,24 @@
                     <a href="/clubs/{{ club.id }}/championship/new" class="btn btn-primary btn-sm">
                         + Create Championship
                     </a>
+                    {% if not live_event %}
                     <button type="button" class="btn btn-ghost btn-sm"
                             onclick="document.getElementById('createEvent').classList.toggle('hidden')">
                         + Quick Event
                     </button>
+                    {% endif %}
                 </div>
                 {% endif %}
             </div>
+
+            {% if is_owner and live_event %}
+            <div class="card-body club-slot-note">
+                <p><strong>{{ live_event.name }}</strong> is live for another
+                    {{ live_event.end_time | countdown }}. The game shows one championship
+                    per club at a time, so a new one has to start after that. Use
+                    <em>+ Create Championship</em> to schedule it.</p>
+            </div>
+            {% endif %}
 
             {% if current_user and current_user.username == club.created_by %}
             <div id="createEvent" class="card-body create-event-form-wrap hidden">
@@ -201,7 +212,11 @@
                         <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
                         <span class="event-row-name">{{ event.name }}</span>
                         <span class="event-row-meta text-muted">{{ n_rallies }} {{ 'rally' if n_rallies == 1 else 'rallies' }} &middot; {{ event.car_class }}</span>
+                        {% if event | is_upcoming %}
+                        <span class="event-row-countdown mono upcoming">Starts in {{ event.start_time | countdown }}</span>
+                        {% else %}
                         <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
+                        {% endif %}
                     </a>
                     {% endfor %}
                 </div>

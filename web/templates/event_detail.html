@@ -21,8 +21,13 @@
             </div>
             <div class="page-header-right">
                 <div class="countdown-large">
+                    {% if event | is_upcoming %}
+                    <span class="countdown-label">Starts in</span>
+                    <span class="countdown-value mono upcoming">{{ event.start_time | countdown }}</span>
+                    {% else %}
                     <span class="countdown-label">Ends in</span>
                     <span class="countdown-value mono">{{ event.end_time | countdown }}</span>
+                    {% endif %}
                 </div>
             </div>
         </div>

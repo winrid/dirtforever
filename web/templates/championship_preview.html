@@ -31,10 +31,15 @@
                 <div class="form-group">
                     <label for="start_at" class="form-label">Set Start Date and Time</label>
                     <input type="datetime-local" id="start_at" name="start_at" class="form-input"
-                           min="{{ now_iso }}" value="{{ draft.start_at or now_iso }}"
+                           min="{{ min_iso }}" value="{{ draft.start_at or min_iso }}"
                            data-total-seconds="{{ total_seconds }}"
-                           data-now-epoch="{{ now_epoch }}" data-start-epoch="{{ start_epoch }}">
+                           data-min-epoch="{{ min_epoch }}" data-start-epoch="{{ start_epoch }}">
                     <input type="hidden" id="start_at_epoch" name="start_at_epoch" value="">
+                    {% if busy_for %}
+                    <p class="form-hint accent">This club already has a championship running
+                        for another {{ busy_for }}. The game shows one championship per club at
+                        a time, so this one starts when that finishes.</p>
+                    {% endif %}
                     <p class="form-hint" id="startAtZone"></p>
                 </div>
 
