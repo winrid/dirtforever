@@ -969,9 +969,15 @@ DURATION_OPTIONS = {
 
 # ── Championship schema helpers ──────────────────────────
 
-# Total championship duration bounds (sum of all per-event durations).
+# Longest a single rally (one championship event) may run.  Two weeks covers a
+# club that wants a rally open across a couple of weekends.
+MAX_EVENT_DAYS = 14
+
+# Total championship duration bounds (sum of all per-event durations).  The
+# ceiling has to clear MAX_CHAMP_EVENTS * MAX_EVENT_DAYS (12 * 14 = 168 days),
+# otherwise the builder could offer a combination that submit then rejects.
 MIN_CHAMP_DURATION = timedelta(hours=1)
-MAX_CHAMP_DURATION = timedelta(days=60)
+MAX_CHAMP_DURATION = timedelta(days=180)
 
 # Defaults for the four championship-wide advanced toggles.  force_cockpit is
 # stored as its own boolean; the dispatcher inverts it into Challenge.exterior_cams.
@@ -1013,6 +1019,8 @@ def _validate_duration(d: dict[str, Any]) -> list[str]:
             continue
         if v < 0:
             errors.append(f'Event {key} cannot be negative.')
+        if key == 'days' and v > MAX_EVENT_DAYS:
+            errors.append(f'An event can run at most {MAX_EVENT_DAYS} days.')
     return errors
 
 
@@ -1105,7 +1113,9 @@ def _global_stage_index(event: dict[str, Any], event_index: int, stage_index: in
 
 # ── Championship builder: drafts & form parsing ──────────
 
-MAX_CHAMP_EVENTS = 8
+# Upstream RaceNet clubs run up to 12 events in one championship (Ray Charles
+# Race was captured at AmountOfEvents=12), so the builder matches that.
+MAX_CHAMP_EVENTS = 12
 MAX_STAGES_PER_EVENT = 12
 
 
@@ -2870,6 +2880,7 @@ def _championship_edit_context(club: dict[str, Any], draft: dict[str, Any]) -> d
         stage_routes=STAGE_ROUTES, stage_caps=STAGE_CAPS,
         blank_stage=_blank_stage(),
         max_events=MAX_CHAMP_EVENTS, max_stages=MAX_STAGES_PER_EVENT,
+        max_event_days=MAX_EVENT_DAYS,
     )
 
 

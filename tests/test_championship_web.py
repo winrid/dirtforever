@@ -396,3 +396,90 @@ def test_scheduled_championship_is_labelled_upcoming() -> None:
         p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
         if os.path.exists(p):
             os.remove(p)
+
+
+def test_builder_limits_stay_mutually_consistent() -> None:
+    """The editor must not be able to express a championship that submit then
+    rejects: the worst case it can build is MAX_CHAMP_EVENTS rallies at
+    MAX_EVENT_DAYS each, so the total ceiling has to clear that."""
+    server = _load()
+    worst_case = timedelta(days=server.MAX_CHAMP_EVENTS * server.MAX_EVENT_DAYS)
+    assert worst_case <= server.MAX_CHAMP_DURATION
+
+
+def test_championship_accepts_twelve_events_and_long_rallies() -> None:
+    """Upstream RaceNet clubs run up to 12 events, and a club asked for rallies
+    longer than a week, so both must survive generate -> edit -> submit."""
+    server = _load()
+    client = _owner_client(server, "twelveowner", "twelveclub")
+
+    n = server.MAX_CHAMP_EVENTS
+    assert n == 12
+    r = client.post("/clubs/twelveclub/championship/new",
+                    data={"num_events": str(n), "num_stages": "1"})
+    assert r.status_code == 302
+    draft_id = r.headers["Location"].rstrip("/").split("/")[-1]
+    draft = server.get_draft(draft_id)
+    assert len(draft["events"]) == n
+
+    # 12 rallies, each running longer than the old 7-day ceiling.
+    days = server.MAX_EVENT_DAYS
+    assert days > 7
+    form = {"action": "save", "name": "Twelve Round Series"}
+    for i, ev in enumerate(draft["events"]):
+        form[f"events[{i}][location]"] = ev["location"]
+        form[f"events[{i}][car_class]"] = ev["car_class"]
+        form[f"events[{i}][duration_days]"] = str(days)
+        form[f"events[{i}][duration_hours]"] = "0"
+        form[f"events[{i}][duration_mins]"] = "0"
+        for j, st in enumerate(ev["stages"]):
+            form[f"events[{i}][stages][{j}][route]"] = str(st["track_id"])
+            form[f"events[{i}][stages][{j}][conditions]"] = str(st["conditions_id"])
+            form[f"events[{i}][stages][{j}][surface_deg]"] = st["surface_deg"]
+            form[f"events[{i}][stages][{j}][service_area]"] = st["service_area"]
+    r = client.post(f"/clubs/twelveclub/championship/{draft_id}", data=form)
+    assert r.status_code == 302
+
+    start_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.post(f"/clubs/twelveclub/championship/{draft_id}/submit",
+                    data={"name": "Twelve Round Series", "start_at": start_at})
+    assert r.status_code == 302
+    matches = [e for e in server.get_all_events()
+               if e.get("name") == "Twelve Round Series"]
+    assert len(matches) == 1
+    ev = matches[0]
+    try:
+        assert len(ev["events"]) == 12
+        start = datetime.fromisoformat(ev["start_time"])
+        end = datetime.fromisoformat(ev["end_time"])
+        assert end - start == timedelta(days=12 * days)
+    finally:
+        p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+        if os.path.exists(p):
+            os.remove(p)
+
+
+def test_event_duration_beyond_the_cap_is_rejected() -> None:
+    server = _load()
+    client = _owner_client(server, "longowner", "longclub")
+    draft_id = _one_event_draft(client, server, "longclub", "Too Long")
+    draft = server.get_draft(draft_id)
+    ev = draft["events"][0]
+    st = ev["stages"][0]
+    client.post(f"/clubs/longclub/championship/{draft_id}", data={
+        "action": "save", "name": "Too Long",
+        "events[0][location]": ev["location"],
+        "events[0][car_class]": ev["car_class"],
+        "events[0][duration_days]": str(server.MAX_EVENT_DAYS + 1),
+        "events[0][duration_hours]": "0", "events[0][duration_mins]": "0",
+        "events[0][stages][0][route]": str(st["track_id"]),
+        "events[0][stages][0][conditions]": str(st["conditions_id"]),
+        "events[0][stages][0][surface_deg]": st["surface_deg"],
+        "events[0][stages][0][service_area]": st["service_area"],
+    })
+    start_at = (datetime.now() + timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M")
+    r = client.post(f"/clubs/longclub/championship/{draft_id}/submit",
+                    data={"name": "Too Long", "start_at": start_at})
+    assert r.status_code == 302
+    assert r.headers["Location"].endswith("/preview")
+    assert not [e for e in server.get_all_events() if e.get("name") == "Too Long"]
