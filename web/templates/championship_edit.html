@@ -80,7 +80,7 @@
                 <label class="form-label">Event Duration</label>
                 <div class="champ-duration">
                     <select name="events[{{ ei }}][duration_days]" class="form-input form-select" aria-label="Days">
-                        {% for d in range(0, 8) %}<option value="{{ d }}" {% if event.duration.days == d %}selected{% endif %}>{{ d }} Day{{ 's' if d != 1 else '' }}</option>{% endfor %}
+                        {% for d in range(0, max_event_days + 1) %}<option value="{{ d }}" {% if event.duration.days == d %}selected{% endif %}>{{ d }} Day{{ 's' if d != 1 else '' }}</option>{% endfor %}
                     </select>
                     <select name="events[{{ ei }}][duration_hours]" class="form-input form-select" aria-label="Hours">
                         {% for h in range(0, 24) %}<option value="{{ h }}" {% if event.duration.hours == h %}selected{% endif %}>{{ h }} Hour{{ 's' if h != 1 else '' }}</option>{% endfor %}

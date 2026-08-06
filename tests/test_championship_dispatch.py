@@ -275,3 +275,53 @@ def test_legacy_single_event_positional_fallback() -> None:
     # Legacy service-area fallback alternates by parity.
     assert e0.stages[0].has_service_area is True
     assert e0.stages[1].has_service_area is False
+
+
+def test_twelve_event_championship_advances_through_every_event() -> None:
+    """Upstream clubs run championships of up to 12 events (Ray Charles Race was
+    captured at AmountOfEvents=12).  Every event must be reachable with its own
+    non-colliding ids, and the encoded ids must stay inside the signed-32-bit
+    range the EgoNet encoder expects."""
+    locs = [loc for loc in Location if get_verified_routes_for_location(int(loc))][:12]
+    assert len(locs) == 12, "need 12 locations with verified routes"
+    champ = {
+        "id": "evt-twelve01",
+        "name": "Twelve Round Series",
+        "club_id": "club-12",
+        "car_class": "Group A",
+        "start_time": "2026-07-10T18:00:00",
+        "end_time": "2026-12-10T18:00:00",
+        "events": [
+            {"location": loc.display_name,
+             "stages": [{"track_id": get_verified_routes_for_location(int(loc))[0][0],
+                         "conditions_id": 1, "surface_deg": "Medium",
+                         "service_area": "Medium"}]}
+            for loc in locs
+        ],
+    }
+    club = [{"id": "club-12", "name": "Club 12", "created_by": "me"}]
+
+    challenge_ids = []
+    for completed in range(12):
+        # One stage per event, so N completed stages means the club is on event N.
+        progress = {"events": [{"event_id": "evt-twelve01",
+                                "completed_stages": [{}] * completed}]}
+        disp = RpcDispatcher(
+            account_store=MagicMock(),
+            api_client=_FullStubClient(clubs=club, events=[champ],
+                                       my_progress=progress))
+        out = disp._clubs_from_api()
+        ch = out["Challenges"][0]
+        club_out = out["Clubs"][0]
+        assert club_out["AmountOfEvents"] == 12
+        assert club_out["EventIndex"] == completed
+        assert len(ch["Events"]) == 1
+        # The served event is the one the club is on.
+        assert ch["Events"][0]["Stages"][0]["TrackModelId"].value == \
+            get_verified_routes_for_location(int(locs[completed]))[0][0]
+        challenge_ids.append(ch["ChallengeID"])
+        for value in (ch["ChallengeID"], ch["Events"][0]["EventId"],
+                      ch["Events"][0]["Stages"][0]["LeaderboardId"]):
+            assert 0 < value < 2 ** 31
+
+    assert len(set(challenge_ids)) == 12  # distinct challenge per event
