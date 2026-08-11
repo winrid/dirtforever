@@ -581,6 +581,43 @@ def event_is_upcoming(e: dict[str, Any], now: datetime | None = None) -> bool:
         return False
 
 
+def event_sort_key(e: dict[str, Any],
+                   now: datetime | None = None) -> tuple[int, float, str]:
+    """Listing order for one event: live first, then upcoming, then ended.
+
+    Within a bucket, live events run soonest-ending first, upcoming ones
+    soonest-starting first, and ended ones most-recently-finished first, so
+    what a driver can still enter is always at the top. The event id is the
+    last tiebreak, which keeps the order from wobbling between requests when
+    two events share a timestamp or carry none at all.
+    """
+    now = now or datetime.now()
+
+    def _ts(raw: Any) -> float | None:
+        try:
+            return datetime.fromisoformat(raw).timestamp()
+        except (TypeError, ValueError):
+            return None
+
+    eid = str(e.get('id', ''))
+    # A missing/unparseable timestamp sorts last inside its bucket rather than
+    # first, so a malformed event can never head a listing.
+    if event_is_upcoming(e, now):
+        start = _ts(e.get('start_time'))
+        return (1, start if start is not None else float('inf'), eid)
+    if event_is_active(e, now):
+        end = _ts(e.get('end_time'))
+        return (0, end if end is not None else float('inf'), eid)
+    end = _ts(e.get('end_time'))
+    return (2, -end if end is not None else float('inf'), eid)
+
+
+def sort_events(events: list[Any], now: datetime | None = None) -> list[Any]:
+    """Order any event listing by ``event_sort_key``."""
+    now = now or datetime.now()
+    return sorted(events, key=lambda e: event_sort_key(e, now))
+
+
 def event_window(e: dict[str, Any]) -> tuple[datetime, datetime] | None:
     """Parse an event's ``[start, end)`` window; None when unusable."""
     try:
@@ -1541,7 +1578,7 @@ def seed_data() -> None:
 def home() -> str:
     users  = get_all_users()
     clubs  = get_all_clubs()
-    events = get_all_events()
+    events = sort_events(get_all_events())
     all_results = [get_results(e['id']) for e in events]
     total_entries = sum(len(r.get('entries', [])) for r in all_results)
 
@@ -1789,7 +1826,7 @@ def dashboard() -> str:
     assert user is not None
     my_clubs = [get_club(cid) for cid in user.get('clubs', []) if get_club(cid)]
     events = get_all_events()
-    active = [e for e in events if e.get('active')]
+    active = sort_events([e for e in events if e.get('active')])
 
     my_results = []
     for evt in events:
@@ -1880,7 +1917,7 @@ def leaderboards() -> str | Response:
     ctx: dict[str, Any] = {'tab': tab}
 
     if tab == 'events':
-        events = get_all_events()
+        events = sort_events(get_all_events())
         event_id = request.args.get('event')
         stage_idx = request.args.get('stage', type=int)
 
@@ -2144,7 +2181,7 @@ def club_detail(club_id: str) -> str:
     if not club_is_visible_to(club, user):
         abort(404)
     members = [get_user(m) for m in club.get('members', []) if get_user(m)]
-    events = [e for e in get_all_events() if e.get('club_id') == club_id]
+    events = sort_events([e for e in get_all_events() if e.get('club_id') == club_id])
     # The game surfaces one championship per club, so the owner needs to see
     # what's occupying the slot before trying to create another one.
     live_event = next((e for e in events if event_is_active(e)), None)
@@ -3252,7 +3289,7 @@ def championship_submit(club_id: str, draft_id: str) -> Response:
 def events() -> str:
     t = request.args.get('type', 'daily')
     all_events = get_all_events()
-    filtered = [e for e in all_events if e.get('type') == t]
+    filtered = sort_events([e for e in all_events if e.get('type') == t])
     counts: dict[str, int] = {}
     for e in all_events:
         counts[e['type']] = counts.get(e['type'], 0) + 1
@@ -3499,7 +3536,7 @@ def api_game_clubs() -> Response:
     # must never serve a finished event to the game even if that sweep lags.
     events = [
         normalize_championship(e)
-        for e in get_all_events()
+        for e in sort_events(get_all_events())
         if event_is_active(e) and e.get('club_id') in seen
     ]
     return jsonify({'ok': True, 'clubs': clubs, 'events': events})
@@ -3519,7 +3556,7 @@ def api_game_challenges() -> Response:
     """
     events = [
         normalize_championship(e)
-        for e in get_all_events()
+        for e in sort_events(get_all_events())
         if event_is_active(e) and not e.get('club_id')
     ]
     return jsonify({'ok': True, 'events': events})
