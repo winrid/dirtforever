@@ -16,7 +16,7 @@
                 <h1 class="page-title">{{ event.name }}</h1>
                 <p class="page-subtitle text-muted">
                     {{ rallies | length }} {{ 'rally' if rallies | length == 1 else 'rallies' }}
-                    &middot; {{ event.car_class }}
+                    &middot; {{ event | class_label }}
                 </p>
             </div>
             <div class="page-header-right">
@@ -48,6 +48,7 @@
                         <span class="event-badge badge-{{ event.type }} mono">{{ '%02d'|format(rally.index + 1) }}</span>
                         <span class="event-row-name">{{ rally.location or '(location TBD)' }}</span>
                         <span class="event-row-meta text-muted">
+                            {{ rally.car_class }} &middot;
                             {{ rally.count }} {{ 'stage' if rally.count == 1 else 'stages' }} &middot; {{ rally.duration_label }}
                         </span>
                         <span class="event-row-countdown accent">View &rarr;</span>
@@ -108,7 +109,7 @@
             <div class="card-body event-info-card">
                 <div class="event-info-row">
                     <span class="text-muted">Car Class</span>
-                    <span>{{ event.car_class }}</span>
+                    <span>{{ event | class_label }}</span>
                 </div>
                 <div class="event-info-row">
                     <span class="text-muted">Rallies</span>

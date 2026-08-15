@@ -380,3 +380,71 @@ def test_every_rallycross_location_resolves_a_track() -> None:
         assert len(get_tracks_for_location(int(loc))) == 1, (
             f"rallycross location {loc.display_name!r} resolves no track"
         )
+
+
+def test_per_rally_vehicle_class_requirement() -> None:
+    """Each rally is its own Challenge, so its class Requirement comes from the
+    rally being served, letting a championship change class between rallies."""
+    loc_a, loc_b = _two_locations_with_routes()
+    ra = get_verified_routes_for_location(int(loc_a))
+    rb = get_verified_routes_for_location(int(loc_b))
+    champ = {
+        "id": "evt-mixed01",
+        "name": "Mixed Class Champ",
+        "club_id": "club-mixed",
+        "car_class": "Group A",          # legacy mirror of rally 1
+        "start_time": "2026-07-10T18:00:00",
+        "end_time": "2026-07-16T18:00:00",
+        "events": [
+            {"location": loc_a.display_name, "car_class": "Group A",
+             "stages": [{"track_id": ra[0][0], "conditions_id": 1,
+                         "surface_deg": "Medium", "service_area": "Medium"}]},
+            {"location": loc_b.display_name, "car_class": "R5",
+             "stages": [{"track_id": rb[0][0], "conditions_id": 1,
+                         "surface_deg": "Medium", "service_area": "Medium"}]},
+        ],
+    }
+    club = [{"id": "club-mixed", "name": "Club Mixed", "created_by": "me"}]
+
+    def _requirements(completed):
+        progress = {"events": [{"event_id": "evt-mixed01",
+                                "completed_stages": [{}] * completed}]}
+        disp = RpcDispatcher(
+            account_store=MagicMock(),
+            api_client=_FullStubClient(clubs=club, events=[champ],
+                                       my_progress=progress))
+        return disp._clubs_from_api()["Challenges"][0]["Requirements"]
+
+    rally1, rally2 = _requirements(0), _requirements(1)
+    assert [r["Value"].value for r in rally1] == \
+        [vehicle_class_id_for_label("Group A")]
+    assert [r["Value"].value for r in rally2] == \
+        [vehicle_class_id_for_label("R5")]
+
+
+def test_rally_without_class_falls_back_to_championship_class() -> None:
+    """Pre-per-rally files carry the class only at the top level."""
+    loc_a, loc_b = _two_locations_with_routes()
+    ra = get_verified_routes_for_location(int(loc_a))
+    rb = get_verified_routes_for_location(int(loc_b))
+    champ = {
+        "id": "evt-legacy02",
+        "name": "Legacy Champ",
+        "club_id": "club-legacy",
+        "car_class": "R5",
+        "start_time": "2026-07-10T18:00:00",
+        "end_time": "2026-07-16T18:00:00",
+        "events": [
+            {"location": loc_a.display_name,
+             "stages": [{"track_id": ra[0][0], "conditions_id": 1,
+                         "surface_deg": "Medium", "service_area": "Medium"}]},
+            {"location": loc_b.display_name,
+             "stages": [{"track_id": rb[0][0], "conditions_id": 1,
+                         "surface_deg": "Medium", "service_area": "Medium"}]},
+        ],
+    }
+    club = [{"id": "club-legacy", "name": "Club Legacy", "created_by": "me"}]
+    disp = RpcDispatcher(account_store=MagicMock(),
+                         api_client=_FullStubClient(clubs=club, events=[champ]))
+    reqs = disp._clubs_from_api()["Challenges"][0]["Requirements"]
+    assert [r["Value"].value for r in reqs] == [vehicle_class_id_for_label("R5")]

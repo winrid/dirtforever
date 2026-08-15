@@ -53,7 +53,7 @@
                 <div class="leaderboard-event-info">
                     <span class="event-badge badge-{{ selected_event.type }}">{{ selected_event.type | upper }}</span>
                     <h2 class="leaderboard-event-name">{{ selected_event.name }}</h2>
-                    <span class="text-muted">{{ selected_event.location }} &middot; {{ selected_event.car_class }} &middot; {{ selected_event.conditions }}</span>
+                    <span class="text-muted">{{ selected_event.location }} &middot; {{ selected_event | class_label }} &middot; {{ selected_event.conditions }}</span>
                 </div>
             </div>
 

@@ -70,7 +70,7 @@
                                 </td>
                                 <td class="lb-driver">
                                     <a href="/events/{{ r.event.id }}">{{ r.event.name }}</a>
-                                    <span class="text-muted" style="font-size:.8rem;display:block;">{{ r.event.location }} &middot; {{ r.event.car_class }}</span>
+                                    <span class="text-muted" style="font-size:.8rem;display:block;">{{ r.event.location }} &middot; {{ r.event | class_label }}</span>
                                 </td>
                                 <td class="lb-car text-muted">{{ r.entry.car }}</td>
                                 <td class="lb-time mono">{{ r.entry.total_time_ms | rally_time }}</td>

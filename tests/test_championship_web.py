@@ -143,7 +143,7 @@ def test_championship_builder_creates_v2_event() -> None:
             os.remove(p)
 
 
-def test_championship_submit_rejects_mixed_classes() -> None:
+def test_championship_submit_keeps_per_rally_classes() -> None:
     server = _load()
     server.app.config["WTF_CSRF_ENABLED"] = False
     uname = "champmixed"
@@ -178,11 +178,36 @@ def test_championship_submit_rejects_mixed_classes() -> None:
     start_at = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%dT%H:%M")
     r = client.post(f"/clubs/mixedclub/championship/{draft_id}/submit",
                     data={"name": "Mixed Champ", "start_at": start_at})
-    # Mixed classes bounce back to the preview; no event is written, draft kept.
     assert r.status_code == 302
-    assert r.headers["Location"].endswith("/preview")
-    assert server.get_draft(draft_id) is not None
-    assert not [e for e in server.get_all_events() if e.get("name") == "Mixed Champ"]
+    assert server.get_draft(draft_id) is None  # draft consumed
+
+    matches = [e for e in server.get_all_events() if e.get("name") == "Mixed Champ"]
+    assert len(matches) == 1
+    ev = matches[0]
+    try:
+        # Each rally keeps its own class; the top-level mirror stays rally 1's.
+        assert [e["car_class"] for e in ev["events"]] == ["Group A", "R5"]
+        assert ev["car_class"] == "Group A"
+        assert server.champ_classes(ev) == ["Group A", "R5"]
+        assert server.class_label_filter(ev) == "Group A + R5"
+        # The detail page names both classes: the header label plus each rally.
+        body = client.get(f"/events/{ev['id']}").get_data(as_text=True)
+        assert "Group A + R5" in body
+        assert body.count("R5") >= 2
+    finally:
+        p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+        if os.path.exists(p):
+            os.remove(p)
+
+
+def test_class_label_collapses_many_classes() -> None:
+    server = _load()
+    ev = {"events": [{"car_class": "Group A"}, {"car_class": "R5"},
+                     {"car_class": "Group A"}, {"car_class": "NR4/R4"}]}
+    assert server.champ_classes(ev) == ["Group A", "R5", "NR4/R4"]
+    assert server.class_label_filter(ev) == "3 classes"
+    # Legacy single-event shape: the top-level class is the championship's.
+    assert server.class_label_filter({"car_class": "R5"}) == "R5"
 
 
 def test_championship_start_time_uses_browser_epoch() -> None:
