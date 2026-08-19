@@ -8,21 +8,45 @@ to None (so callers skip the event rather than guess a fallback class).
 """
 from __future__ import annotations
 
+import importlib
+import os
+import sys
+import tempfile
+from pathlib import Path
+
 from dr2server.game_data import (
     CONFIRMED_VEHICLE_CLASS_IDS,
     VehicleClass,
     vehicle_class_id_for_label,
 )
 
-# The exact labels the web "Create Event" dropdown offers (web/server.py CAR_CLASSES).
-WEB_CAR_CLASS_LABELS = [
-    "Group A", "Group B (4WD)", "Group B (RWD)", "R5", "NR4/R4",
-    "H2 (RWD)", "Rally GT", "F2 Kit Car", "2000cc",
-]
+WEB_DIR = Path(__file__).resolve().parents[1] / "web"
+
+
+def _web_car_class_labels() -> list[str]:
+    """The labels the web "Create Event" dropdown actually offers.
+
+    Read from web/server.py rather than copied here.  A hand-maintained copy
+    silently went stale and stopped covering four classes, R2 among them, which
+    is the class the rallycross report came in on.
+    """
+    os.environ.setdefault("DATA_DIR", tempfile.mkdtemp())
+    os.environ.setdefault("SECRET_KEY", "test-secret")
+    os.environ.setdefault("WTF_CSRF_ENABLED", "0")
+    while str(WEB_DIR) in sys.path:
+        sys.path.remove(str(WEB_DIR))
+    sys.path.insert(0, str(WEB_DIR))
+    mod = sys.modules.get("server")
+    if mod is None or not hasattr(mod, "CAR_CLASSES"):
+        sys.modules.pop("server", None)
+        mod = importlib.import_module("server")
+    return list(mod.CAR_CLASSES)
 
 
 def test_every_web_label_resolves_to_a_confirmed_class() -> None:
-    for label in WEB_CAR_CLASS_LABELS:
+    labels = _web_car_class_labels()
+    assert labels, "no car classes offered by the web form"
+    for label in labels:
         vclass_id = vehicle_class_id_for_label(label)
         assert vclass_id is not None, f"web label {label!r} resolves to None"
         assert vclass_id in CONFIRMED_VEHICLE_CLASS_IDS, (
