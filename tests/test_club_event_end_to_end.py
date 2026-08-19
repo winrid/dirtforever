@@ -94,6 +94,14 @@ def _owner(server: Any, uname: str, club_id: str) -> tuple[Any, str]:
     return client, token
 
 
+def _two_rally_locations(server: Any) -> tuple[str, str]:
+    """Two rally (non-RX) locations the builder offers routes for."""
+    locs = [l for l in sorted(server.STAGES)
+            if l not in server.RX_LOCATIONS and server.STAGE_ROUTES.get(l)]
+    assert len(locs) >= 2, "need two rally locations with routes"
+    return locs[0], locs[1]
+
+
 def _served_challenges(server: Any, client: Any, token: str) -> Any:
     """What the game receives: the real /api/game/clubs response, run through
     the real dispatcher."""
@@ -253,3 +261,92 @@ def test_every_location_the_create_form_offers_can_be_served() -> None:
         )
     finally:
         _cleanup(server, *made)
+
+
+def test_mixed_class_championship_asks_for_a_different_car_per_rally() -> None:
+    """Per-rally classes, end to end: builder -> views -> game, at both rallies.
+
+    ``test_per_rally_vehicle_class_requirement`` covers the dispatcher from a
+    hand-written dict, and ``test_championship_submit_keeps_per_rally_classes``
+    covers the web side.  Neither joins them, which is the seam the rallycross
+    bug slipped through, so drive the whole thing: build a Group A + R5
+    championship in the real builder, then read the class the game is actually
+    told to require at rally 1 and at rally 2.
+    """
+    server = _load()
+    client, token = _owner(server, "mixede2e", "mixede2eclub")
+
+    loc_a, loc_b = _two_rally_locations(server)
+    ra = server.STAGE_ROUTES[loc_a]
+    rb = server.STAGE_ROUTES[loc_b]
+
+    r = client.post("/clubs/mixede2eclub/championship/new",
+                    data={"num_events": "2", "num_stages": "1"})
+    draft_id = r.headers["Location"].rstrip("/").split("/")[-1]
+    client.post(f"/clubs/mixede2eclub/championship/{draft_id}", data={
+        "action": "save", "name": "Mixed E2E",
+        "events[0][location]": loc_a, "events[0][car_class]": "Group A",
+        "events[0][duration_days]": "1", "events[0][duration_hours]": "0",
+        "events[0][duration_mins]": "0",
+        "events[0][stages][0][route]": str(ra[0][0]),
+        "events[0][stages][0][conditions]": "1",
+        "events[0][stages][0][surface_deg]": "Medium",
+        "events[0][stages][0][service_area]": "Medium",
+        "events[1][location]": loc_b, "events[1][car_class]": "R5",
+        "events[1][duration_days]": "1", "events[1][duration_hours]": "0",
+        "events[1][duration_mins]": "0",
+        "events[1][stages][0][route]": str(rb[0][0]),
+        "events[1][stages][0][conditions]": "1",
+        "events[1][stages][0][surface_deg]": "Medium",
+        "events[1][stages][0][service_area]": "Medium",
+    })
+    start_at = (datetime.now() - timedelta(minutes=1)).strftime("%Y-%m-%dT%H:%M")
+    submit = client.post(f"/clubs/mixede2eclub/championship/{draft_id}/submit",
+                         data={"name": "Mixed E2E", "start_at": start_at})
+    assert submit.status_code == 302
+
+    made = [e for e in server.get_all_events() if e.get("name") == "Mixed E2E"]
+    assert len(made) == 1, (
+        "builder rejected a mixed-class championship; "
+        f"submit redirected to {submit.headers['Location']}"
+    )
+    ev = made[0]
+    group_a = server.vehicle_class_id_for_label("Group A")
+    r5 = server.vehicle_class_id_for_label("R5")
+    try:
+        # The view names both classes rather than just rally 1's.
+        detail = client.get(f"/events/{ev['id']}").get_data(as_text=True)
+        assert "Group A + R5" in detail
+
+        # Rally 1: the game is told to require Group A.
+        out = _served_challenges(server, client, token)
+        assert out is not None, "dispatcher served nothing for the championship"
+        assert out["Clubs"][0]["EventIndex"] == 0
+        reqs = [r["Value"].value for r in out["Challenges"][0]["Requirements"]]
+        assert reqs == [group_a], f"rally 1 should require Group A, got {reqs}"
+
+        # Finish rally 1's only stage.  Progress is derived from stored results
+        # by /api/game/my-progress, so this advances the championship through
+        # the real endpoint rather than a stubbed progress dict.
+        server.save_results(ev["id"], {
+            "event_id": ev["id"],
+            "entries": [{
+                "username": "mixede2e", "display_name": "mixede2e",
+                "vehicle_id": 0,
+                "stages": [{"time_ms": 90_000, "penalties_ms": 0,
+                            "meters_driven": 5000, "distance_driven": 5000,
+                            "vehicle_id": 0, "livery_id": 0}],
+            }],
+        })
+
+        # Rally 2: a distinct Challenge that now requires R5.
+        out2 = _served_challenges(server, client, token)
+        assert out2["Clubs"][0]["EventIndex"] == 1, "championship did not advance"
+        reqs2 = [r["Value"].value for r in out2["Challenges"][0]["Requirements"]]
+        assert reqs2 == [r5], f"rally 2 should require R5, got {reqs2}"
+        assert out2["Challenges"][0]["ChallengeID"] != out["Challenges"][0]["ChallengeID"]
+    finally:
+        _cleanup(server, ev["id"])
+        p = os.path.join(server.RESULTS_DIR, f"{ev['id']}.json")
+        if os.path.exists(p):
+            os.remove(p)
