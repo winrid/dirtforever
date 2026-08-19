@@ -825,8 +825,11 @@ RX_LOCATIONS: frozenset[str] = frozenset(
 )
 
 # Number of *verified* track routes the game can actually deliver per location.
-# 0 means no in-game routes are confirmed yet (e.g. rallycross circuits, Monte
-# Carlo); such events won't appear in-game until their routes are verified.
+# 0 means no in-game routes are confirmed yet; such events won't appear in-game
+# until their routes are verified, so the auto-generator skips those locations.
+# Every location currently has at least one route (the rallycross circuits were
+# added in the "rallycross clubs" change), but keep the 0 handling: it's what
+# stops a future unmapped location from silently producing dead events.
 VERIFIED_STAGE_COUNTS: dict[str, int] = {
     loc.display_name: len(get_tracks_for_location(int(loc)))
     for loc in Location
@@ -1234,7 +1237,13 @@ def _random_championship_events(num_events: int, num_stages: int) -> list[dict[s
     service-area pattern.
     """
     rng = random.Random()
-    loc_pool = [l for l in STAGES if VERIFIED_STAGE_COUNTS.get(l, 0) > 0]
+    # Rally locations only: the class pool below is rally-only, so seeding a
+    # draft with a rallycross circuit would pair an RX track with a rally car.
+    # An owner can still pick an RX circuit by hand in the editor.
+    loc_pool = [
+        l for l in STAGES
+        if VERIFIED_STAGE_COUNTS.get(l, 0) > 0 and l not in RX_LOCATIONS
+    ]
     class_pool = [
         c for c in CAR_CLASSES
         if (vehicle_class_id_for_label(c) or 0) in CONFIRMED_VEHICLE_CLASS_IDS

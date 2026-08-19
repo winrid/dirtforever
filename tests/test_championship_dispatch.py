@@ -16,6 +16,7 @@ from unittest.mock import MagicMock
 from dr2server.dispatcher import RpcDispatcher
 from dr2server.game_data import (
     Location,
+    Track,
     get_tracks_for_location,
     get_verified_routes_for_location,
 )
@@ -325,3 +326,57 @@ def test_twelve_event_championship_advances_through_every_event() -> None:
             assert 0 < value < 2 ** 31
 
     assert len(set(challenge_ids)) == 12  # distinct challenge per event
+
+
+def test_rallycross_club_event_is_served() -> None:
+    """A club event on a rallycross circuit must produce a Challenge.
+
+    Regression: the RX track IDs were left out of VERIFIED_TRACK_IDS, so
+    ``tracks_for_location`` returned nothing for every RX circuit and
+    ``_build_subevent`` dropped the sub-event.  The club still went out (it's
+    emitted before the event loop) but carried no challenge, so the site listed
+    the event as live while the game showed the club with no championship
+    active.  This is the exact shape the Quick Event form saves: legacy
+    single-event, stages with no track_id, so the dispatcher falls back to the
+    location's verified routes.
+    """
+    rx_event = {
+        "id": "evt-rx01",
+        "name": "SteveGee Daily Rallycross",
+        "club_id": "club-rx",
+        "location": "Lydden Hill",
+        "car_class": "RX Supercars",
+        "start_time": "2026-08-18T13:59:31",
+        "end_time": "2026-08-19T13:59:31",
+        "stages": [{"name": "Lydden Hill", "distance_km": 1.4,
+                    "conditions": "Clear"}],
+    }
+    club = [{"id": "club-rx", "name": "SteveGee Rally Cross", "created_by": "SteveGee"}]
+
+    disp = RpcDispatcher(account_store=MagicMock(),
+                         api_client=_FullStubClient(clubs=club, events=[rx_event]))
+    out = disp._clubs_from_api()
+
+    assert out and out["ok"]
+    assert len(out["Challenges"]) == 1
+    ch = out["Challenges"][0]
+    assert ch["Name"] == "SteveGee Daily Rallycross"
+    ev = ch["Events"][0]
+    assert ev["LocationId"].value == int(Location.LYDDEN_HILL)
+    # Discipline 2 = rallycross, so the game routes it to the RX game mode.
+    assert ev["DisciplineId"].value == 2
+    assert ev["Stages"][0]["TrackModelId"].value == int(Track.LYDDEN_HILL)
+
+
+def test_every_rallycross_location_resolves_a_track() -> None:
+    """Each RX circuit must resolve to exactly one route.
+
+    RX locations carry a single circuit, so a missing one silently drops that
+    location's championships the same way Lydden Hill's did.
+    """
+    rx_locs = [loc for loc in Location if loc.discipline == "rallycross"]
+    assert len(rx_locs) == 13
+    for loc in rx_locs:
+        assert len(get_tracks_for_location(int(loc))) == 1, (
+            f"rallycross location {loc.display_name!r} resolves no track"
+        )

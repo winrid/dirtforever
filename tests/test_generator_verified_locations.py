@@ -1,10 +1,14 @@
-"""Official auto-generated events must only use verified-track locations.
+"""Official auto-generated events must only use playable rally locations.
 
 The generator used to roll from every location in STAGES, so most official
-daily/weekly/monthly events landed on rallycross circuits / Monte Carlo that
-have no verified routes and never appear in-game. It must now only pick
-locations the game can deliver, and never exceed their verified route count
-(which would duplicate stages).
+daily/weekly/monthly events landed on locations with no verified routes and
+never appeared in-game. It must now only pick locations the game can deliver,
+and never exceed their verified route count (which would duplicate stages).
+
+Rallycross circuits do have verified routes now (so clubs can run RX
+championships), but the generator's class pool is rally-only, so an official
+event on an RX circuit would demand a rally car on a rallycross track. RX stays
+out of the roll.
 """
 from __future__ import annotations
 
@@ -42,13 +46,16 @@ def test_generator_only_uses_verified_locations():
             seen.add(loc)
             cap = server.VERIFIED_STAGE_COUNTS.get(loc, 0)
             assert cap > 0, f"generated {etype} event on unverified location {loc!r}"
+            assert loc not in server.RX_LOCATIONS, (
+                f"generated {etype} event on rallycross circuit {loc!r}"
+            )
             n = len(ev["stages"])
             assert 1 <= n <= cap, (
                 f"{etype} event on {loc!r} has {n} stages > {cap} verified routes"
             )
-    # Sanity: we sampled a spread, and never an unverified location.
+    # Sanity: we sampled a spread, and never an unverified or RX location.
     assert len(seen) >= 3
-    assert "Barcelona" not in seen
+    assert not (seen & server.RX_LOCATIONS)
 
 
 def test_monthly_uses_all_verified_routes():
