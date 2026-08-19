@@ -7,6 +7,7 @@ the summed start/end window.
 """
 from __future__ import annotations
 
+import copy
 import importlib
 import os
 import sys
@@ -208,6 +209,73 @@ def test_class_label_collapses_many_classes() -> None:
     assert server.class_label_filter(ev) == "3 classes"
     # Legacy single-event shape: the top-level class is the championship's.
     assert server.class_label_filter({"car_class": "R5"}) == "R5"
+
+
+class _NoReadStages(list):
+    """A stage list that fails the test if anything reads it."""
+
+    def __iter__(self):
+        raise AssertionError("champ_classes must not read stages")
+
+    def __len__(self):
+        raise AssertionError("champ_classes must not read stages")
+
+
+def test_class_label_reads_rallies_without_copying_the_championship() -> None:
+    """Listings apply this filter per row, so it must stay allocation-light.
+
+    normalize_championship copies the championship dict, every rally and every
+    stage to fill in fields the class label never looks at; at the builder's
+    caps (12 rallies x 12 stages) that was ~150 dict copies per rendered row,
+    re-derived for every result row on a profile.  Reading the stored rallies
+    directly gives identical output, so this pins that the filter touches
+    nothing but each rally's class.
+    """
+    server = _load()
+    champ = {
+        "car_class": "Group A",
+        "events": [
+            {"location": "Wales", "car_class": "Group A",
+             "stages": _NoReadStages()},
+            {"location": "Spain", "car_class": "R5",
+             "stages": _NoReadStages()},
+        ],
+    }
+    assert server.champ_classes(champ) == ["Group A", "R5"]
+    assert server.class_label_filter(champ) == "Group A + R5"
+
+
+def test_class_label_matches_the_normalized_shape() -> None:
+    """Equivalence with the canonical read, across the shapes on disk.
+
+    champ_classes reads raw rallies rather than normalize_championship's
+    output, so the two must not drift: normalize fills in surface, duration and
+    stage conditions but never touches car_class.
+    """
+    server = _load()
+
+    def via_normalize(event):
+        out = []
+        for ev in server.normalize_championship(event)["events"]:
+            cls = (ev.get("car_class") or "").strip()
+            if cls and cls not in out:
+                out.append(cls)
+        return out
+
+    cases = [
+        {},                                                   # nothing at all
+        {"car_class": "R5"},                                  # legacy single
+        {"car_class": "R5", "events": []},                    # empty rally list
+        {"car_class": "R5", "events": [{}]},                  # rally, no class
+        {"car_class": "R5", "events": [{"car_class": "Group A"}]},  # mirror differs
+        {"events": [{"car_class": "R5"}, {"car_class": "R5"}]},     # duplicates
+        {"events": [{"car_class": "A"}, {"car_class": "B"},
+                    {"car_class": "C"}]},                     # collapses to a count
+    ]
+    for case in cases:
+        before = copy.deepcopy(case)
+        assert server.champ_classes(case) == via_normalize(case), case
+        assert case == before, f"champ_classes mutated its input: {case}"
 
 
 def test_championship_start_time_uses_browser_epoch() -> None:

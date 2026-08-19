@@ -1137,9 +1137,18 @@ def champ_classes(event: dict[str, Any]) -> list[str]:
     rally, each carrying its own class Requirement.  The top-level
     ``car_class`` mirror is only rally 1's class, so listings must render this
     instead of trusting the mirror to describe the whole championship.
+
+    Reads the stored rallies directly instead of going through
+    ``normalize_championship``, which copies the championship dict, every rally
+    and every stage to fill in fields this never looks at.  Listings apply the
+    ``class_label`` filter per row and re-derive it for every result row on a
+    profile, so at the builder's caps (12 rallies x 12 stages) that was ~150
+    dict copies per rendered row.
     """
     out: list[str] = []
-    for ev in normalize_championship(event)['events']:
+    # A legacy single-rally file keeps its class at the top level only, which
+    # is the same value normalize_championship's fallback would surface.
+    for ev in event.get('events') or (event,):
         cls = (ev.get('car_class') or '').strip()
         if cls and cls not in out:
             out.append(cls)
