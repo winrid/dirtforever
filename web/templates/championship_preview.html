@@ -45,11 +45,12 @@
 
                 <div class="lb-table-wrap">
                     <table class="lb-table">
-                        <thead><tr><th>Location</th><th>Duration</th></tr></thead>
+                        <thead><tr><th>Location</th><th>Class</th><th>Duration</th></tr></thead>
                         <tbody>
                             {% for row in summary_rows %}
                             <tr>
                                 <td>{{ loop.index }} - {{ row.location }}</td>
+                                <td>{{ row.car_class }}</td>
                                 <td>{{ row.stages }} Stages - {{ row.duration_label }}</td>
                             </tr>
                             {% endfor %}

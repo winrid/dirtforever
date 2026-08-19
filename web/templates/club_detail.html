@@ -211,7 +211,7 @@
                     <a href="/events/{{ event.id }}" class="event-row">
                         <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
                         <span class="event-row-name">{{ event.name }}</span>
-                        <span class="event-row-meta text-muted">{{ n_rallies }} {{ 'rally' if n_rallies == 1 else 'rallies' }} &middot; {{ event.car_class }}</span>
+                        <span class="event-row-meta text-muted">{{ n_rallies }} {{ 'rally' if n_rallies == 1 else 'rallies' }} &middot; {{ event | class_label }}</span>
                         {% if event | is_upcoming %}
                         <span class="event-row-countdown mono upcoming">Starts in {{ event.start_time | countdown }}</span>
                         {% else %}

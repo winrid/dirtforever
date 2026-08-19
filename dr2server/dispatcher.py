@@ -520,6 +520,10 @@ class RpcDispatcher:
                 # Remember the mapping so StageComplete can reverse it
                 self._challenge_event_map[chal_id] = wevt.get("id", "")
 
+                # Legacy fallback path: one Challenge holding every sub-event,
+                # so it can only carry one class Requirement (rally 1's).
+                # Multi-rally championships take _serve_multi_event_club above,
+                # which gives each rally its own Challenge and its own class.
                 car_class_label: str = wevt.get("car_class", "")
                 vclass_id = self.api_client.resolve_vclass_id(car_class_label)
                 # A club challenge must carry a confirmed vehicle-class
@@ -742,15 +746,21 @@ class RpcDispatcher:
         num_events = len(layout)
         wevt_id = wevt.get("id", "")
 
-        car_class_label: str = wevt.get("car_class", "")
-        vclass_id = self.api_client.resolve_vclass_id(car_class_label)
-        if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
-            print(f"[CLUBS] Unmappable car class '{car_class_label}' for "
-                  f"championship {wevt_id} — skipping")
-            return None
-
         ep = self._user_progress_for_event(wevt_id) if wevt_id else None
         active = self._active_event_index(layout, ep)
+        active_ev = self._events_of(wevt)[active]
+
+        # The class Requirement comes from the rally being served, not from the
+        # championship: each rally is its own Challenge, so a championship may
+        # run a different vehicle class per rally.  Falls back to the top-level
+        # mirror for legacy files whose sub-events carry no class of their own.
+        car_class_label: str = (active_ev.get("car_class")
+                                or wevt.get("car_class", ""))
+        vclass_id = self.api_client.resolve_vclass_id(car_class_label)
+        if vclass_id is None or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
+            print(f"[CLUBS] Unmappable car class '{car_class_label}' for rally "
+                  f"{active + 1} of championship {wevt_id} - skipping")
+            return None
 
         base_chal_id = _stable_int_id(wevt_id or f"{club_str_id}-0",
                                       base=200000, offset=0)
@@ -758,8 +768,7 @@ class RpcDispatcher:
         self._challenge_event_map[active_chal_id] = wevt_id
         self._challenge_subevent_map[active_chal_id] = active
 
-        event = self._build_subevent(wevt, base_chal_id, active,
-                                     self._events_of(wevt)[active])
+        event = self._build_subevent(wevt, base_chal_id, active, active_ev)
         if event is None:
             print(f"[CLUBS] Active event {active} of {wevt_id} unresolvable — skipping")
             return None

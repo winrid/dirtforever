@@ -1130,6 +1130,41 @@ def normalize_championship(raw: dict[str, Any]) -> dict[str, Any]:
     return champ
 
 
+def champ_classes(event: dict[str, Any]) -> list[str]:
+    """Unique vehicle classes across a championship's rallies, in rally order.
+
+    Rallies may each set their own class: the game receives one Challenge per
+    rally, each carrying its own class Requirement.  The top-level
+    ``car_class`` mirror is only rally 1's class, so listings must render this
+    instead of trusting the mirror to describe the whole championship.
+
+    Reads the stored rallies directly instead of going through
+    ``normalize_championship``, which copies the championship dict, every rally
+    and every stage to fill in fields this never looks at.  Listings apply the
+    ``class_label`` filter per row and re-derive it for every result row on a
+    profile, so at the builder's caps (12 rallies x 12 stages) that was ~150
+    dict copies per rendered row.
+    """
+    out: list[str] = []
+    # A legacy single-rally file keeps its class at the top level only, which
+    # is the same value normalize_championship's fallback would surface.
+    for ev in event.get('events') or (event,):
+        cls = (ev.get('car_class') or '').strip()
+        if cls and cls not in out:
+            out.append(cls)
+    return out
+
+
+@app.template_filter('class_label')
+def class_label_filter(event: dict[str, Any]) -> str:
+    """Championship vehicle class for listings: the single class, both classes
+    when there are two, or a count once naming them all would crowd the row."""
+    classes = champ_classes(event)
+    if len(classes) <= 2:
+        return ' + '.join(classes)
+    return f'{len(classes)} classes'
+
+
 def _champ_stage_layout(event: dict[str, Any]) -> list[int]:
     """Stage counts per sub-event; ``[len(stages)]`` for legacy single events."""
     evs = event.get('events')
@@ -3043,6 +3078,7 @@ def _championship_summary(draft: dict[str, Any]) -> dict[str, Any]:
     rows = [
         {
             'location': ev.get('location') or '(none)',
+            'car_class': ev.get('car_class') or '(none)',
             'stages': len(ev.get('stages', [])),
             'duration_label': _duration_label(ev.get('duration', {})),
         }
@@ -3155,11 +3191,9 @@ def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
     errors: list[str] = []
     if not events:
         return ['A championship needs at least one event.']
-    classes = set()
     for i, ev in enumerate(events, start=1):
         loc = ev.get('location', '')
         cls = ev.get('car_class', '')
-        classes.add(cls)
         if loc not in STAGES:
             errors.append(f'Event {i}: invalid location.')
         vclass_id = vehicle_class_id_for_label(cls)
@@ -3185,9 +3219,6 @@ def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
                 errors.append(f'Event {i} stage {sj}: invalid surface degradation.')
             if s.get('service_area') not in SERVICE_AREA_OPTIONS:
                 errors.append(f'Event {i} stage {sj}: invalid service area.')
-    if len(classes) > 1:
-        errors.append('All events must use the same vehicle class '
-                      '(the game applies one class per championship).')
     return errors
 
 
@@ -3280,7 +3311,9 @@ def championship_submit(club_id: str, draft_id: str) -> Response:
         'active': True,
         'featured': False,
         'settings': settings,
-        # Top-level mirrors of events[0] so legacy readers/templates keep working.
+        # Top-level mirrors of events[0] so legacy readers/templates keep
+        # working.  With per-rally classes these describe rally 1, not the
+        # championship, so display code wants champ_classes()/`| class_label`.
         'location': first['location'],
         'car_class': first['car_class'],
         'surface': first['surface'],

@@ -28,7 +28,7 @@
                     <a href="/events/{{ event.id }}" class="event-row">
                         <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
                         <span class="event-row-name">{{ event.name }}</span>
-                        <span class="event-row-meta text-muted">{{ event.location }} &middot; {{ event.car_class }}</span>
+                        <span class="event-row-meta text-muted">{{ event.location }} &middot; {{ event | class_label }}</span>
                         {% if event | is_upcoming %}
                         <span class="event-row-countdown mono upcoming">Starts in {{ event.start_time | countdown }}</span>
                         {% else %}
