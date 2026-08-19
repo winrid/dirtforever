@@ -32,6 +32,7 @@ from server import (
     CONDITIONS,
     LOCATION_SURFACE,
     VERIFIED_STAGE_COUNTS,
+    RX_LOCATIONS,
     DEFAULT_CHAMP_SETTINGS,
     _duration_for_type,
 )
@@ -133,12 +134,17 @@ def generate_event(
     rng = _rng_for(slot_id)
 
     # Only roll locations the game can actually deliver in-game (verified track
-    # routes).  Official events must always be playable, so unverified locations
-    # (rallycross circuits, Monte Carlo) are excluded entirely — unlike the
-    # create-event form, which leaves them selectable.
+    # routes).  Official events must always be playable, so a location with no
+    # verified routes is excluded entirely, unlike the create-event form, which
+    # leaves them selectable.  Rallycross circuits are excluded too even though
+    # their routes are listed: the class pool below is rally-only, so an
+    # official event on an RX circuit would ask for a rally car on a
+    # rallycross track.
     loc_pool = sorted(
         l for l in STAGES
-        if l not in used_locations and VERIFIED_STAGE_COUNTS.get(l, 0) > 0
+        if l not in used_locations
+        and l not in RX_LOCATIONS
+        and VERIFIED_STAGE_COUNTS.get(l, 0) > 0
     )
     cls_pool = sorted(c for c in CAR_CLASSES if c not in used_classes)
     location = rng.choice(loc_pool)

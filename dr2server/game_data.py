@@ -1459,9 +1459,16 @@ VERIFIED_TRACK_IDS = (
     # Scotland
     657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668,
 
-    # Rallycross
-    # 172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176, 
-    # Rallycross tracks are not verified because they should not be auto-selected for generated events.
+    # Rallycross, one circuit per location.  These route IDs come from the
+    # track enum rather than an in-game capture, so they're less certain than
+    # the rally routes above.  They're listed here anyway because leaving them
+    # out made every rallycross club championship unservable: the dispatcher
+    # resolves zero tracks for the location and drops the challenge, so the
+    # site showed the event as live while the game showed the club with no
+    # championship active.  Auto-generated official events must NOT land on
+    # these circuits, but that exclusion is by discipline now (see RX_LOCATIONS
+    # in web/server.py), not by omission from this list.
+    172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176,
 )
 
 
