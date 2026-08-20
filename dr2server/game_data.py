@@ -1123,34 +1123,80 @@ WeatherPreset = WeatherBucket
 
 
 # ---------------------------------------------------------------------------
-# StageConditions composite-ID labels (verified in-game 2026-04-11)
+# StageConditions composite-ID labels (verified in-game 2026-08-19)
 # ---------------------------------------------------------------------------
 # Earlier notes hypothesised a packed-nibble encoding (high=surface,
 # low=preset) but the in-game discovery round REJECTED that theory.  Example:
 # SC=9 has high nibble 0 but is "Wet"; SC=16 has high nibble 1 but is "Dry".
-# The integer is an arbitrary index into a table the game maintains
-# internally.  Every StageConditions value observed in upstream club data has
-# been pinned below by probing it in-game on Spain / Descenso and OCR'ing
-# the Event Details panel.
+# The integer is an arbitrary index into a table the game maintains internally.
+#
+# Every id upstream accepts ({1..24, 26, 28, 29, 32..57}, established by
+# sweeping TimeTrial.GetLeaderboardId against the real RaceNet host) has been
+# pinned by serving it to the game as a one-stage club event and OCR'ing the
+# label off the Event Details panel -- see scripts/probe_condition_labels.py.
+# The labels are GLOBAL: an id renders the same text at a location that ships
+# no lighting for it, which is exactly why the client cannot be relied on to
+# reject a wrong one (see STAGE_CONDITIONS_BY_LOCATION).
+#
+# Three labels are shared by two ids apiece, marked below.  They appear to be
+# duplicates introduced by different content drops -- RaceNet's own events used
+# 2/16 at base-game locations and 38/42 at Poland -- so which one a given
+# location can load has to come from evidence, never from picking either.
 
 STAGE_CONDITIONS_LABELS: Dict[int, str] = {
-    1:  "Daytime / Clear / Dry",
-    3:  "Night / Clear / Dry",
-    4:  "Dusk / Cloudy / Dry",
-    5:  "Dusk / Overcast / Dry",
-    9:  "Daytime / Heavy Rain / Wet",
-    11: "Daytime / Cloudy / Wet",
-    16: "Sunset / Cloudy / Dry",   # verified via RaceNet club builder 2026-07-07
-    17: "Sunset / Overcast / Dry",
-    20: "Sunset / Cloudy / Wet",   # in-game OCR variant; RaceNet builder emits 34 for this label
-    26: "Daytime / Showers / Wet",
-    32: "Daytime / Rain / Wet",    # verified via RaceNet club builder 2026-07-07 (distinct from 9 "Heavy Rain")
-    34: "Sunset / Cloudy / Wet",   # verified via RaceNet club builder 2026-07-07 (builder-canonical; cf. 20)
-    35: "Sunset / Light Showers / Wet",
-    38: "Daytime / Overcast / Dry",
-    39: "Sunset / Light Rain / Wet",
-    40: "Dusk / Showers / Wet",
-    47: "Sunset / Clear / Dry",
+     1: 'Daytime / Clear / Dry',
+     2: 'Daytime / Overcast / Dry',  # same label as [38]
+     3: 'Night / Clear / Dry',
+     4: 'Dusk / Cloudy / Dry',
+     5: 'Dusk / Overcast / Dry',
+     6: 'Dusk / Heavy Rain / Wet',
+     7: 'Dusk / Clear / Snow',
+     8: 'Dusk / Cloudy / Wet',
+     9: 'Daytime / Heavy Rain / Wet',
+    10: 'Daytime / Heavy Snow / Snow',
+    11: 'Daytime / Cloudy / Wet',
+    12: 'Night / Overcast / Dry',
+    13: 'Night / Heavy Rain / Wet',
+    14: 'Night / Light Snow / Dry',
+    15: 'Night / Cloudy / Wet',
+    16: 'Sunset / Cloudy / Dry',  # same label as [42]
+    17: 'Sunset / Overcast / Dry',
+    18: 'Sunset / Heavy Rain / Wet',
+    19: 'Sunset / Light Snow / Dry',
+    20: 'Sunset / Cloudy / Wet',  # same label as [34]
+    21: 'Daytime / Light Rain / Wet',
+    22: 'lng_conditions_dusk_rain_showers',  # untranslated in-game; the raw key is what the game shows
+    23: 'lng_conditions_sunset_rain_light',  # untranslated in-game; the raw key is what the game shows
+    24: 'lng_conditions_night_rain_light',  # untranslated in-game; the raw key is what the game shows
+    26: 'Daytime / Showers / Wet',
+    28: 'Night / Light Showers / Wet',
+    29: 'Daytime / Light Showers / Wet',
+    32: 'Daytime / Rain / Wet',
+    33: 'Dusk / Light Rain / Wet',
+    34: 'Sunset / Cloudy / Wet',  # same label as [20]
+    35: 'Sunset / Light Showers / Wet',
+    36: 'Night / Cloudy / Dry',
+    37: 'lng_conditions_midday_rain_showers',  # untranslated in-game; the raw key is what the game shows
+    38: 'Daytime / Overcast / Dry',  # same label as [2]
+    39: 'Sunset / Light Rain / Wet',
+    40: 'Dusk / Showers / Wet',
+    41: 'Night / Showers / Wet',
+    42: 'Sunset / Cloudy / Dry',  # same label as [16]
+    43: 'Dawn / Cloudy / Dry',
+    44: 'Dawn / Heavy Rain / Wet',
+    45: 'Sunrise / Overcast / Dry',
+    46: 'Sunrise / Cloudy / Wet',
+    47: 'Sunset / Clear / Dry',
+    48: 'Sunrise / Cloudy / Dry',
+    49: 'Sunrise / Light Rain Showers / Dry',
+    50: 'Sunrise / Light Rain / Wet',
+    51: 'Sunrise / Overcast / Wet',
+    52: 'Daytime / Cloudy / Snow',
+    53: 'Sunset / Partly Cloudy / Snow',
+    54: 'Dusk / Cloudy / Snow',
+    55: 'Night / Cloudy / Snow',
+    56: 'Sunset / Heavy Snow / Snow',
+    57: 'Night / Heavy Snow / Snow',
 }
 # NOTE: id 42 ("Sunset / Cloudy / Dry") was a hypothesised duplicate of 16 and is
 # NOT reachable from the RaceNet builder — its single "Sunset / Cloudy / Dry"
@@ -1236,221 +1282,185 @@ STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_option
 # global default: Varmland offers no "Daytime / Clear / Dry" at all, so id 1 is
 # not safe everywhere and no single id is.
 #
-# Labels the game offers whose id we have not confirmed are listed as "--" and
-# omitted rather than guessed; they only cost variety, never correctness.
+# An option is omitted when the label the game lists for it is shared by two
+# ids (see STAGE_CONDITIONS_LABELS) and nothing tells us which one THIS
+# location can load: RaceNet's officials pin Argentina to 2 and Poland to 38
+# for "Daytime / Overcast / Dry", but most locations have no such evidence, and
+# picking the wrong twin is the exact failure this table exists to prevent.
+# Dropping the option costs variety; guessing costs a broken sky.
 STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
-    Location.ARGENTINA: (1, 38, 16, 4, 3,),
+    Location.ARGENTINA: (1, 2, 29, 21, 16, 4, 6, 3,),
         #  1 Daytime / Clear / Dry
-        # 38 Daytime / Overcast / Dry
+        #  2 Daytime / Overcast / Dry
+        # 29 Daytime / Light Showers / Wet
+        # 21 Daytime / Light Rain / Wet
         # 16 Sunset / Cloudy / Dry
         #  4 Dusk / Cloudy / Dry
+        #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
-        # -- Daytime / Light Showers / Wet  (offered in-game; id not yet known)
-        # -- Daytime / Light Rain / Wet  (offered in-game; id not yet known)
-        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 20, 4, 3,),
+    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 4, 3,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
         # 32 Daytime / Rain / Wet
         # 16 Sunset / Cloudy / Dry
         # 17 Sunset / Overcast / Dry
-        # 20 Sunset / Cloudy / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-    Location.FINLAND: (1, 38, 9, 16, 5, 3,),
+    Location.FINLAND: (1, 9, 8, 5, 6, 3,),
         #  1 Daytime / Clear / Dry
-        # 38 Daytime / Overcast / Dry
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
+        #  8 Dusk / Cloudy / Wet
         #  5 Dusk / Overcast / Dry
+        #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
-        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
-        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.GERMANY: (1, 9, 16, 4, 3,),
+    Location.GERMANY: (1, 9, 18, 4, 3,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
+        # 18 Sunset / Heavy Rain / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.GREECE: (1, 38, 16, 4, 3,),
+    Location.GREECE: (1, 18, 4, 3,),
         #  1 Daytime / Clear / Dry
-        # 38 Daytime / Overcast / Dry
-        # 16 Sunset / Cloudy / Dry
+        # 18 Sunset / Heavy Rain / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.MONTE_CARLO: (1, 16, 4, 3,),
+    Location.MONTE_CARLO: (1, 19, 4, 3, 14,),
         #  1 Daytime / Clear / Dry
-        # 16 Sunset / Cloudy / Dry
+        # 19 Sunset / Light Snow / Dry
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-        # -- Sunset / Light Snow / Dry  (offered in-game; id not yet known)
-        # -- Night / Light Snow / Dry  (offered in-game; id not yet known)
-    Location.NEW_ZEALAND: (1, 11, 26, 16, 3,),
+        # 14 Night / Light Snow / Dry
+    Location.NEW_ZEALAND: (1, 11, 26, 16, 6, 33, 3, 15, 28,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
         # 16 Sunset / Cloudy / Dry
+        #  6 Dusk / Heavy Rain / Wet
+        # 33 Dusk / Light Rain / Wet
         #  3 Night / Clear / Dry
-        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
-        # -- Dusk / Light Rain / Wet  (offered in-game; id not yet known)
-        # -- Night / Cloudy / Wet  (offered in-game; id not yet known)
-        # -- Night / Light Showers / Wet  (offered in-game; id not yet known)
-    Location.POLAND: (1, 9, 38, 20, 35, 16, 4, 3,),
+        # 15 Night / Cloudy / Wet
+        # 28 Night / Light Showers / Wet
+    Location.POLAND: (1, 9, 38, 20, 35, 42, 4, 3, 13, 36,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
         # 38 Daytime / Overcast / Dry
         # 20 Sunset / Cloudy / Wet
         # 35 Sunset / Light Showers / Wet
-        # 16 Sunset / Cloudy / Dry
+        # 42 Sunset / Cloudy / Dry
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
-        # -- Night / Cloudy / Dry  (offered in-game; id not yet known)
-    Location.SPAIN: (1, 11, 26, 17, 20, 39, 4, 40, 3,),
+        # 13 Night / Heavy Rain / Wet
+        # 36 Night / Cloudy / Dry
+    Location.SPAIN: (1, 11, 26, 17, 39, 4, 8, 40, 3,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
         # 17 Sunset / Overcast / Dry
-        # 20 Sunset / Cloudy / Wet
         # 39 Sunset / Light Rain / Wet
         #  4 Dusk / Cloudy / Dry
+        #  8 Dusk / Cloudy / Wet
         # 40 Dusk / Showers / Wet
         #  3 Night / Clear / Dry
-        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
-    Location.SWEDEN: (52,),
-        # 52 -- label unconfirmed.  The game itself sent ConditionsId 52 for 11
-        #    different Varmland routes in TimeTrial.GetLeaderboardId captures,
-        #    so the id is verified for this location even though its label is
-        #    not.  Varmland's 7 in-game options are all snow and none of them
-        #    map to a confirmed id yet:
-        # -- Daytime / Cloudy / Snow
-        # -- Daytime / Heavy Snow / Snow
-        # -- Sunset / Partly Cloudy / Snow
-        # -- Sunset / Heavy Snow / Snow
-        # -- Dusk / Cloudy / Snow
-        # -- Night / Cloudy / Snow
-        # -- Night / Heavy Snow / Snow
-    Location.NEW_ENGLAND: (1, 11, 26, 20, 35, 4, 3,),
+    Location.SWEDEN: (52, 10, 53, 56, 54, 55, 57,),
+        # 52 Daytime / Cloudy / Snow
+        # 10 Daytime / Heavy Snow / Snow
+        # 53 Sunset / Partly Cloudy / Snow
+        # 56 Sunset / Heavy Snow / Snow
+        # 54 Dusk / Cloudy / Snow
+        # 55 Night / Cloudy / Snow
+        # 57 Night / Heavy Snow / Snow
+    Location.NEW_ENGLAND: (1, 11, 26, 35, 4, 3, 13, 41, 36,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
-        # 20 Sunset / Cloudy / Wet
         # 35 Sunset / Light Showers / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
-        # -- Night / Showers / Wet  (offered in-game; id not yet known)
-        # -- Night / Cloudy / Dry  (offered in-game; id not yet known)
-    Location.WALES: (1, 9, 16, 20, 3,),
+        # 13 Night / Heavy Rain / Wet
+        # 41 Night / Showers / Wet
+        # 36 Night / Cloudy / Dry
+    Location.WALES: (1, 9, 3, 13,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
         #  3 Night / Clear / Dry
-        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.SCOTLAND: (1, 9, 11, 47, 3,),
+        # 13 Night / Heavy Rain / Wet
+    Location.SCOTLAND: (1, 9, 11, 47, 18, 6, 3, 13,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
         # 11 Daytime / Cloudy / Wet
         # 47 Sunset / Clear / Dry
+        # 18 Sunset / Heavy Rain / Wet
+        #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
-        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.METTET: (1, 11, 9, 16, 20,),
+        # 13 Night / Heavy Rain / Wet
+    Location.METTET: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.TROIS_RIVIERES: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.TROIS_RIVIERES: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.LYDDEN_HILL: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.LYDDEN_HILL: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.SILVERSTONE: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.SILVERSTONE: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.LOHEAC: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.LOHEAC: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.ESTERING: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.ESTERING: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.BIKERNIEKI: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.BIKERNIEKI: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.HELL: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.HELL: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.MONTALEGRE: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.MONTALEGRE: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.KILLARNEY: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.KILLARNEY: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.BARCELONA: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.BARCELONA: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.HOLJES: (1, 11, 9, 16, 20,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.HOLJES: (1, 11, 9, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
-    Location.YAS_MARINA: (1, 11, 20, 47, 4,),
+        # 18 Sunset / Heavy Rain / Wet
+    Location.YAS_MARINA: (1, 11, 47, 4, 8,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
-        # 20 Sunset / Cloudy / Wet
         # 47 Sunset / Clear / Dry
         #  4 Dusk / Cloudy / Dry
-        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
+        #  8 Dusk / Cloudy / Wet
+    # TWIN_PEAKS: not offered in the Freeplay builder, so unverified
 }
 
 

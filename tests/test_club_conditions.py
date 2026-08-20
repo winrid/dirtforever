@@ -57,18 +57,27 @@ def test_no_universal_default_exists() -> None:
     assert 1 not in stage_conditions_for_location(Location.SWEDEN)
 
 
-def test_ids_are_known_or_documented() -> None:
-    """Every served id must be one we can label, or explicitly evidenced.
-
-    Sweden's 52 is the one exception: the game itself sent it for 11 Varmland
-    routes, so the id is verified even though its label is not yet mapped.
-    """
+def test_every_served_id_has_a_label() -> None:
     for loc, ids in STAGE_CONDITIONS_BY_LOCATION.items():
         for cid in ids:
-            if loc is Location.SWEDEN and cid == 52:
-                continue
             assert cid in STAGE_CONDITIONS_LABELS, (
                 f'{loc.name} serves id {cid}, which has no verified label'
+            )
+
+
+def test_no_location_serves_an_ambiguous_id() -> None:
+    """Two ids share a label in three cases; a location may only use one of a
+    pair when evidence says which, so the pairs must never both appear."""
+    import collections
+    by_label = collections.defaultdict(list)
+    for cid, lbl in STAGE_CONDITIONS_LABELS.items():
+        by_label[lbl].append(cid)
+    twins = {frozenset(ids) for ids in by_label.values() if len(ids) > 1}
+    for loc, ids in STAGE_CONDITIONS_BY_LOCATION.items():
+        for pair in twins:
+            assert not pair.issubset(set(ids)), (
+                f'{loc.name} offers both of {sorted(pair)}, which render the '
+                f'same label -- at most one can be right for a location'
             )
 
 

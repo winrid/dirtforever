@@ -43,7 +43,7 @@ BOX_ROWS = (175, 300, 620, 560)       # EVENT SETTINGS label column
 MAX_OPTIONS = 30
 
 _LABEL_RE = re.compile(
-    r"(Daytime|Dusk|Night|Sunset|Morning|Midday)\s*/\s*"
+    r"(Daytime|Dawn|Dusk|Night|Sunset|Sunrise|Morning|Evening|Midday|Noon)\s*/\s*"
     r"([A-Za-z ]+?)\s*/\s*"
     # Snow locations render "Daytime / Cloudy / Snow" with no "Surface" suffix.
     r"(Compacted Snow|Light Snow|Slush|Snow|Icy|Ice|Dry|Wet|Damp)"
@@ -96,12 +96,22 @@ def ocr_red(box: tuple[int, int, int, int], psm: str = "7") -> str:
     return _tess(mask, psm).upper()
 
 
+# A few conditions have no translated string, so the game prints the raw
+# localisation key. That still names the option, and treating it as unreadable
+# would silently truncate the location's list at that entry.
+# Tesseract reads the leading lowercase L of "lng_" as a capital I.
+_LNG_RE = re.compile(r"[il]ng(_[a-z_]+)", re.I)
+
+
 def normalise(raw: str) -> str:
     m = _LABEL_RE.search(raw)
-    if not m:
-        return ""
-    tod, weather, surface = (g.strip().title() for g in m.groups())
-    return f"{tod} / {weather} / {surface}"
+    if m:
+        tod, weather, surface = (g.strip().title() for g in m.groups())
+        return f"{tod} / {weather} / {surface}"
+    k = _LNG_RE.search(raw.replace(" ", ""))
+    if k:
+        return f"lng{k.group(1).lower()}"
+    return ""
 
 
 def header(timeout: float = 3.0) -> str:
