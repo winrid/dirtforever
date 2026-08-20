@@ -384,16 +384,27 @@ class RpcDispatcher:
                                      base=700000, offset=idx)
             self._challenge_event_map[chal_id] = f"debug-{idx}"
 
+            # Everything the location implies has to agree with the location,
+            # or the game client crashes outright rather than erroring
+            # (verified 2026-08-20): the discipline, and on a rallycross
+            # circuit the absence of a service area, which RX has no concept of.
+            try:
+                is_rx = Location(loc_id).discipline == "rallycross"
+            except (ValueError, AttributeError):
+                is_rx = False
+            discipline_id = 2 if is_rx else 1
             stage = Stage(
                 stage_id=0,
                 track_model_id=track_id,
-                has_service_area=True,
+                has_service_area=not is_rx,
+                svc_settings_id=0 if is_rx else Stage().svc_settings_id,
                 leaderboard_id=chal_id * 10,
                 stage_conditions=conditions,
             )
             event = Event(
                 event_id=chal_id,
                 location_id=loc_id,
+                discipline_id=discipline_id,
                 stages=[stage],
                 leaderboard_id=chal_id + 900000,
             )

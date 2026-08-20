@@ -65,9 +65,12 @@ def test_every_served_id_has_a_label() -> None:
             )
 
 
-def test_no_location_serves_an_ambiguous_id() -> None:
-    """Two ids share a label in three cases; a location may only use one of a
-    pair when evidence says which, so the pairs must never both appear."""
+def test_no_location_serves_both_halves_of_a_twin_pair() -> None:
+    """Three labels are each shared by two ids that select different lighting.
+
+    A location ships one file or the other, so offering both would guarantee
+    one of them renders a torn sky -- exactly the bug this table prevents.
+    """
     import collections
     by_label = collections.defaultdict(list)
     for cid, lbl in STAGE_CONDITIONS_LABELS.items():
@@ -86,6 +89,25 @@ def test_germany_excludes_the_id_that_broke_it() -> None:
     # lighting, and its in-game list offers 6 options that do not include it.
     assert 38 not in stage_conditions_for_location(Location.GERMANY)
     assert 38 in stage_conditions_for_location(Location.POLAND)
+
+
+def test_every_in_game_option_has_an_id() -> None:
+    """The table must cover every option the game actually offers.
+
+    The sweep recorded each location's in-game list; serving fewer ids than it
+    has options would silently narrow what players can be given.
+    """
+    import json
+    from pathlib import Path
+
+    sweep = json.loads(
+        (Path(__file__).resolve().parents[1]
+         / 'data/verified/conditions_by_location.json').read_text(encoding='utf-8'))
+    offered = {name: len(opts) for name, opts in sweep.items() if opts}
+    served = sum(len(ids) for ids in STAGE_CONDITIONS_BY_LOCATION.values())
+    assert served == sum(offered.values()), (
+        f'{served} ids served for {sum(offered.values())} in-game options'
+    )
 
 
 def test_options_pair_ids_with_labels() -> None:

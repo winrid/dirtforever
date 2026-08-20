@@ -1282,12 +1282,15 @@ STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_option
 # global default: Varmland offers no "Daytime / Clear / Dry" at all, so id 1 is
 # not safe everywhere and no single id is.
 #
-# An option is omitted when the label the game lists for it is shared by two
-# ids (see STAGE_CONDITIONS_LABELS) and nothing tells us which one THIS
-# location can load: RaceNet's officials pin Argentina to 2 and Poland to 38
-# for "Daytime / Overcast / Dry", but most locations have no such evidence, and
-# picking the wrong twin is the exact failure this table exists to prevent.
-# Dropping the option costs variety; guessing costs a broken sky.
+# Three labels are each shared by two ids that select DIFFERENT lighting, so a
+# location loads only the twin whose file it ships -- Poland renders 42 and
+# tears the sky on 16 (both verified by loading the stage).  Each such option
+# is resolved by, strongest evidence first: loading it in-game; the location's
+# .nefs lighting file table; or, for the five rallycross circuits whose archive
+# is encrypted, the fact that every readable RX circuit ships an identical
+# lighting set and offers an identical in-game option list.
+#
+# Regenerate with scripts/_resolve_all_conditions.py + _apply_probed_labels.py.
 STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
     Location.ARGENTINA: (1, 2, 29, 21, 16, 4, 6, 3,),
         #  1 Daytime / Clear / Dry
@@ -1298,35 +1301,42 @@ STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
         #  4 Dusk / Cloudy / Dry
         #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
-    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 4, 3,),
+    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 20, 4, 3,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
         # 32 Daytime / Rain / Wet
         # 16 Sunset / Cloudy / Dry
         # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-    Location.FINLAND: (1, 9, 8, 5, 6, 3,),
+    Location.FINLAND: (1, 2, 9, 16, 8, 5, 6, 3,),
         #  1 Daytime / Clear / Dry
+        #  2 Daytime / Overcast / Dry
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
         #  8 Dusk / Cloudy / Wet
         #  5 Dusk / Overcast / Dry
         #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
-    Location.GERMANY: (1, 9, 18, 4, 3,),
+    Location.GERMANY: (1, 9, 16, 18, 4, 3,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
         # 18 Sunset / Heavy Rain / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-    Location.GREECE: (1, 18, 4, 3,),
+    Location.GREECE: (1, 2, 16, 18, 4, 3,),
         #  1 Daytime / Clear / Dry
+        #  2 Daytime / Overcast / Dry
+        # 16 Sunset / Cloudy / Dry
         # 18 Sunset / Heavy Rain / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
-    Location.MONTE_CARLO: (1, 19, 4, 3, 14,),
+    Location.MONTE_CARLO: (1, 16, 19, 4, 3, 14,),
         #  1 Daytime / Clear / Dry
+        # 16 Sunset / Cloudy / Dry
         # 19 Sunset / Light Snow / Dry
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
@@ -1352,11 +1362,12 @@ STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
         #  3 Night / Clear / Dry
         # 13 Night / Heavy Rain / Wet
         # 36 Night / Cloudy / Dry
-    Location.SPAIN: (1, 11, 26, 17, 39, 4, 8, 40, 3,),
+    Location.SPAIN: (1, 11, 26, 17, 20, 39, 4, 8, 40, 3,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
         # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
         # 39 Sunset / Light Rain / Wet
         #  4 Dusk / Cloudy / Dry
         #  8 Dusk / Cloudy / Wet
@@ -1370,19 +1381,22 @@ STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
         # 54 Dusk / Cloudy / Snow
         # 55 Night / Cloudy / Snow
         # 57 Night / Heavy Snow / Snow
-    Location.NEW_ENGLAND: (1, 11, 26, 35, 4, 3, 13, 41, 36,),
+    Location.NEW_ENGLAND: (1, 11, 26, 20, 35, 4, 3, 13, 41, 36,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         # 26 Daytime / Showers / Wet
+        # 20 Sunset / Cloudy / Wet
         # 35 Sunset / Light Showers / Wet
         #  4 Dusk / Cloudy / Dry
         #  3 Night / Clear / Dry
         # 13 Night / Heavy Rain / Wet
         # 41 Night / Showers / Wet
         # 36 Night / Cloudy / Dry
-    Location.WALES: (1, 9, 3, 13,),
+    Location.WALES: (1, 9, 16, 20, 3, 13,),
         #  1 Daytime / Clear / Dry
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         #  3 Night / Clear / Dry
         # 13 Night / Heavy Rain / Wet
     Location.SCOTLAND: (1, 9, 11, 47, 18, 6, 3, 13,),
@@ -1394,69 +1408,94 @@ STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
         #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
         # 13 Night / Heavy Rain / Wet
-    Location.METTET: (1, 11, 9, 18,),
+    Location.METTET: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.TROIS_RIVIERES: (1, 11, 9, 18,),
+    Location.TROIS_RIVIERES: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.LYDDEN_HILL: (1, 11, 9, 18,),
+    Location.LYDDEN_HILL: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.SILVERSTONE: (1, 11, 9, 18,),
+    Location.SILVERSTONE: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.LOHEAC: (1, 11, 9, 18,),
+    Location.LOHEAC: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.ESTERING: (1, 11, 9, 18,),
+    Location.ESTERING: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.BIKERNIEKI: (1, 11, 9, 18,),
+    Location.BIKERNIEKI: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.HELL: (1, 11, 9, 18,),
+    Location.HELL: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.MONTALEGRE: (1, 11, 9, 18,),
+    Location.MONTALEGRE: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.KILLARNEY: (1, 11, 9, 18,),
+    Location.KILLARNEY: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.BARCELONA: (1, 11, 9, 18,),
+    Location.BARCELONA: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.HOLJES: (1, 11, 9, 18,),
+    Location.HOLJES: (1, 11, 9, 16, 20, 18,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
         #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
         # 18 Sunset / Heavy Rain / Wet
-    Location.YAS_MARINA: (1, 11, 47, 4, 8,),
+    Location.YAS_MARINA: (1, 11, 20, 47, 4, 8,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
+        # 20 Sunset / Cloudy / Wet
         # 47 Sunset / Clear / Dry
         #  4 Dusk / Cloudy / Dry
         #  8 Dusk / Cloudy / Wet

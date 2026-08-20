@@ -9,7 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 merged = {int(k): v for k, v in
           json.load(open(ROOT / 'data/verified/condition_labels.json')).items()}
-resolved = json.load(open(ROOT / 'runtime/discovery/resolved_ids.json'))
+resolved = json.load(open(ROOT / 'data/verified/resolved_ids.json'))
 
 by_label = collections.defaultdict(list)
 for cid, lbl in merged.items():
