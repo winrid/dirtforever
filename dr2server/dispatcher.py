@@ -12,7 +12,7 @@ from .account_store import AccountStore
 from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
 from .game_data import (
-    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS, stage_conditions_for_web,
+    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS,
     STAGE_CONDITIONS_LABELS, surface_degrad_for_level, service_area_for_level,
 )
 from .models import (
@@ -840,12 +840,16 @@ class RpcDispatcher:
                 tid = None
             track_id = tid if (tid is not None and tid in track_set) \
                 else track_ids[si % len(track_ids)]
-            # Conditions: prefer the stored composite id, else resolve the label.
+            # Conditions: served as stored.  Validity is a per-location
+            # property (see STAGE_CONDITIONS_BY_LOCATION) enforced where events
+            # are written — the create forms and the generator — and repaired
+            # in stored data by web/migrations, so nothing is converted here.
             cid = ws.get("conditions_id")
-            if cid is not None and int(cid) in STAGE_CONDITIONS_LABELS:
-                stage_conditions = int(cid)
-            else:
-                stage_conditions = stage_conditions_for_web(ws.get("conditions", ""))
+            try:
+                cid = int(cid) if cid is not None else None
+            except (TypeError, ValueError):
+                cid = None
+            stage_conditions = cid if cid is not None else Stage().stage_conditions
             # Surface degradation (best-guess mapping; default = engine value).
             surface_degrad = (
                 surface_degrad_for_level(ws["surface_deg"])

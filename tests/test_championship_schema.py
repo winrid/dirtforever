@@ -21,7 +21,6 @@ from dr2server.game_data import (
     get_verified_routes_for_location,
     surface_degrad_for_level,
     service_area_for_level,
-    stage_conditions_for_web,
     SURFACE_DEGRAD_LEVELS,
     SERVICE_AREA_LEVELS,
     STAGE_CONDITIONS_OPTIONS,
@@ -130,7 +129,11 @@ def test_normalize_legacy_event() -> None:
     assert ev["car_class"] == "Group A"
     assert ev["duration"]  # derived from the legacy type
     st = ev["stages"][0]
-    assert st["conditions_id"] == stage_conditions_for_web("Dusk")
+    # Stage values are passed through untouched: normalize reshapes, it does
+    # not convert. A legacy stage with no conditions_id keeps none here --
+    # filling it is web/migrations 0001's job, at deploy time.
+    assert "conditions_id" not in st
+    assert st["conditions"] == "Dusk"
     assert champ["settings"] == server.DEFAULT_CHAMP_SETTINGS
     # Input is never mutated.
     assert "events" not in legacy

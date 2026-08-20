@@ -1166,34 +1166,15 @@ def stage_conditions_label(value: int) -> str:
     return STAGE_CONDITIONS_LABELS.get(int(value), f"Conditions #{int(value)}")
 
 
-# Maps the web club-event "conditions" dropdown labels (see web/server.py
-# CONDITIONS) onto the verified StageConditions label they should load. The
-# numeric StageConditions id lives only in STAGE_CONDITIONS_LABELS; we resolve
-# it from the label (below) so the ordinals aren't duplicated here.
-WEB_CONDITIONS_TO_STAGE_LABEL: Dict[str, str] = {
-    "Clear":      "Daytime / Clear / Dry",
-    "Overcast":   "Daytime / Overcast / Dry",
-    "Light Rain": "Daytime / Showers / Wet",
-    "Heavy Rain": "Daytime / Heavy Rain / Wet",
-    "Dusk":       "Dusk / Cloudy / Dry",
-    "Night":      "Night / Clear / Dry",
-}
-
 _STAGE_LABEL_TO_ID: Dict[str, int] = {
     label: value for value, label in STAGE_CONDITIONS_LABELS.items()
 }
 
-
-def stage_conditions_for_web(label: str) -> int:
-    """Resolve a web conditions label to a verified StageConditions int.
-
-    Unknown labels fall back to 1 (Daytime / Clear / Dry), which is the same
-    default the game would otherwise load.
-    """
-    stage_label = WEB_CONDITIONS_TO_STAGE_LABEL.get(label)
-    if stage_label is None:
-        return 1
-    return _STAGE_LABEL_TO_ID[stage_label]
+# NOTE: there is deliberately no global "web label -> StageConditions" mapping
+# and no global default any more.  Conditions are per-location (see
+# STAGE_CONDITIONS_BY_LOCATION below): a fixed label list would keep offering
+# ids at locations that ship no lighting for them, which loads the stage with a
+# broken sky, and no single id — id 1 included — is valid everywhere.
 
 
 # StageConditions integer values observed in the wild (upstream club data +
@@ -1226,10 +1207,292 @@ def _build_stage_conditions_options() -> List[tuple[int, str]]:
     return sorted((cid, label) for label, cid in by_label.items())
 
 
-# (composite_id, label) pairs for the championship-builder "Time of Day /
-# Conditions" dropdown.  These are the CONFIRMED values from the table above,
-# so the per-stage conditions the user picks always load correctly in-game.
+# (composite_id, label) pairs for every distinct confirmed conditions label.
+# NOT a dropdown source: which of these a location can actually load varies per
+# location (see STAGE_CONDITIONS_BY_LOCATION below), so UIs must offer the
+# per-location set instead -- offering this list is what shipped stages with
+# lighting their location had no assets for.
 STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_options()
+
+
+# ---------------------------------------------------------------------------
+# Per-location StageConditions  (VERIFIED in-game 2026-08-19)
+# ---------------------------------------------------------------------------
+# StageConditions is a GLOBAL enum -- id 9 reads "Daytime / Heavy Rain / Wet"
+# everywhere -- but a location only ships lighting assets for a subset of it.
+# Serving an id a location lacks does not error: RaceNet accepted any id for
+# any track, and the stage simply loads with a broken sky/lighting setup.  The
+# game client is the only validator, so the allowed set has to live here.
+#
+# Enumerated from Freeplay -> Custom -> Create Championship, whose per-stage
+# "Stage Conditions" selector (rally) and "Weather" row (rallycross) list
+# exactly what each location supports.  Raw sweep of all 26 selectable
+# locations: data/verified/conditions_by_location.json, collected by
+# scripts/probe_all_conditions.py and turned into this table by
+# scripts/_build_conditions_table.py.
+#
+# Ids appear in the order the game lists them, so entry 0 is the location's own
+# first option -- that is what callers pre-select.  There is deliberately no
+# global default: Varmland offers no "Daytime / Clear / Dry" at all, so id 1 is
+# not safe everywhere and no single id is.
+#
+# Labels the game offers whose id we have not confirmed are listed as "--" and
+# omitted rather than guessed; they only cost variety, never correctness.
+STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
+    Location.ARGENTINA: (1, 38, 16, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 38 Daytime / Overcast / Dry
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Daytime / Light Showers / Wet  (offered in-game; id not yet known)
+        # -- Daytime / Light Rain / Wet  (offered in-game; id not yet known)
+        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 20, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 32 Daytime / Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+    Location.FINLAND: (1, 38, 9, 16, 5, 3,),
+        #  1 Daytime / Clear / Dry
+        # 38 Daytime / Overcast / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  5 Dusk / Overcast / Dry
+        #  3 Night / Clear / Dry
+        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
+        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.GERMANY: (1, 9, 16, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.GREECE: (1, 38, 16, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 38 Daytime / Overcast / Dry
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.MONTE_CARLO: (1, 16, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Sunset / Light Snow / Dry  (offered in-game; id not yet known)
+        # -- Night / Light Snow / Dry  (offered in-game; id not yet known)
+    Location.NEW_ZEALAND: (1, 11, 26, 16, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
+        # -- Dusk / Light Rain / Wet  (offered in-game; id not yet known)
+        # -- Night / Cloudy / Wet  (offered in-game; id not yet known)
+        # -- Night / Light Showers / Wet  (offered in-game; id not yet known)
+    Location.POLAND: (1, 9, 38, 20, 35, 16, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 38 Daytime / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        # 35 Sunset / Light Showers / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
+        # -- Night / Cloudy / Dry  (offered in-game; id not yet known)
+    Location.SPAIN: (1, 11, 26, 17, 20, 39, 4, 40, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        # 39 Sunset / Light Rain / Wet
+        #  4 Dusk / Cloudy / Dry
+        # 40 Dusk / Showers / Wet
+        #  3 Night / Clear / Dry
+        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
+    Location.SWEDEN: (52,),
+        # 52 -- label unconfirmed.  The game itself sent ConditionsId 52 for 11
+        #    different Varmland routes in TimeTrial.GetLeaderboardId captures,
+        #    so the id is verified for this location even though its label is
+        #    not.  Varmland's 7 in-game options are all snow and none of them
+        #    map to a confirmed id yet:
+        # -- Daytime / Cloudy / Snow
+        # -- Daytime / Heavy Snow / Snow
+        # -- Sunset / Partly Cloudy / Snow
+        # -- Sunset / Heavy Snow / Snow
+        # -- Dusk / Cloudy / Snow
+        # -- Night / Cloudy / Snow
+        # -- Night / Heavy Snow / Snow
+    Location.NEW_ENGLAND: (1, 11, 26, 20, 35, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 20 Sunset / Cloudy / Wet
+        # 35 Sunset / Light Showers / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
+        # -- Night / Showers / Wet  (offered in-game; id not yet known)
+        # -- Night / Cloudy / Dry  (offered in-game; id not yet known)
+    Location.WALES: (1, 9, 16, 20, 3,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        #  3 Night / Clear / Dry
+        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.SCOTLAND: (1, 9, 11, 47, 3,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 11 Daytime / Cloudy / Wet
+        # 47 Sunset / Clear / Dry
+        #  3 Night / Clear / Dry
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+        # -- Dusk / Heavy Rain / Wet  (offered in-game; id not yet known)
+        # -- Night / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.METTET: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.TROIS_RIVIERES: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.LYDDEN_HILL: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.SILVERSTONE: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.LOHEAC: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.ESTERING: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.BIKERNIEKI: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.HELL: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.MONTALEGRE: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.KILLARNEY: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.BARCELONA: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.HOLJES: (1, 11, 9, 16, 20,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        # -- Sunset / Heavy Rain / Wet  (offered in-game; id not yet known)
+    Location.YAS_MARINA: (1, 11, 20, 47, 4,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 20 Sunset / Cloudy / Wet
+        # 47 Sunset / Clear / Dry
+        #  4 Dusk / Cloudy / Dry
+        # -- Dusk / Cloudy / Wet  (offered in-game; id not yet known)
+}
+
+
+def _resolve_location(location: object) -> Optional[Location]:
+    """Accept a Location, its int id, or its display name."""
+    if isinstance(location, Location):
+        return location
+    if isinstance(location, int):
+        try:
+            return Location(location)
+        except ValueError:
+            return None
+    if isinstance(location, str):
+        want = location.strip().lower()
+        for loc in Location:
+            if want in (loc.display_name.lower(), loc.name.lower()):
+                return loc
+    return None
+
+
+def stage_conditions_for_location(location: object) -> List[int]:
+    """StageConditions ids this location actually ships lighting for.
+
+    Empty when the location has not been swept, which callers must treat as
+    "cannot offer conditions here" rather than falling back to a global value.
+    """
+    loc = _resolve_location(location)
+    if loc is None:
+        return []
+    return list(STAGE_CONDITIONS_BY_LOCATION.get(loc, ()))
+
+
+def default_stage_conditions_for_location(location: object) -> Optional[int]:
+    """The location's own first option, or None if we have no verified set."""
+    ids = stage_conditions_for_location(location)
+    return ids[0] if ids else None
+
+
+def stage_conditions_options_for_location(location: object) -> List[tuple[int, str]]:
+    """(id, label) pairs to populate a conditions dropdown for one location."""
+    return [(cid, stage_conditions_label(cid))
+            for cid in stage_conditions_for_location(location)]
 
 
 # ---------------------------------------------------------------------------

@@ -173,10 +173,11 @@
                         </div>
                         <div class="form-group">
                             <label for="ev_conditions" class="form-label">Conditions</label>
-                            <select id="ev_conditions" name="conditions" class="form-input form-select" required>
-                                {% for cond in conditions %}
-                                <option value="{{ cond }}">{{ cond }}</option>
-                                {% endfor %}
+                            {# Populated from the location's own verified set;
+                               see enhance.js setupEventForm(). #}
+                            <select id="ev_conditions" name="conditions" class="form-input form-select" required
+                                    data-conditions='{{ conditions_by_location|tojson }}'>
+                                <option value="">Select a location first</option>
                             </select>
                         </div>
                         <div class="form-group">
