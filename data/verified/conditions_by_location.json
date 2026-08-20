@@ -1,19 +1,19 @@
 {
   "ARGOLIS": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Overcast / Dry Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Sunset / Heavy Rain / Wet Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Overcast / Dry",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Heavy Rain / Wet",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry"
   ],
   "BAUMHOLDER": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Heavy Rain / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Sunset / Heavy Rain / Wet Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Heavy Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Heavy Rain / Wet",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry"
   ],
   "BIKERNIEKI": [
     "Daytime / Clear / Dry",
@@ -24,14 +24,14 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "CATAMARCA PROVINCE": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Overcast / Dry Surface",
-    "Daytime / Light Showers / Wet Surface",
-    "Daytime / Light Rain / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Dusk / Heavy Rain / Wet Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Overcast / Dry",
+    "Daytime / Light Showers / Wet",
+    "Daytime / Light Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Dusk / Cloudy / Dry",
+    "Dusk / Heavy Rain / Wet",
+    "Night / Clear / Dry"
   ],
   "CIRCUIT DE BARCELONA-CATALUNYA": [
     "Daytime / Clear / Dry",
@@ -50,15 +50,23 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "HAWKES BAY": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Cloudy / Wet Surface",
-    "Daytime / Showers / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Dusk / Heavy Rain / Wet Surface",
-    "Dusk / Light Rain / Wet Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Cloudy / Wet Surface",
-    "Night / Light Showers / Wet Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Cloudy / Wet",
+    "Daytime / Showers / Wet",
+    "Sunset / Cloudy / Dry",
+    "Dusk / Heavy Rain / Wet",
+    "Dusk / Light Rain / Wet",
+    "Night / Clear / Dry",
+    "Night / Cloudy / Wet",
+    "Night / Light Showers / Wet"
+  ],
+  "HELL": [
+    "Daytime / Clear / Dry",
+    "Daytime / Cloudy / Wet",
+    "Daytime / Heavy Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Cloudy / Wet",
+    "Sunset / Heavy Rain / Wet"
   ],
   "HOLJES": [
     "Daytime / Clear / Dry",
@@ -69,14 +77,14 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "JAMSA": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Overcast / Dry Surface",
-    "Daytime / Heavy Rain / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Dusk / Cloudy / Wet Surface",
-    "Dusk / Overcast / Dry Surface",
-    "Dusk / Heavy Rain / Wet Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Overcast / Dry",
+    "Daytime / Heavy Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Dusk / Cloudy / Wet",
+    "Dusk / Overcast / Dry",
+    "Dusk / Heavy Rain / Wet",
+    "Night / Clear / Dry"
   ],
   "KILLARNEY INTERNATIONAL RACEWAY": [
     "Daytime / Clear / Dry",
@@ -87,16 +95,16 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "LECZNA COUNTY": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Heavy Rain / Wet Surface",
-    "Daytime / Overcast / Dry Surface",
-    "Sunset / Cloudy / Wet Surface",
-    "Sunset / Light Showers / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Heavy Rain / Wet Surface",
-    "Night / Cloudy / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Heavy Rain / Wet",
+    "Daytime / Overcast / Dry",
+    "Sunset / Cloudy / Wet",
+    "Sunset / Light Showers / Wet",
+    "Sunset / Cloudy / Dry",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry",
+    "Night / Heavy Rain / Wet",
+    "Night / Cloudy / Dry"
   ],
   "LOHEAC BRETAGNE": [
     "Daytime / Clear / Dry",
@@ -123,15 +131,15 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "MONARO": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Cloudy / Wet Surface",
-    "Daytime / Showers / Wet Surface",
-    "Daytime / Rain / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Sunset / Overcast / Dry Surface",
-    "Sunset / Cloudy / Wet Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Cloudy / Wet",
+    "Daytime / Showers / Wet",
+    "Daytime / Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Overcast / Dry",
+    "Sunset / Cloudy / Wet",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry"
   ],
   "MONTALEGRE": [
     "Daytime / Clear / Dry",
@@ -142,54 +150,54 @@
     "Sunset / Heavy Rain / Wet"
   ],
   "MONTE CARLO": [
-    "Daytime / Clear / Dry Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Sunset / Light Snow / Dry Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Light Snow / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Light Snow / Dry",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry",
+    "Night / Light Snow / Dry"
   ],
   "NEW ENGLAND": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Cloudy / Wet Surface",
-    "Daytime / Showers / Wet Surface",
-    "Sunset / Cloudy / Wet Surface",
-    "Sunset / Light Showers / Wet Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Heavy Rain / Wet Surface",
-    "Night / Showers / Wet Surface",
-    "Night / Cloudy / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Cloudy / Wet",
+    "Daytime / Showers / Wet",
+    "Sunset / Cloudy / Wet",
+    "Sunset / Light Showers / Wet",
+    "Dusk / Cloudy / Dry",
+    "Night / Clear / Dry",
+    "Night / Heavy Rain / Wet",
+    "Night / Showers / Wet",
+    "Night / Cloudy / Dry"
   ],
   "PERTH AND KINROSS": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Heavy Rain / Wet Surface",
-    "Daytime / Cloudy / Wet Surface",
-    "Sunset / Clear / Dry Surface",
-    "Sunset / Heavy Rain / Wet Surface",
-    "Dusk / Heavy Rain / Wet Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Heavy Rain / Wet Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Heavy Rain / Wet",
+    "Daytime / Cloudy / Wet",
+    "Sunset / Clear / Dry",
+    "Sunset / Heavy Rain / Wet",
+    "Dusk / Heavy Rain / Wet",
+    "Night / Clear / Dry",
+    "Night / Heavy Rain / Wet"
   ],
   "POWYS": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Heavy Rain / Wet Surface",
-    "Sunset / Cloudy / Dry Surface",
-    "Sunset / Cloudy / Wet Surface",
-    "Night / Clear / Dry Surface",
-    "Night / Heavy Rain / Wet Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Heavy Rain / Wet",
+    "Sunset / Cloudy / Dry",
+    "Sunset / Cloudy / Wet",
+    "Night / Clear / Dry",
+    "Night / Heavy Rain / Wet"
   ],
   "RIBADELLES": [
-    "Daytime / Clear / Dry Surface",
-    "Daytime / Cloudy / Wet Surface",
-    "Daytime / Showers / Wet Surface",
-    "Sunset / Overcast / Dry Surface",
-    "Sunset / Cloudy / Wet Surface",
-    "Sunset / Light Rain / Wet Surface",
-    "Dusk / Cloudy / Dry Surface",
-    "Dusk / Cloudy / Wet Surface",
-    "Dusk / Showers / Wet Surface",
-    "Night / Clear / Dry Surface"
+    "Daytime / Clear / Dry",
+    "Daytime / Cloudy / Wet",
+    "Daytime / Showers / Wet",
+    "Sunset / Overcast / Dry",
+    "Sunset / Cloudy / Wet",
+    "Sunset / Light Rain / Wet",
+    "Dusk / Cloudy / Dry",
+    "Dusk / Cloudy / Wet",
+    "Dusk / Showers / Wet",
+    "Night / Clear / Dry"
   ],
   "SILVERSTONE": [
     "Daytime / Clear / Dry",
@@ -223,13 +231,5 @@
     "Sunset / Clear / Dry",
     "Dusk / Cloudy / Dry",
     "Dusk / Cloudy / Wet"
-  ],
-  "al i ,": [
-    "Daytime / Clear / Dry",
-    "Daytime / Cloudy / Wet",
-    "Daytime / Heavy Rain / Wet",
-    "Sunset / Cloudy / Dry",
-    "Sunset / Cloudy / Wet",
-    "Sunset / Heavy Rain / Wet"
   ]
 }
