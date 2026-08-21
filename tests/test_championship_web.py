@@ -483,3 +483,38 @@ def test_event_duration_beyond_the_cap_is_rejected() -> None:
     assert r.status_code == 302
     assert r.headers["Location"].endswith("/preview")
     assert not [e for e in server.get_all_events() if e.get("name") == "Too Long"]
+
+
+def test_validation_rejects_conditions_the_location_cannot_load() -> None:
+    """Conditions are validated per location, exactly as routes already are.
+
+    This is the last gate before publish. Validating conditions against the
+    global label table would accept a real id whose lighting the location does
+    not ship, which loads the stage with a broken sky -- the bug the
+    per-location table exists to prevent.
+    """
+    server = _load()
+    from dr2server.game_data import Location, stage_conditions_for_location
+
+    routes = get_verified_routes_for_location(int(Location.GERMANY))
+    germany = stage_conditions_for_location(Location.GERMANY)
+    # 38 (Daytime / Overcast / Dry) is a real id, but only Poland and Argentina
+    # ship the lighting for it.
+    assert 38 not in germany
+
+    def events(cid: int) -> list[dict]:
+        return [{
+            "location": Location.GERMANY.display_name, "car_class": "R5",
+            "duration": {"days": 1, "hours": 0, "mins": 0},
+            "stages": [{"track_id": routes[0][0], "conditions_id": cid,
+                        "surface_deg": "Medium", "service_area": "Medium"}],
+        }]
+
+    def conditions_errors(cid: int) -> list[str]:
+        return [e for e in server._validate_championship(events(cid))
+                if "conditions" in e]
+
+    assert not conditions_errors(germany[0])
+    assert conditions_errors(38)
+    # 34 renders the same label as 20 but no location ships its lighting.
+    assert conditions_errors(34)

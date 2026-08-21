@@ -3207,12 +3207,15 @@ def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
         if loc in STAGES and cap and len(stages) > cap:
             errors.append(f'Event {i}: {loc} supports at most {cap} stages.')
         valid_track_ids = {tid for tid, _n, _km in STAGE_ROUTES.get(loc, [])}
+        # Conditions are per-location like routes are: a globally-known id the
+        # location ships no lighting for loads the stage with a broken sky.
+        valid_conditions = stage_conditions_for_location(loc)
         for sj, s in enumerate(stages, start=1):
             tid = s.get('track_id')
             if tid is None or tid not in valid_track_ids:
                 errors.append(f'Event {i} stage {sj}: pick a route.')
             cid = s.get('conditions_id')
-            if cid is None or cid not in STAGE_CONDITIONS_LABELS:
+            if cid is None or cid not in valid_conditions:
                 errors.append(f'Event {i} stage {sj}: pick conditions.')
             if s.get('surface_deg') not in SURFACE_DEG_OPTIONS:
                 errors.append(f'Event {i} stage {sj}: invalid surface degradation.')

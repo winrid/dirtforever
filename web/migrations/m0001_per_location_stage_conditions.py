@@ -70,14 +70,25 @@ def _resolve(location: str, stage: dict[str, Any]) -> int | None:
     if cid in valid:
         return cid
 
-    if cid is None:
+    # The id is absent, or names conditions this location cannot load.  Either
+    # way, try to preserve what the owner actually picked by matching on the
+    # LABEL before falling back to the location's first option.
+    #
+    # This matters most for the twin pairs, where an id the location cannot
+    # load usually has a sibling that renders the identical label and can:
+    # the old builder's canonical "Sunset / Cloudy / Wet" was 34, which no
+    # location can load, while 20 gives the same label at 18 of them.  Without
+    # this, every such stage would silently become Daytime / Clear / Dry.
+    label = stage_conditions_label(cid) if cid is not None else ''
+    if not label or label.startswith('Conditions #'):
+        # Unknown id (or none): fall back to the label the file stored.
         label = str(stage.get('conditions') or '').strip()
-        label = LEGACY_LABELS.get(label, label)
-        wanted = label.replace(' Surface', '').strip().lower()
-        if wanted:
-            for candidate in valid:
-                if stage_conditions_label(candidate).lower() == wanted:
-                    return candidate
+    label = LEGACY_LABELS.get(label, label)
+    wanted = label.replace(' Surface', '').strip().lower()
+    if wanted:
+        for candidate in valid:
+            if stage_conditions_label(candidate).lower() == wanted:
+                return candidate
     return valid[0]
 
 
