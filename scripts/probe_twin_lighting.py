@@ -43,12 +43,18 @@ BOX_MODAL = (600, 380, 1500, 460)    # centred dialog title
 BOX_TILES = (100, 300, 1900, 900)    # the tile grid, for reading its labels
 
 
+# Poll interval for every wait below. Kept under a second so a state change is
+# noticed promptly; each OCR read already costs a screenshot, so this is the
+# floor rather than a tuning knob.
+POLL = 0.5
+
+
 def wait_header(want: str, timeout: float = 60) -> bool:
     deadline = time.time() + timeout
     while time.time() < deadline:
         if want in nav.header():
             return True
-        time.sleep(1.5)
+        time.sleep(POLL)
     return False
 
 
@@ -58,7 +64,7 @@ def wait_skip(present: bool, timeout: float = 90) -> bool:
     while time.time() < deadline:
         if ('skip' in lbl._ocr(BOX_SKIP).lower()) == present:
             return True
-        time.sleep(1.5)
+        time.sleep(POLL)
     return False
 
 
@@ -174,7 +180,9 @@ def run_one(probe: dict, out_dir: Path) -> str:
         elif st == 'SERVICE AREA':
             nav.press('Enter', 1, 1500)           # Start (already highlighted)
         elif st == 'FLYBY':
-            time.sleep(2)                         # let the camera settle
+            # Let the flyby camera move off its opening frame before capturing;
+            # polling cannot help here, there is no state to observe.
+            time.sleep(1)
             nav._grab()
             shutil.copy(nav.SHOT, shot)
             return quit_to_clubs(str(shot))
@@ -183,13 +191,19 @@ def run_one(probe: dict, out_dir: Path) -> str:
         elif st == 'MAIN MENU':
             return 'fell back to the main menu'
         else:
-            time.sleep(3)                         # still loading
+            time.sleep(POLL)                      # still loading
     return 'timed out'
 
 
-def quit_to_clubs(result: str) -> str:
-    """Skip the flyby, then Quit to Main Menu -- which lands on the Clubs list."""
-    for _ in range(20):
+def quit_to_clubs(result: str, timeout: float = 120) -> str:
+    """Skip the flyby, then Quit to Main Menu -- which lands on the Clubs list.
+
+    Bounded by wall-clock rather than iteration count: most passes through here
+    only poll, so a fixed count would expire in seconds while a stage is still
+    unloading.
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
         st = screen()
         if st == 'CLUBS':
             return result
@@ -205,7 +219,7 @@ def quit_to_clubs(result: str) -> str:
         elif st == 'MAIN MENU':
             return result + '  (ended on main menu)'
         else:
-            time.sleep(3)
+            time.sleep(POLL)
     return result + '  (could not return to Clubs)'
 
 

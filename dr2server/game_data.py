@@ -1198,9 +1198,12 @@ STAGE_CONDITIONS_LABELS: Dict[int, str] = {
     56: 'Sunset / Heavy Snow / Snow',
     57: 'Night / Heavy Snow / Snow',
 }
-# NOTE: id 42 ("Sunset / Cloudy / Dry") was a hypothesised duplicate of 16 and is
-# NOT reachable from the RaceNet builder — its single "Sunset / Cloudy / Dry"
-# option emits 16 (proxy-captured 2026-07-07).  Removed as a dead guess.
+# NOTE: 42 was once assumed to be an unreachable duplicate of 16, because the
+# RaceNet club builder emitted 16 for its single "Sunset / Cloudy / Dry" option
+# (proxy-captured 2026-07-07).  That was a sampling artifact -- the builder was
+# driven at a location that ships sunset_dry.  The two select DIFFERENT
+# lighting, and RaceNet's own events used 42 at Poland, which ships
+# sunset_overcast and not sunset_dry; see STAGE_CONDITIONS_BY_LOCATION.
 
 
 def stage_conditions_label(value: int) -> str:
@@ -1212,10 +1215,6 @@ def stage_conditions_label(value: int) -> str:
     return STAGE_CONDITIONS_LABELS.get(int(value), f"Conditions #{int(value)}")
 
 
-_STAGE_LABEL_TO_ID: Dict[str, int] = {
-    label: value for value, label in STAGE_CONDITIONS_LABELS.items()
-}
-
 # NOTE: there is deliberately no global "web label -> StageConditions" mapping
 # and no global default any more.  Conditions are per-location (see
 # STAGE_CONDITIONS_BY_LOCATION below): a fixed label list would keep offering
@@ -1223,42 +1222,12 @@ _STAGE_LABEL_TO_ID: Dict[str, int] = {
 # broken sky, and no single id — id 1 included — is valid everywhere.
 
 
-# StageConditions integer values observed in the wild (upstream club data +
-# time-trial captures).  Kept as a sorted list for UI dropdowns.
-OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
-
-# StageConditions ids the RaceNet club builder itself emits, verified 2026-07-07
-# by proxy-capturing Clubs.GetClubs from a championship built on real RaceNet.
-# When two ids render as the same in-game label (e.g. 20 and 34 both read
-# "Sunset / Cloudy / Wet"), the builder canonically uses the id listed here.
-RACENET_BUILDER_CONDITION_IDS: frozenset[int] = frozenset({1, 3, 4, 11, 16, 17, 26, 32, 34})
-
-
-def _build_stage_conditions_options() -> List[tuple[int, str]]:
-    """(composite_id, label) pairs for the championship-builder "Time of Day /
-    Conditions" dropdown — one row per distinct label.
-
-    Where several ids share a label, the RaceNet-builder-canonical id
-    (:data:`RACENET_BUILDER_CONDITION_IDS`) wins, so the builder writes the same
-    StageConditions int RaceNet's own builder would and the stage loads correctly
-    in-game.
-    """
-    by_label: Dict[str, int] = {}
-    for cid, label in sorted(STAGE_CONDITIONS_LABELS.items()):
-        current = by_label.get(label)
-        if current is None:
-            by_label[label] = cid
-        elif cid in RACENET_BUILDER_CONDITION_IDS and current not in RACENET_BUILDER_CONDITION_IDS:
-            by_label[label] = cid
-    return sorted((cid, label) for label, cid in by_label.items())
-
-
-# (composite_id, label) pairs for every distinct confirmed conditions label.
-# NOT a dropdown source: which of these a location can actually load varies per
-# location (see STAGE_CONDITIONS_BY_LOCATION below), so UIs must offer the
-# per-location set instead -- offering this list is what shipped stages with
-# lighting their location had no assets for.
-STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_options()
+# NOTE: there is deliberately no global list of conditions ids here either.
+# OBSERVED_STAGE_CONDITIONS / STAGE_CONDITIONS_OPTIONS used to serve that role
+# and were removed: any UI built from them offers ids the chosen location
+# cannot load.  Worse, collapsing the twins by label picked one arbitrarily --
+# it resolved "Sunset / Cloudy / Wet" to 34, which NO location ships lighting
+# for.  Use stage_conditions_options_for_location() instead.
 
 
 # ---------------------------------------------------------------------------
@@ -1291,6 +1260,18 @@ STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_option
 # lighting set and offers an identical in-game option list.
 #
 # Regenerate with scripts/_resolve_all_conditions.py + _apply_probed_labels.py.
+# The standard rallycross lighting set: every RX circuit that ships it
+# resolves identically, so it is named once rather than repeated -- a
+# correction here reaches all of them at once.
+_RX_CONDITIONS: tuple[int, ...] = (1, 11, 9, 16, 20, 18,)
+#    1 Daytime / Clear / Dry
+#   11 Daytime / Cloudy / Wet
+#    9 Daytime / Heavy Rain / Wet
+#   16 Sunset / Cloudy / Dry
+#   20 Sunset / Cloudy / Wet
+#   18 Sunset / Heavy Rain / Wet
+
+
 STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
     Location.ARGENTINA: (1, 2, 29, 21, 16, 4, 6, 3,),
         #  1 Daytime / Clear / Dry
@@ -1408,90 +1389,18 @@ STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
         #  6 Dusk / Heavy Rain / Wet
         #  3 Night / Clear / Dry
         # 13 Night / Heavy Rain / Wet
-    Location.METTET: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.TROIS_RIVIERES: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.LYDDEN_HILL: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.SILVERSTONE: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.LOHEAC: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.ESTERING: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.BIKERNIEKI: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.HELL: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.MONTALEGRE: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.KILLARNEY: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.BARCELONA: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
-    Location.HOLJES: (1, 11, 9, 16, 20, 18,),
-        #  1 Daytime / Clear / Dry
-        # 11 Daytime / Cloudy / Wet
-        #  9 Daytime / Heavy Rain / Wet
-        # 16 Sunset / Cloudy / Dry
-        # 20 Sunset / Cloudy / Wet
-        # 18 Sunset / Heavy Rain / Wet
+    Location.METTET: _RX_CONDITIONS,
+    Location.TROIS_RIVIERES: _RX_CONDITIONS,
+    Location.LYDDEN_HILL: _RX_CONDITIONS,
+    Location.SILVERSTONE: _RX_CONDITIONS,
+    Location.LOHEAC: _RX_CONDITIONS,
+    Location.ESTERING: _RX_CONDITIONS,
+    Location.BIKERNIEKI: _RX_CONDITIONS,
+    Location.HELL: _RX_CONDITIONS,
+    Location.MONTALEGRE: _RX_CONDITIONS,
+    Location.KILLARNEY: _RX_CONDITIONS,
+    Location.BARCELONA: _RX_CONDITIONS,
+    Location.HOLJES: _RX_CONDITIONS,
     Location.YAS_MARINA: (1, 11, 20, 47, 4, 8,),
         #  1 Daytime / Clear / Dry
         # 11 Daytime / Cloudy / Wet
@@ -1542,6 +1451,34 @@ def stage_conditions_options_for_location(location: object) -> List[tuple[int, s
     """(id, label) pairs to populate a conditions dropdown for one location."""
     return [(cid, stage_conditions_label(cid))
             for cid in stage_conditions_for_location(location)]
+
+
+def stage_conditions_sibling_for_location(location: object,
+                                          conditions_id: object) -> Optional[int]:
+    """An id valid at ``location`` that renders the same label as the given one.
+
+    Three labels are each shared by two ids selecting different lighting, so an
+    id one location cannot load often has a sibling there that reads
+    identically -- 34 and 20 are both "Sunset / Cloudy / Wet", and no location
+    ships 34's lighting while 18 ship 20's.  Substituting the sibling keeps the
+    weather someone chose instead of silently resetting it.
+
+    Returns None when the location has no id with that label (or none at all).
+    """
+    try:
+        cid = int(conditions_id)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    valid = stage_conditions_for_location(location)
+    if cid in valid:
+        return cid
+    label = stage_conditions_label(cid)
+    if label.startswith("Conditions #"):
+        return None               # unknown id: nothing to match on
+    for candidate in valid:
+        if stage_conditions_label(candidate) == label:
+            return candidate
+    return None
 
 
 # ---------------------------------------------------------------------------

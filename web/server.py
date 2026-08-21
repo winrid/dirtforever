@@ -49,6 +49,7 @@ from dr2server.game_data import (  # noqa: E402
     stage_conditions_label,
     stage_conditions_for_location,
     stage_conditions_options_for_location,
+    stage_conditions_sibling_for_location,
     get_tracks_for_location,
     get_verified_routes_for_location,
     vehicle_class_id_for_label,
@@ -1346,7 +1347,13 @@ def parse_championship_form(form: Any) -> dict[str, Any]:
             s = raw['stages'][sj]
             cond_id = _to_int_or_none(s.get('conditions'))
             if valid_conds and cond_id not in valid_conds:
-                cond_id = valid_conds[0]
+                # Keep the weather that was picked where the location can
+                # render it under a different id (the twin pairs), and only
+                # then fall back to its first option. An unresolvable pick is
+                # left for _validate_championship to reject at publish rather
+                # than being quietly corrected here.
+                cond_id = (stage_conditions_sibling_for_location(location, cond_id)
+                           or valid_conds[0])
             stages_out.append({
                 'track_id': _to_int_or_none(s.get('route')),
                 'conditions_id': cond_id,
@@ -1449,6 +1456,30 @@ def _gen_time(base_km: float, rng: random.Random) -> int:
     return int(base_ms * (1 + variance))
 
 
+# The short weather words the seed specs use, mapped to the full labels the
+# game renders. Same bridge web/migrations 0001 applies to pre-id stored files.
+_SEED_CONDITION_LABELS = {
+    'Clear':      'Daytime / Clear / Dry',
+    'Overcast':   'Daytime / Overcast / Dry',
+    'Light Rain': 'Daytime / Showers / Wet',
+    'Heavy Rain': 'Daytime / Heavy Rain / Wet',
+    'Dusk':       'Dusk / Cloudy / Dry',
+    'Night':      'Night / Clear / Dry',
+}
+
+
+def _conditions_id_for_seed(location: str, word: str) -> int | None:
+    """Resolve a seed spec's weather word to an id ``location`` can load."""
+    valid = stage_conditions_for_location(location)
+    if not valid:
+        return None
+    wanted = _SEED_CONDITION_LABELS.get(word, word)
+    for cid in valid:
+        if stage_conditions_label(cid) == wanted:
+            return cid
+    return valid[0]
+
+
 def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
     rng = random.Random(42)
     now = datetime.now()
@@ -1544,10 +1575,17 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
     for spec in events_spec:
         loc = spec['location']
         all_stages = STAGES[loc]
+        # Seed with an id this location can actually load, not a bare label:
+        # seeding runs after migrations, so label-only stages would leave a
+        # fresh dev store holding exactly the shape the migration exists to
+        # repair -- and reachable by nothing until the next deploy.
+        cond_id = _conditions_id_for_seed(loc, spec['conditions'])
+        cond_label = stage_conditions_label(cond_id) if cond_id is not None else ''
         stages = []
         for si in spec['stage_indices']:
             name, km = all_stages[si]
-            stages.append({'name': name, 'distance_km': km, 'conditions': spec['conditions']})
+            stages.append({'name': name, 'distance_km': km,
+                           'conditions_id': cond_id, 'conditions': cond_label})
 
         event = {
             'id': spec['id'],
@@ -1556,7 +1594,7 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
             'location': spec['location'],
             'car_class': spec['car_class'],
             'surface': spec['surface'],
-            'conditions': spec['conditions'],
+            'conditions': cond_label,
             'stages': stages,
             'start_time': spec['start'].isoformat(),
             'end_time': spec['end'].isoformat(),

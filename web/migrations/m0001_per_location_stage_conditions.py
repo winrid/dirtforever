@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from dr2server.game_data import (  # noqa: E402
     stage_conditions_for_location,
     stage_conditions_label,
+    stage_conditions_sibling_for_location,
 )
 
 from . import Result, backup  # noqa: E402
@@ -79,11 +80,15 @@ def _resolve(location: str, stage: dict[str, Any]) -> int | None:
     # the old builder's canonical "Sunset / Cloudy / Wet" was 34, which no
     # location can load, while 20 gives the same label at 18 of them.  Without
     # this, every such stage would silently become Daytime / Clear / Dry.
-    label = stage_conditions_label(cid) if cid is not None else ''
-    if not label or label.startswith('Conditions #'):
-        # Unknown id (or none): fall back to the label the file stored.
-        label = str(stage.get('conditions') or '').strip()
-    label = LEGACY_LABELS.get(label, label)
+    sibling = (stage_conditions_sibling_for_location(location, cid)
+               if cid is not None else None)
+    if sibling is not None:
+        return sibling
+
+    # No id to match on (or an unknown one): the label the file stored is the
+    # only remaining evidence of what was intended.
+    label = LEGACY_LABELS.get(str(stage.get('conditions') or '').strip(),
+                              str(stage.get('conditions') or '').strip())
     wanted = label.replace(' Surface', '').strip().lower()
     if wanted:
         for candidate in valid:

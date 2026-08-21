@@ -28,12 +28,32 @@ for cid in sorted(merged):
 lines.append('}')
 labels_block = '\n'.join(lines)
 
-lines = ['STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {']
 from dr2server.game_data import Location  # noqa: E402
+
+# Every rallycross circuit shipping the standard RX lighting set resolves to
+# the same tuple. Name it once so a correction is one edit, not twelve.
+_rx = collections.Counter(tuple(ids) for loc, ids in resolved.items()
+                          if Location[loc].discipline == 'rallycross').most_common(1)
+shared = _rx[0][0] if _rx and _rx[0][1] > 1 else None
+
+lines = []
+if shared:
+    lines += [
+        '# The standard rallycross lighting set: every RX circuit that ships it',
+        '# resolves identically, so it is named once rather than repeated -- a',
+        '# correction here reaches all of them at once.',
+        '_RX_CONDITIONS: tuple[int, ...] = (' + ', '.join(str(i) for i in shared) + ',)',
+    ]
+    lines += [f'#   {cid:>2} {merged[cid]}' for cid in shared]
+    lines += ['', '']
+lines.append('STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {')
 for loc in Location:
     ids = resolved.get(loc.name)
     if not ids:
         lines.append(f'    # {loc.name}: not offered in the Freeplay builder, so unverified')
+        continue
+    if shared and tuple(ids) == shared:
+        lines.append(f'    Location.{loc.name}: _RX_CONDITIONS,')
         continue
     lines.append(f'    Location.{loc.name}: ({", ".join(str(i) for i in ids)},),')
     for cid in ids:
@@ -48,7 +68,8 @@ start = src.index('STAGE_CONDITIONS_LABELS: Dict[int, str] = {')
 end = src.index('\n}\n', start) + 2
 src = src[:start] + labels_block + src[end:]
 
-start = src.index('STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {')
+start = src.index('_RX_CONDITIONS') if '_RX_CONDITIONS' in src else src.index(
+    'STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {')
 end = src.index('\n}\n', start) + 2
 src = src[:start] + table_block + src[end:]
 

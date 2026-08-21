@@ -92,22 +92,42 @@ def test_germany_excludes_the_id_that_broke_it() -> None:
 
 
 def test_every_in_game_option_has_an_id() -> None:
-    """The table must cover every option the game actually offers.
+    """Each location must serve exactly as many ids as the game offers it.
 
-    The sweep recorded each location's in-game list; serving fewer ids than it
-    has options would silently narrow what players can be given.
+    Compared per location, not as a grand total: two locations with swapped or
+    miscounted lists sum to the same number while both being wrong.
     """
     import json
     from pathlib import Path
 
-    sweep = json.loads(
-        (Path(__file__).resolve().parents[1]
-         / 'data/verified/conditions_by_location.json').read_text(encoding='utf-8'))
-    offered = {name: len(opts) for name, opts in sweep.items() if opts}
-    served = sum(len(ids) for ids in STAGE_CONDITIONS_BY_LOCATION.values())
-    assert served == sum(offered.values()), (
-        f'{served} ids served for {sum(offered.values())} in-game options'
+    root = Path(__file__).resolve().parents[1]
+    sweep = json.loads((root / 'data/verified/conditions_by_location.json')
+                       .read_text(encoding='utf-8'))
+    name_map = json.loads((root / 'scripts/_loc_name_map.json')
+                          .read_text(encoding='utf-8'))
+
+    offered = {}
+    for probe, opts in sweep.items():
+        if not opts:
+            continue
+        loc_name = name_map.get(probe)
+        assert loc_name, f'sweep location {probe!r} has no Location mapping'
+        offered[Location[loc_name]] = len(opts)
+
+    served = {loc: len(ids) for loc, ids in STAGE_CONDITIONS_BY_LOCATION.items()}
+    assert served == offered, (
+        'per-location option counts drifted from the in-game sweep: '
+        + repr({l.name: (served.get(l), offered.get(l))
+                for l in set(served) | set(offered)
+                if served.get(l) != offered.get(l)})
     )
+
+
+def test_served_ids_are_distinct_within_a_location() -> None:
+    # A duplicate would mean two of the location's options collapsed onto one
+    # id, silently dropping the other while keeping the count right.
+    for loc, ids in STAGE_CONDITIONS_BY_LOCATION.items():
+        assert len(set(ids)) == len(ids), f'{loc.name} repeats an id: {ids}'
 
 
 def test_options_pair_ids_with_labels() -> None:

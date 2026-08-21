@@ -19,8 +19,15 @@ from . import run_pending
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument('--data-dir', default=os.environ.get('DATA_DIR', 'data'),
-                    help='JSON store root (default: $DATA_DIR, else ./data)')
+    # Resolve the default the same way server.py does -- $DATA_DIR, else the
+    # 'data' directory beside server.py -- rather than relative to the cwd.
+    # run.sh cds into web/ so a relative 'data' happens to agree today, but a
+    # migration writing a different directory than the app reads would be
+    # silent, and with `set -e` a wrong path aborts the whole service start.
+    default_data_dir = os.environ.get(
+        'DATA_DIR', str(Path(__file__).resolve().parents[1] / 'data'))
+    ap.add_argument('--data-dir', default=default_data_dir,
+                    help='JSON store root (default: $DATA_DIR, else web/data)')
     ap.add_argument('--dry-run', action='store_true',
                     help='report what would change without writing')
     args = ap.parse_args()
