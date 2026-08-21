@@ -14,7 +14,11 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dr2server.game_data import Location, get_verified_routes_for_location
+from dr2server.game_data import (
+    Location,
+    get_verified_routes_for_location,
+    stage_conditions_for_location,
+)
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
@@ -305,9 +309,12 @@ def test_one_live_championship_per_club() -> None:
 
     try:
         # Quick Event starts now -> always overlaps a live one.
+        # The form posts a StageConditions id, not a weather word: conditions
+        # are per-location now, so the id has to be one Poland can load.
         quick = {
             "name": "Quick Clash", "location": "Poland", "car_class": "Group A",
-            "conditions": "Clear", "duration": "24h", "num_stages": "1",
+            "conditions": str(stage_conditions_for_location("Poland")[0]),
+            "duration": "24h", "num_stages": "1",
         }
         r = client.post("/clubs/slotclub/events", data=quick, follow_redirects=True)
         assert r.status_code == 200
@@ -494,8 +501,6 @@ def test_validation_rejects_conditions_the_location_cannot_load() -> None:
     per-location table exists to prevent.
     """
     server = _load()
-    from dr2server.game_data import Location, stage_conditions_for_location
-
     routes = get_verified_routes_for_location(int(Location.GERMANY))
     germany = stage_conditions_for_location(Location.GERMANY)
     # 38 (Daytime / Overcast / Dry) is a real id, but only Poland and Argentina
@@ -531,8 +536,6 @@ def test_club_event_form_works_without_javascript() -> None:
     """
     server = _load()
     server.app.config["WTF_CSRF_ENABLED"] = False
-    from dr2server.game_data import Location, stage_conditions_for_location
-
     uname = "nojsowner"
     if not server.get_user(uname):
         server.create_user(uname, "nojs@example.com", "pw", email_verified=True)
