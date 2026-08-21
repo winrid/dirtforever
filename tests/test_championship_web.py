@@ -518,3 +518,58 @@ def test_validation_rejects_conditions_the_location_cannot_load() -> None:
     assert conditions_errors(38)
     # 34 renders the same label as 20 but no location ships its lighting.
     assert conditions_errors(34)
+
+
+def test_club_event_form_works_without_javascript() -> None:
+    """The conditions select must ship real options, not just a placeholder.
+
+    enhance.js narrows it to the chosen location, but a select holding only
+    `<option value="">` while marked `required` cannot be submitted at all with
+    JS off -- the browser blocks it before the server sees anything. Every
+    location's options are rendered grouped instead, and the server rejects a
+    location/conditions pair that does not match.
+    """
+    server = _load()
+    server.app.config["WTF_CSRF_ENABLED"] = False
+    from dr2server.game_data import Location, stage_conditions_for_location
+
+    uname = "nojsowner"
+    if not server.get_user(uname):
+        server.create_user(uname, "nojs@example.com", "pw", email_verified=True)
+    server.save_club({
+        "id": "nojsclub", "name": "NoJS", "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    client = server.app.test_client()
+    with client.session_transaction() as sess:
+        sess["username"] = uname
+
+    html = client.get("/clubs/nojsclub").get_data(as_text=True)
+    select = html[html.index('id="ev_conditions"'):]
+    select = select[:select.index("</select>")]
+    assert "<optgroup" in select, "conditions select renders no options without JS"
+    served = sum(len(ids) for ids in
+                 __import__("dr2server.game_data", fromlist=["x"])
+                 .STAGE_CONDITIONS_BY_LOCATION.values())
+    assert select.count("<option value=") == served + 1  # +1 placeholder
+
+    # A location/conditions pair the game can load is accepted...
+    good = stage_conditions_for_location(Location.GERMANY)[1]
+    client.post("/clubs/nojsclub/events", data={
+        "name": "NoJS Good", "location": Location.GERMANY.display_name,
+        "car_class": "R5", "conditions": str(good),
+        "num_stages": "1", "duration": "24h"})
+    made = [e for e in server.get_all_events() if e.get("name") == "NoJS Good"]
+    assert made and made[0]["stages"][0]["conditions_id"] == good
+
+    # ...and one from another location's group is not.
+    server.save_club({
+        "id": "nojsclub2", "name": "NoJS2", "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    assert 38 not in stage_conditions_for_location(Location.GERMANY)
+    client.post("/clubs/nojsclub2/events", data={
+        "name": "NoJS Mismatch", "location": Location.GERMANY.display_name,
+        "car_class": "R5", "conditions": "38",
+        "num_stages": "1", "duration": "24h"})
+    assert not [e for e in server.get_all_events() if e.get("name") == "NoJS Mismatch"]

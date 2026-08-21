@@ -173,11 +173,24 @@
                         </div>
                         <div class="form-group">
                             <label for="ev_conditions" class="form-label">Conditions</label>
-                            {# Populated from the location's own verified set;
-                               see enhance.js setupEventForm(). #}
+                            {# Every location's options are rendered, grouped, so
+                               the form still submits with JS off -- a lone empty
+                               option plus `required` would block it outright.
+                               enhance.js setupEventForm() narrows this to the
+                               chosen location, and the server rejects a pair
+                               that does not match either way. #}
                             <select id="ev_conditions" name="conditions" class="form-input form-select" required
                                     data-conditions='{{ conditions_by_location|tojson }}'>
-                                <option value="">Select a location first</option>
+                                <option value="">Select conditions...</option>
+                                {% for loc, opts in conditions_by_location|dictsort %}
+                                {% if opts %}
+                                <optgroup label="{{ loc }}">
+                                    {% for cid, label in opts %}
+                                    <option value="{{ cid }}">{{ label }}</option>
+                                    {% endfor %}
+                                </optgroup>
+                                {% endif %}
+                                {% endfor %}
                             </select>
                         </div>
                         <div class="form-group">
