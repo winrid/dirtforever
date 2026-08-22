@@ -1313,6 +1313,16 @@ class RpcDispatcher:
 
         # Convert to EgoNet format — ChampionshipLeaderboard entries use a
         # different structure than time-trial entries: Points instead of time.
+        #
+        # Presence rows mirror the proxied upstream captures for this endpoint
+        # (captures/20260410-2034*.json, club 377197): every row is the
+        # cross-platform form — IsCrossPlatform=true, NetworkId=0,
+        # EgoNetId=-2, AccountRef=<account id or 0>. -2 is the sentinel the
+        # game reads as "use the inline Name"; a cross-platform row with a
+        # real-looking EgoNetId makes the game try to resolve the presence
+        # instead, and it falls back to the "Dirt Player" placeholder when
+        # that fails. Upstream's own row had AccountRef=0 too, so the own-row
+        # match on this endpoint comes from PlayerRank, not AccountRef.
         egonet_entries = []
         for i, e in enumerate(entries[start_rank:start_rank + limit]):
             uname = e.get("username", "Unknown")
@@ -1322,7 +1332,7 @@ class RpcDispatcher:
                     "Name": uname,
                     "IsCrossPlatform": True,
                     "NetworkId": 0,
-                    "EgoNetId": Int64(acc),
+                    "EgoNetId": Int64(-2),
                     "AccountRef": Int64(acc),
                 },
                 "Points": e.get("points", 0),
