@@ -15,6 +15,8 @@ from .game_data import (
     Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS,
     default_stage_conditions_for_location,
     STAGE_CONDITIONS_LABELS, surface_degrad_for_level, service_area_for_level,
+    RX_DRYING_TIME, RX_GRID_ENTRANTS, RX_NUMBER_RESTARTS, RX_SVC_SETTINGS_ID,
+    rallycross_stage_plan,
 )
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
@@ -48,6 +50,21 @@ def stable_account_id(username: str) -> int:
         return 0
     digest = hashlib.sha256(username.encode("utf-8")).digest()
     return int.from_bytes(digest[:8], "big") & 0x7FFFFFFFFFFFFFFF
+
+
+def _apply_rallycross_stage_format(stage: Stage, stage_type: int, laps: int) -> Stage:
+    """Give a Stage the lapped-race shape every RaceNet rallycross stage had.
+
+    The rally shape (StageType 0, NumberLaps 0) on an RX circuit crashes the
+    game on load.  See game_data.rallycross_stage_plan for the source values.
+    """
+    stage.stage_type = stage_type
+    stage.number_laps = laps
+    stage.has_service_area = True
+    stage.svc_settings_id = RX_SVC_SETTINGS_ID
+    stage.surface_degrad = 0.0
+    stage.drying_time = RX_DRYING_TIME
+    return stage
 
 
 def _stable_int_id(string_id: str, base: int = 100000, offset: int = 0) -> int:
@@ -386,9 +403,9 @@ class RpcDispatcher:
             self._challenge_event_map[chal_id] = f"debug-{idx}"
 
             # Everything the location implies has to agree with the location,
-            # or the game client crashes outright rather than erroring
-            # (verified 2026-08-20): the discipline, and on a rallycross
-            # circuit the absence of a service area, which RX has no concept of.
+            # or the game client crashes outright rather than erroring: the
+            # discipline, and on a rallycross circuit the lapped-race stage
+            # shape (see game_data.rallycross_stage_plan).
             try:
                 is_rx = Location(loc_id).discipline == "rallycross"
             except (ValueError, AttributeError):
@@ -397,15 +414,16 @@ class RpcDispatcher:
             stage = Stage(
                 stage_id=0,
                 track_model_id=track_id,
-                has_service_area=not is_rx,
-                svc_settings_id=0 if is_rx else Stage().svc_settings_id,
                 leaderboard_id=chal_id * 10,
                 stage_conditions=conditions,
             )
+            if is_rx:
+                _apply_rallycross_stage_format(stage, *rallycross_stage_plan(1)[0])
             event = Event(
                 event_id=chal_id,
                 location_id=loc_id,
                 discipline_id=discipline_id,
+                number_restarts=RX_NUMBER_RESTARTS if is_rx else 0,
                 stages=[stage],
                 leaderboard_id=chal_id + 900000,
             )
@@ -687,14 +705,20 @@ class RpcDispatcher:
                   f"('{loc_name}') in event {wevt.get('id')} #{ei} — skipping")
             return None
         try:
-            discipline_id = 2 if Location(location_id).discipline == "rallycross" else 1
+            is_rx = Location(location_id).discipline == "rallycross"
         except (ValueError, AttributeError):
-            discipline_id = 1
+            is_rx = False
+        stages = self._stages_for_subevent(ev, chal_id, ei, track_ids, is_rx=is_rx)
+        # Rallycross is a lapped race: RaceNet's own RX events carry 5 restarts
+        # and, on the multi-stage knockout format, a 20-car AI grid.  The
+        # single-stage format is the solo daily (no grid).
         return Event(
             event_id=chal_id + ei * 10_000_000,
             location_id=location_id,
-            discipline_id=discipline_id,
-            stages=self._stages_for_subevent(ev, chal_id, ei, track_ids),
+            discipline_id=2 if is_rx else 1,
+            number_restarts=RX_NUMBER_RESTARTS if is_rx else 0,
+            number_entrants=RX_GRID_ENTRANTS if (is_rx and len(stages) > 1) else 0,
+            stages=stages,
             leaderboard_id=chal_id + 900000 + ei * 10_000_000,
         )
 
@@ -851,10 +875,12 @@ class RpcDispatcher:
         return default_stage_conditions_for_location(location)
 
     def _stages_for_subevent(self, ev: Dict[str, Any], chal_id: int,
-                             ei: int, track_ids: List[int]) -> List[Stage]:
+                             ei: int, track_ids: List[int],
+                             is_rx: bool = False) -> List[Stage]:
         track_set = set(track_ids)
         web_stages = ev.get("stages") or [None]
         stages: List[Stage] = []
+        rx_plan = rallycross_stage_plan(len(web_stages)) if is_rx else []
         for si, ws in enumerate(web_stages):
             ws = ws or {}
             # Route: use the stored verified track_id; fall back to positional.
@@ -892,7 +918,7 @@ class RpcDispatcher:
                 has_service_area, svc_settings_id = service_area_for_level(ws["service_area"])
             else:
                 has_service_area, svc_settings_id = (si % 2 == 0), 2
-            stages.append(Stage(
+            stage = Stage(
                 stage_id=si,
                 track_model_id=track_id,
                 has_service_area=has_service_area,
@@ -900,13 +926,22 @@ class RpcDispatcher:
                 surface_degrad=surface_degrad,
                 leaderboard_id=self._stage_lb(chal_id, ei, si),
                 stage_conditions=stage_conditions,
-            ))
+            )
+            if is_rx:
+                # A rallycross stage is a lapped race; the stored service-area
+                # and surface-degradation levels are rally concepts, so the
+                # values RaceNet always used for RX replace them.
+                _apply_rallycross_stage_format(stage, *rx_plan[si])
+            stages.append(stage)
         if not stages:
-            stages.append(Stage(
+            stage = Stage(
                 stage_id=0, track_model_id=track_ids[0],
                 has_service_area=True,
                 leaderboard_id=self._stage_lb(chal_id, ei, 0),
-            ))
+            )
+            if is_rx:
+                _apply_rallycross_stage_format(stage, *rallycross_stage_plan(1)[0])
+            stages.append(stage)
         return stages
 
     def _challenge_egonet(self, wevt: Dict[str, Any], chal_id: int, club_int_id: int,
