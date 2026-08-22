@@ -342,20 +342,26 @@ class Track(IntEnum):
     ANNBANK_STATION_REVERSE                  = 667
     GLENCASTLE_FARM_REVERSE                  = 668
 
-    # RALLYCROSS
-    METTET                                   = 172
-    TROIS_RIVIERES                           = 158
-    LYDDEN_HILL                              = 131
-    SILVERSTONE                              = 171
-    LOHEAC                                   = 152
-    ESTERING                                 = 173
-    BIKERNIEKI                               = 174
-    HELL                                     = 142
-    MONTALEGRE                               = 153
-    KILLARNEY                                = 175
-    BARCELONA                                = 154
-    HOLJES                                   = 141
-    YAS_MARINA                               = 176
+    # RALLYCROSS — one "Full Circuit" route per venue.  Captured in-game on
+    # 2026-08-22 from the TrackModelId the client sends in
+    # TimeTrial.GetLeaderboardId when each circuit is loaded through
+    # Freeplay > Time Trial (scripts/rx_tt_probe.py; data/verified/rx_track_ids.json).
+    # Lydden Hill, Loheac, Montalegre, Barcelona and Silverstone also match the
+    # discipline-2 events in RaceNet's own daily/weekly challenges
+    # (data/upstream_templates/RaceNetChallenges_GetChallenges.bin).
+    METTET                                   = 639
+    TROIS_RIVIERES                           = 565
+    LYDDEN_HILL                              = 436
+    SILVERSTONE                              = 638
+    LOHEAC                                   = 536
+    ESTERING                                 = 640
+    BIKERNIEKI                               = 641
+    HELL                                     = 478
+    MONTALEGRE                               = 537
+    KILLARNEY                                = 642
+    BARCELONA                                = 538
+    HOLJES                                   = 476
+    YAS_MARINA                               = 643
 
     @property
     def display_name(self) -> str:
@@ -1827,16 +1833,17 @@ VERIFIED_TRACK_IDS = (
     # Scotland
     657, 658, 659, 660, 661, 662, 663, 664, 665, 666, 667, 668,
 
-    # Rallycross, one circuit per location.  These route IDs come from the
-    # track enum rather than an in-game capture, so they're less certain than
-    # the rally routes above.  They're listed here anyway because leaving them
-    # out made every rallycross club championship unservable: the dispatcher
-    # resolves zero tracks for the location and drops the challenge, so the
-    # site showed the event as live while the game showed the club with no
+    # Rallycross, one circuit per location, in Location-enum order:
+    # Mettet, Trois-Rivieres, Lydden Hill, Silverstone, Loheac, Estering,
+    # Bikernieki, Hell, Montalegre, Killarney, Barcelona, Holjes, Yas Marina.
+    # Captured in-game 2026-08-22 (see the Track enum).  Leaving them out made
+    # every rallycross club championship unservable: the dispatcher resolved
+    # zero tracks for the location and dropped the challenge, so the site
+    # showed the event as live while the game showed the club with no
     # championship active.  Auto-generated official events must NOT land on
-    # these circuits, but that exclusion is by discipline now (see RX_LOCATIONS
-    # in web/server.py), not by omission from this list.
-    172, 158, 131, 171, 152, 173, 174, 142, 153, 175, 154, 141, 176,
+    # these circuits, but that exclusion is by discipline (see RX_LOCATIONS in
+    # web/server.py), not by omission from this list.
+    639, 565, 436, 638, 536, 640, 641, 478, 537, 642, 538, 476, 643,
 )
 
 

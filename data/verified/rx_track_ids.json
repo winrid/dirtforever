@@ -1,0 +1,18 @@
+{
+  "_source": "TrackModelId sent by the client in TimeTrial.GetLeaderboardId when each rallycross circuit is loaded via Freeplay > Time Trial (scripts/rx_tt_probe.py), captured 2026-08-22. Vehicle class 92 (RX Super 1600), conditions 1. Lydden Hill, Loheac, Montalegre, Barcelona and Silverstone also appear with these ids in RaceNet's own discipline-2 challenges (data/upstream_templates/RaceNetChallenges_GetChallenges.bin).",
+  "circuits": {
+    "METTET":         {"location_id": 39, "track_model_id": 639, "capture": "20260822-081207-1787411527256722900.json"},
+    "TROIS_RIVIERES": {"location_id": 30, "track_model_id": 565, "capture": "20260822-085045-1787413845306649600.json"},
+    "LYDDEN_HILL":    {"location_id": 9,  "track_model_id": 436, "capture": "20260822-085911-1787414351427969800.json"},
+    "SILVERSTONE":    {"location_id": 38, "track_model_id": 638, "capture": "20260822-091020-1787415020513573400.json"},
+    "LOHEAC":         {"location_id": 18, "track_model_id": 536, "capture": "20260822-091120-1787415080149228300.json"},
+    "ESTERING":       {"location_id": 40, "track_model_id": 640, "capture": "20260822-091509-1787415309646681300.json"},
+    "BIKERNIEKI":     {"location_id": 41, "track_model_id": 641, "capture": "20260822-091634-1787415394532412800.json"},
+    "HELL":           {"location_id": 10, "track_model_id": 478, "capture": "20260822-092040-1787415640823946000.json"},
+    "MONTALEGRE":     {"location_id": 19, "track_model_id": 537, "capture": "20260822-092207-1787415727407582000.json"},
+    "KILLARNEY":      {"location_id": 42, "track_model_id": 642, "capture": "20260822-092318-1787415798485404300.json"},
+    "BARCELONA":      {"location_id": 20, "track_model_id": 538, "capture": "20260822-092714-1787416034241317400.json"},
+    "HOLJES":         {"location_id": 11, "track_model_id": 476, "capture": "20260822-092943-1787416183510959300.json"},
+    "YAS_MARINA":     {"location_id": 43, "track_model_id": 643, "capture": "20260822-093118-1787416278794112000.json"}
+  }
+}
