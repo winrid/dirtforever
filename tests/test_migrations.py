@@ -221,3 +221,107 @@ def test_unreadable_file_is_reported_not_fatal(tmp_path: Path) -> None:
     result = m0001.run(data)
     assert any("unreadable" in n for n in result.notes)
     assert result.changed == 1
+
+
+# -- change log and revert ---------------------------------------------------
+
+def test_changes_file_records_before_and_after(tmp_path: Path) -> None:
+    """Every rewritten value is logged, and only rewritten values are.
+
+    The directory backup restores the whole store; this is the per-value record
+    of what actually moved, so a run can be read back afterwards.
+    """
+    data = _store(tmp_path, {"evt-de": {
+        "id": "evt-de", "location": "Germany", "conditions": "Daytime / Overcast / Dry",
+        "events": [{"location": "Germany", "stages": [
+            {"track_id": 489, "conditions_id": 38, "conditions": "Daytime / Overcast / Dry"},
+            # Already valid at Germany, so it must NOT appear in the log.
+            {"track_id": 472, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+
+    logs = list((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    assert len(logs) == 1
+    doc = json.loads(logs[0].read_text(encoding="utf-8"))
+    assert doc["migration"] == m0001.ID
+    assert doc["count"] == len(doc["changes"])
+
+    paths = {c["path"] for c in doc["changes"]}
+    assert "events[0].stages[0]" in paths
+    assert "events[0].stages[1]" not in paths, "logged a stage it did not change"
+
+    stage = next(c for c in doc["changes"] if c["path"] == "events[0].stages[0]")
+    assert stage["before"]["conditions_id"] == 38
+    assert stage["after"]["conditions_id"] == 1
+    assert stage["location"] == "Germany"
+
+
+def test_revert_restores_the_original_file(tmp_path: Path) -> None:
+    """The log must be sufficient to put the data back exactly as it was."""
+    original = {
+        "id": "evt-mix", "location": "Germany", "conditions": "Daytime / Overcast / Dry",
+        "events": [{"location": "Germany", "stages": [
+            {"track_id": 489, "conditions_id": 38, "conditions": "Daytime / Overcast / Dry"},
+            {"track_id": 472, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }
+    data = _store(tmp_path, {"evt-mix": json.loads(json.dumps(original))})
+    migrations.run_pending(data, log=lambda _m: None)
+    assert _read(data, "evt-mix") != original          # it really did change
+
+    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    migrations.revert(data, log_file, log=lambda _m: None)
+    assert _read(data, "evt-mix") == original
+
+
+def test_revert_restores_a_field_that_did_not_exist(tmp_path: Path) -> None:
+    # A stage with no conditions_id gains one; reverting must remove the key
+    # again rather than leave a null behind.
+    original = {"id": "evt-bare", "location": "Poland",
+                "stages": [{"name": "X", "conditions": "Overcast"}]}
+    data = _store(tmp_path, {"evt-bare": json.loads(json.dumps(original))})
+    migrations.run_pending(data, log=lambda _m: None)
+    assert "conditions_id" in _read(data, "evt-bare")["stages"][0]
+
+    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    migrations.revert(data, log_file, log=lambda _m: None)
+    assert _read(data, "evt-bare") == original
+
+
+def test_revert_leaves_unrelated_edits_alone(tmp_path: Path) -> None:
+    """Reverting is value-by-value, not a file restore.
+
+    Anything written after the migration -- a rename, a new entrant -- has to
+    survive, which copying the directory backup wholesale would discard.
+    """
+    data = _store(tmp_path, {"evt-later": {
+        "id": "evt-later", "location": "Germany", "name": "Before",
+        "events": [{"location": "Germany",
+                    "stages": [{"track_id": 489, "conditions_id": 38}]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+
+    doc = _read(data, "evt-later")
+    doc["name"] = "Renamed after the migration"
+    (data / "events" / "evt-later.json").write_text(json.dumps(doc), encoding="utf-8")
+
+    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    migrations.revert(data, log_file, log=lambda _m: None)
+
+    after = _read(data, "evt-later")
+    assert after["name"] == "Renamed after the migration"
+    assert after["events"][0]["stages"][0]["conditions_id"] == 38
+
+
+def test_revert_survives_a_deleted_file(tmp_path: Path) -> None:
+    data = _store(tmp_path, {"evt-gone": {
+        "id": "evt-gone", "location": "Germany",
+        "events": [{"location": "Germany",
+                    "stages": [{"track_id": 489, "conditions_id": 38}]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+    (data / "events" / "evt-gone.json").unlink()
+
+    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    assert migrations.revert(data, log_file, log=lambda _m: None) == 0

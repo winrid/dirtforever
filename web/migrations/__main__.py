@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import run_pending
+from . import revert, run_pending
 
 
 def main() -> int:
@@ -30,8 +30,16 @@ def main() -> int:
                     help='JSON store root (default: $DATA_DIR, else web/data)')
     ap.add_argument('--dry-run', action='store_true',
                     help='report what would change without writing')
+    ap.add_argument('--revert', metavar='CHANGES_JSON',
+                    help='put back the values listed in a changes.json written '
+                         'by an earlier run (value by value, so anything '
+                         'written since is left alone)')
     args = ap.parse_args()
     try:
+        if args.revert:
+            n = revert(Path(args.data_dir), Path(args.revert))
+            print(f'migrations: reverted {n} values')
+            return 0
         run_pending(Path(args.data_dir), dry_run=args.dry_run)
     except Exception as exc:  # noqa: BLE001 - deploy gate: report and fail loudly
         print(f'migrations: FAILED - {exc}', file=sys.stderr)

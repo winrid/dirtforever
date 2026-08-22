@@ -97,9 +97,10 @@ def _resolve(location: str, stage: dict[str, Any]) -> int | None:
     return valid[0]
 
 
-def _migrate_stages(location: str, stages: list[dict[str, Any]]) -> int:
+def _migrate_stages(location: str, stages: list[dict[str, Any]],
+                    result: Result, file: str, where: str) -> int:
     changed = 0
-    for stage in stages:
+    for i, stage in enumerate(stages):
         if not isinstance(stage, dict):
             continue
         cid = _resolve(location, stage)
@@ -107,26 +108,34 @@ def _migrate_stages(location: str, stages: list[dict[str, Any]]) -> int:
             continue
         label = stage_conditions_label(cid)
         if stage.get('conditions_id') != cid or stage.get('conditions') != label:
+            result.change(
+                file=file, path=f'{where}stages[{i}]',
+                before={'conditions_id': stage.get('conditions_id'),
+                        'conditions': stage.get('conditions')},
+                after={'conditions_id': cid, 'conditions': label},
+                location=location)
             stage['conditions_id'] = cid
             stage['conditions'] = label
             changed += 1
     return changed
 
 
-def _migrate_championship(champ: dict[str, Any]) -> int:
+def _migrate_championship(champ: dict[str, Any], result: Result, file: str) -> int:
     """Fix every sub-event, plus the legacy top-level mirrors."""
     changed = 0
     top_location = champ.get('location', '')
-    for ev in champ.get('events') or []:
+    for ei, ev in enumerate(champ.get('events') or []):
         # Sub-events carry their own location; fall back to the championship's
         # so an older file missing it still gets validated.
         changed += _migrate_stages(ev.get('location') or top_location,
-                                   ev.get('stages') or [])
+                                   ev.get('stages') or [],
+                                   result, file, f'events[{ei}].')
 
     # Legacy single-event shape (and the top-level mirror v2 events also keep).
     top_stages = champ.get('stages') or []
     if top_stages:
-        changed += _migrate_stages(champ.get('location', ''), top_stages)
+        changed += _migrate_stages(champ.get('location', ''), top_stages,
+                                   result, file, '')
 
     # Keep the event-level label in step with what stage 1 will actually load.
     first = None
@@ -135,6 +144,9 @@ def _migrate_championship(champ: dict[str, Any]) -> int:
     elif top_stages:
         first = top_stages[0]
     if first and first.get('conditions') and champ.get('conditions') != first['conditions']:
+        result.change(file=file, path='conditions',
+                      before=champ.get('conditions'), after=first['conditions'],
+                      location=top_location)
         champ['conditions'] = first['conditions']
         changed += 1
     return changed
@@ -154,7 +166,7 @@ def _migrate_dir(data_dir: Path, subdir: str, result: Result,
         if not isinstance(doc, dict):
             continue
         result.scanned += 1
-        if _migrate_championship(doc):
+        if _migrate_championship(doc, result, f'{subdir}/{path.name}'):
             result.changed += 1
             result.note(f'{subdir}/{path.name}: conditions corrected')
             if not dry_run:
@@ -167,8 +179,8 @@ def run(data_dir: Path, dry_run: bool = False) -> Result:
     result = Result()
     subdirs = ['events', 'championship_drafts']
     if not dry_run:
-        dest = backup(data_dir, ID, subdirs)
-        result.note(f'backed up {", ".join(subdirs)} to {dest}')
+        result.backup_dir = backup(data_dir, ID, subdirs)
+        result.note(f'backed up {", ".join(subdirs)} to {result.backup_dir}')
     for subdir in subdirs:
         _migrate_dir(data_dir, subdir, result, dry_run)
     return result
