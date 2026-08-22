@@ -10,10 +10,10 @@
         {
           "IsVIP": false,
           "Nationality": 0,
-          "Points": 0,
+          "Points": 25,
           "Presence": {
             "AccountRef": 4857398522365813364,
-            "EgoNetId": 4857398522365813364,
+            "EgoNetId": -2,
             "IsCrossPlatform": true,
             "Name": "sgt",
             "NetworkId": 0

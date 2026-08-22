@@ -3174,6 +3174,33 @@ def _rally_standings(entries: list[dict[str, Any]], offset: int, count: int) -> 
     return rows
 
 
+# Points awarded for each rally of a championship, by finishing position.
+# This is the real-world stage-rally scale (FIA World Rally Championship,
+# top ten score): P1 25, P2 18, P3 15, P4 12, P5 10, P6 8, P7 6, P8 4, P9 2,
+# P10 1. Everyone else scores 0 for that rally.
+RALLY_POINTS = (25, 18, 15, 12, 10, 8, 6, 4, 2, 1)
+
+
+def _championship_points(event: dict[str, Any],
+                         entries: list[dict[str, Any]]) -> dict[str, int]:
+    """Championship points per username.
+
+    Each rally of the championship is scored on its own finishing order
+    (``_rally_standings``: drivers who completed every stage of that rally,
+    fastest first) using ``RALLY_POINTS``, and a driver's total is the sum
+    across rallies. A driver who did not complete a rally scores nothing for
+    it but keeps the points from the others. Every driver in ``entries`` is
+    present in the result, with 0 if they scored nothing.
+    """
+    points: dict[str, int] = {e.get('username', ''): 0 for e in entries}
+    for rally in _championship_view(event):
+        standings = _rally_standings(entries, rally['offset'], rally['count'])
+        for pos, row in enumerate(standings[:len(RALLY_POINTS)]):
+            name = row['username']
+            points[name] = points.get(name, 0) + RALLY_POINTS[pos]
+    return points
+
+
 @app.route('/clubs/<club_id>/championship/<draft_id>/preview', methods=['GET'])
 @verified_required
 def championship_preview(club_id: str, draft_id: str) -> str:
@@ -3913,6 +3940,8 @@ def api_game_leaderboard(event_id: str) -> Response | tuple[Response, int]:
 
     results = get_results(event_id)
     entries = results.get('entries', [])
+    event = get_event(event_id)
+    points = _championship_points(event, entries) if event else {}
     out = []
     for i, e in enumerate(entries):
         out.append({
@@ -3921,6 +3950,7 @@ def api_game_leaderboard(event_id: str) -> Response | tuple[Response, int]:
             'car': e.get('car', ''),
             'vehicle_id': e.get('vehicle_id'),
             'total_time_ms': e['total_time_ms'],
+            'points': points.get(e['username'], 0),
             'stages': e.get('stages', []),
         })
     return jsonify({'ok': True, 'entries': out, 'total': len(out)})

@@ -1311,6 +1311,11 @@ class RpcDispatcher:
             except Exception as exc:
                 print(f"[CLUB_LB] get_leaderboard({event_id}) failed: {exc}")
 
+        # The web leaderboard is ordered by total time; championship
+        # standings are ordered by points. The sort is stable, so drivers on
+        # equal points keep their fastest-first order as the tiebreak.
+        entries = sorted(entries, key=lambda e: -int(e.get("points", 0) or 0))
+
         # Convert to EgoNet format — ChampionshipLeaderboard entries use a
         # different structure than time-trial entries: Points instead of time.
         #
