@@ -47,12 +47,13 @@ from dr2server.game_data import (  # noqa: E402
     VEHICLE_CLASSES as GAME_VEHICLE_CLASSES,
     VEHICLES as GAME_VEHICLES,
     stage_conditions_label,
-    stage_conditions_for_web,
+    stage_conditions_for_location,
+    stage_conditions_options_for_location,
+    stage_conditions_sibling_for_location,
     get_tracks_for_location,
     get_verified_routes_for_location,
     vehicle_class_id_for_label,
     CONFIRMED_VEHICLE_CLASS_IDS,
-    STAGE_CONDITIONS_OPTIONS,
     STAGE_CONDITIONS_LABELS,
     SURFACE_DEGRAD_LEVELS,
     SERVICE_AREA_LEVELS,
@@ -913,7 +914,13 @@ CAR_CLASSES = {
     ],
 }
 
-CONDITIONS = ['Clear', 'Overcast', 'Light Rain', 'Heavy Rain', 'Dusk', 'Night']
+# Conditions offered per location, as (StageConditions id, label).  There is no
+# global list: each location only ships lighting assets for a subset of the
+# enum, and offering an id outside its set loads the stage with a broken sky.
+# Ordered as the game orders them, so entry 0 is the location's own default.
+CONDITIONS_BY_LOCATION: dict[str, list[tuple[int, str]]] = {
+    loc: stage_conditions_options_for_location(loc) for loc in STAGES
+}
 
 COUNTRIES: dict[str, str] = {
     'Argentina':      '\U0001F1E6\U0001F1F7',
@@ -1093,9 +1100,9 @@ def normalize_championship(raw: dict[str, Any]) -> dict[str, Any]:
     (no ``events`` key) so every consumer — chiefly the game dispatcher — can
     treat all stored events uniformly.  Never mutates the input.
 
-    Per stage, ``conditions_id`` is filled from the ``conditions`` label when
-    absent (legacy files); ``track_id``/``surface_deg``/``service_area`` are
-    left as-is so the dispatcher can apply its backward-compatible fallbacks.
+    Stage fields are passed through untouched.  This reshapes; it never
+    converts values — stored data is brought up to date by web/migrations at
+    deploy time, so readers can trust what is on disk.
     """
     champ = dict(raw)
 
@@ -1121,8 +1128,6 @@ def normalize_championship(raw: dict[str, Any]) -> dict[str, Any]:
         stages: list[dict[str, Any]] = []
         for s in ev.get('stages', []):
             s = dict(s)
-            if s.get('conditions_id') is None:
-                s['conditions_id'] = stage_conditions_for_web(s.get('conditions', ''))
             stages.append(s)
         ev['stages'] = stages
         norm_events.append(ev)
@@ -1221,9 +1226,17 @@ def _condition_weight(label: str) -> float:
     return weight
 
 
-# Conditions ids + matching weights for the generated fill (Daytime/Dry favoured).
-_COND_IDS = [cid for cid, _label in STAGE_CONDITIONS_OPTIONS]
-_COND_WEIGHTS = [_condition_weight(label) for _cid, label in STAGE_CONDITIONS_OPTIONS]
+def _random_condition_for(rng: random.Random, location: str) -> int | None:
+    """Pick a conditions id ``location`` supports, Daytime/Dry favoured.
+
+    Drawn from the location's verified set, so a generated draft never seeds a
+    stage with conditions that location has no lighting for.
+    """
+    ids = stage_conditions_for_location(location)
+    if not ids:
+        return None
+    weights = [_condition_weight(stage_conditions_label(cid)) for cid in ids]
+    return rng.choices(ids, weights=weights, k=1)[0]
 
 
 def _random_championship_events(num_events: int, num_stages: int) -> list[dict[str, Any]]:
@@ -1265,7 +1278,7 @@ def _random_championship_events(num_events: int, num_stages: int) -> list[dict[s
         stages = [
             {
                 'track_id': tid,
-                'conditions_id': rng.choices(_COND_IDS, weights=_COND_WEIGHTS, k=1)[0],
+                'conditions_id': _random_condition_for(rng, location),
                 'surface_deg': rng.choice(_RANDOM_SURFACE_DEG),
                 'service_area': _service_area_for_pos(i),
             }
@@ -1323,17 +1336,32 @@ def parse_championship_form(form: Any) -> dict[str, Any]:
     for ei in sorted(events):
         raw = events[ei]
         f = raw['fields']
+        location = (f.get('location') or '').strip()
+        # Conditions are per-location, so a submitted id is only kept when this
+        # location ships lighting for it; anything else takes the location's own
+        # first option. Guards hand-crafted posts and a stale select left over
+        # from a location change.
+        valid_conds = stage_conditions_for_location(location)
         stages_out: list[dict[str, Any]] = []
         for sj in sorted(raw['stages']):
             s = raw['stages'][sj]
+            cond_id = _to_int_or_none(s.get('conditions'))
+            if valid_conds and cond_id not in valid_conds:
+                # Keep the weather that was picked where the location can
+                # render it under a different id (the twin pairs), and only
+                # then fall back to its first option. An unresolvable pick is
+                # left for _validate_championship to reject at publish rather
+                # than being quietly corrected here.
+                cond_id = (stage_conditions_sibling_for_location(location, cond_id)
+                           or valid_conds[0])
             stages_out.append({
                 'track_id': _to_int_or_none(s.get('route')),
-                'conditions_id': _to_int_or_none(s.get('conditions')),
+                'conditions_id': cond_id,
                 'surface_deg': (s.get('surface_deg') or 'Medium').strip(),
                 'service_area': (s.get('service_area') or 'Medium').strip(),
             })
         out_events.append({
-            'location': (f.get('location') or '').strip(),
+            'location': location,
             'car_class': (f.get('car_class') or '').strip(),
             'duration': {
                 'days': _to_int_or_zero(f.get('duration_days')),
@@ -1426,6 +1454,30 @@ def _gen_time(base_km: float, rng: random.Random) -> int:
     base_ms = int(base_km * pace * 60 * 1000)
     variance = rng.uniform(-0.04, 0.08)
     return int(base_ms * (1 + variance))
+
+
+# The short weather words the seed specs use, mapped to the full labels the
+# game renders. Same bridge web/migrations 0001 applies to pre-id stored files.
+_SEED_CONDITION_LABELS = {
+    'Clear':      'Daytime / Clear / Dry',
+    'Overcast':   'Daytime / Overcast / Dry',
+    'Light Rain': 'Daytime / Showers / Wet',
+    'Heavy Rain': 'Daytime / Heavy Rain / Wet',
+    'Dusk':       'Dusk / Cloudy / Dry',
+    'Night':      'Night / Clear / Dry',
+}
+
+
+def _conditions_id_for_seed(location: str, word: str) -> int | None:
+    """Resolve a seed spec's weather word to an id ``location`` can load."""
+    valid = stage_conditions_for_location(location)
+    if not valid:
+        return None
+    wanted = _SEED_CONDITION_LABELS.get(word, word)
+    for cid in valid:
+        if stage_conditions_label(cid) == wanted:
+            return cid
+    return valid[0]
 
 
 def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
@@ -1523,10 +1575,17 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
     for spec in events_spec:
         loc = spec['location']
         all_stages = STAGES[loc]
+        # Seed with an id this location can actually load, not a bare label:
+        # seeding runs after migrations, so label-only stages would leave a
+        # fresh dev store holding exactly the shape the migration exists to
+        # repair -- and reachable by nothing until the next deploy.
+        cond_id = _conditions_id_for_seed(loc, spec['conditions'])
+        cond_label = stage_conditions_label(cond_id) if cond_id is not None else ''
         stages = []
         for si in spec['stage_indices']:
             name, km = all_stages[si]
-            stages.append({'name': name, 'distance_km': km, 'conditions': spec['conditions']})
+            stages.append({'name': name, 'distance_km': km,
+                           'conditions_id': cond_id, 'conditions': cond_label})
 
         event = {
             'id': spec['id'],
@@ -1535,7 +1594,7 @@ def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
             'location': spec['location'],
             'car_class': spec['car_class'],
             'surface': spec['surface'],
-            'conditions': spec['conditions'],
+            'conditions': cond_label,
             'stages': stages,
             'start_time': spec['start'].isoformat(),
             'end_time': spec['end'].isoformat(),
@@ -2217,7 +2276,8 @@ def club_detail(club_id: str) -> str:
         'club_detail.html', club=club, members=members, events=events,
         rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
         rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
-        stages=STAGES, car_classes=CAR_CLASSES, conditions=CONDITIONS,
+        stages=STAGES, car_classes=CAR_CLASSES,
+        conditions_by_location=CONDITIONS_BY_LOCATION,
         stage_caps=STAGE_CAPS,
         live_event=live_event,
         is_owner=user_is_owner(club, uname),
@@ -2821,7 +2881,7 @@ def create_club_event(club_id: str) -> Response:
     name = request.form.get('name', '').strip()
     location = request.form.get('location', '').strip()
     car_class = request.form.get('car_class', '').strip()
-    cond = request.form.get('conditions', '').strip()
+    cond_raw = request.form.get('conditions', '').strip()
     duration = request.form.get('duration', '').strip()
     try:
         num_stages = int(request.form.get('num_stages', '0'))
@@ -2841,8 +2901,17 @@ def create_club_event(club_id: str) -> Response:
     if car_class not in CAR_CLASSES or vclass_id is None \
             or vclass_id not in CONFIRMED_VEHICLE_CLASS_IDS:
         errors.append('Invalid or unsupported vehicle class.')
-    if cond not in CONDITIONS:
-        errors.append('Invalid conditions.')
+    # Conditions are per-location: only the ids this location ships lighting
+    # for are accepted, since anything else loads the stage with a broken sky.
+    try:
+        cond_id: int | None = int(cond_raw)
+    except ValueError:
+        cond_id = None
+    allowed_conds = stage_conditions_for_location(location)
+    if not allowed_conds:
+        errors.append('No verified conditions for this location yet.')
+    elif cond_id not in allowed_conds:
+        errors.append('Invalid conditions for this location.')
     if duration not in DURATION_OPTIONS:
         errors.append('Invalid duration.')
     available = STAGE_CAPS.get(location, len(STAGES.get(location, [])))
@@ -2867,8 +2936,10 @@ def create_club_event(club_id: str) -> Response:
         return redirect(url_for('club_detail', club_id=club_id))
     surface = LOCATION_SURFACE.get(location, 'Gravel')
 
+    cond_label = stage_conditions_label(cond_id) if cond_id is not None else ''
     stage_list = [
-        {'name': sname, 'distance_km': dist, 'conditions': cond}
+        {'name': sname, 'distance_km': dist,
+         'conditions_id': cond_id, 'conditions': cond_label}
         for sname, dist in STAGES[location][:num_stages]
     ]
 
@@ -2879,7 +2950,7 @@ def create_club_event(club_id: str) -> Response:
         'location': location,
         'car_class': car_class,
         'surface': surface,
-        'conditions': cond,
+        'conditions': cond_label,
         'stages': stage_list,
         'start_time': now.isoformat(),
         'end_time': (now + delta).isoformat(),
@@ -2920,7 +2991,7 @@ def _championship_edit_context(club: dict[str, Any], draft: dict[str, Any]) -> d
         rally_locs=sorted(loc for loc in STAGES if loc not in RX_LOCATIONS),
         rx_locs=sorted(loc for loc in STAGES if loc in RX_LOCATIONS),
         car_classes=list(CAR_CLASSES.keys()),
-        condition_options=STAGE_CONDITIONS_OPTIONS,
+        conditions_by_location=CONDITIONS_BY_LOCATION,
         surface_deg_options=SURFACE_DEG_OPTIONS,
         service_area_options=SERVICE_AREA_OPTIONS,
         stage_routes=STAGE_ROUTES, stage_caps=STAGE_CAPS,
@@ -3174,12 +3245,15 @@ def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
         if loc in STAGES and cap and len(stages) > cap:
             errors.append(f'Event {i}: {loc} supports at most {cap} stages.')
         valid_track_ids = {tid for tid, _n, _km in STAGE_ROUTES.get(loc, [])}
+        # Conditions are per-location like routes are: a globally-known id the
+        # location ships no lighting for loads the stage with a broken sky.
+        valid_conditions = stage_conditions_for_location(loc)
         for sj, s in enumerate(stages, start=1):
             tid = s.get('track_id')
             if tid is None or tid not in valid_track_ids:
                 errors.append(f'Event {i} stage {sj}: pick a route.')
             cid = s.get('conditions_id')
-            if cid is None or cid not in STAGE_CONDITIONS_LABELS:
+            if cid is None or cid not in valid_conditions:
                 errors.append(f'Event {i} stage {sj}: pick conditions.')
             if s.get('surface_deg') not in SURFACE_DEG_OPTIONS:
                 errors.append(f'Event {i} stage {sj}: invalid surface degradation.')

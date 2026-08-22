@@ -12,7 +12,8 @@ from .account_store import AccountStore
 from .api_client import DirtForeverClient
 from .egonet import Int64, Timestamp, UInt16, UInt32, UInt8
 from .game_data import (
-    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS, stage_conditions_for_web,
+    Location, Track, VEHICLES, CONFIRMED_VEHICLE_CLASS_IDS,
+    default_stage_conditions_for_location,
     STAGE_CONDITIONS_LABELS, surface_degrad_for_level, service_area_for_level,
 )
 from .models import (
@@ -384,16 +385,27 @@ class RpcDispatcher:
                                      base=700000, offset=idx)
             self._challenge_event_map[chal_id] = f"debug-{idx}"
 
+            # Everything the location implies has to agree with the location,
+            # or the game client crashes outright rather than erroring
+            # (verified 2026-08-20): the discipline, and on a rallycross
+            # circuit the absence of a service area, which RX has no concept of.
+            try:
+                is_rx = Location(loc_id).discipline == "rallycross"
+            except (ValueError, AttributeError):
+                is_rx = False
+            discipline_id = 2 if is_rx else 1
             stage = Stage(
                 stage_id=0,
                 track_model_id=track_id,
-                has_service_area=True,
+                has_service_area=not is_rx,
+                svc_settings_id=0 if is_rx else Stage().svc_settings_id,
                 leaderboard_id=chal_id * 10,
                 stage_conditions=conditions,
             )
             event = Event(
                 event_id=chal_id,
                 location_id=loc_id,
+                discipline_id=discipline_id,
                 stages=[stage],
                 leaderboard_id=chal_id + 900000,
             )
@@ -825,6 +837,19 @@ class RpcDispatcher:
             attempts_left=self._attempts_left_for(ep),
         )
 
+    @staticmethod
+    def _default_conditions_for_track(track_id: int) -> Optional[int]:
+        """First conditions option of the location this track belongs to.
+
+        Used only when a stage carries no id at all: there is no globally safe
+        value to fall back on (Varmland offers snow only, so not even 1).
+        """
+        try:
+            location = Track(track_id).location
+        except ValueError:
+            return None
+        return default_stage_conditions_for_location(location)
+
     def _stages_for_subevent(self, ev: Dict[str, Any], chal_id: int,
                              ei: int, track_ids: List[int]) -> List[Stage]:
         track_set = set(track_ids)
@@ -840,12 +865,23 @@ class RpcDispatcher:
                 tid = None
             track_id = tid if (tid is not None and tid in track_set) \
                 else track_ids[si % len(track_ids)]
-            # Conditions: prefer the stored composite id, else resolve the label.
+            # Conditions: served as stored.  Validity is a per-location
+            # property (see STAGE_CONDITIONS_BY_LOCATION) enforced where events
+            # are written — the create forms and the generator — and repaired
+            # in stored data by web/migrations, so nothing is converted here.
+            #
+            # A stage with NO id at all still needs one, and the Stage default
+            # is 1, which Varmland cannot load.  Take the default from the
+            # location this stage will actually load instead; only data written
+            # by something other than this server can reach it.
             cid = ws.get("conditions_id")
-            if cid is not None and int(cid) in STAGE_CONDITIONS_LABELS:
-                stage_conditions = int(cid)
-            else:
-                stage_conditions = stage_conditions_for_web(ws.get("conditions", ""))
+            try:
+                cid = int(cid) if cid is not None else None
+            except (TypeError, ValueError):
+                cid = None
+            if cid is None:
+                cid = self._default_conditions_for_track(track_id)
+            stage_conditions = cid if cid is not None else Stage().stage_conditions
             # Surface degradation (best-guess mapping; default = engine value).
             surface_degrad = (
                 surface_degrad_for_level(ws["surface_deg"])

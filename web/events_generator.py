@@ -21,7 +21,10 @@ import random
 from datetime import datetime, timedelta
 from typing import Any
 
-from dr2server.game_data import stage_conditions_for_web
+from dr2server.game_data import (
+    stage_conditions_for_location,
+    stage_conditions_label,
+)
 
 from server import (
     save_event,
@@ -29,7 +32,6 @@ from server import (
     STAGES,
     STAGE_ROUTES,
     CAR_CLASSES,
-    CONDITIONS,
     LOCATION_SURFACE,
     VERIFIED_STAGE_COUNTS,
     RX_LOCATIONS,
@@ -133,23 +135,28 @@ def generate_event(
     """
     rng = _rng_for(slot_id)
 
-    # Only roll locations the game can actually deliver in-game (verified track
-    # routes).  Official events must always be playable, so a location with no
-    # verified routes is excluded entirely, unlike the create-event form, which
-    # leaves them selectable.  Rallycross circuits are excluded too even though
-    # their routes are listed: the class pool below is rally-only, so an
-    # official event on an RX circuit would ask for a rally car on a
-    # rallycross track.
+    # Only roll locations the game can actually deliver in-game.  Official
+    # events must always be playable, so a location is excluded entirely --
+    # unlike the create-event form, which leaves them selectable -- when it has
+    # no verified routes, or no verified conditions (we would have nothing valid
+    # to put in StageConditions, and an id the location lacks lighting for loads
+    # the stage with a broken sky).  Rallycross circuits are excluded too even
+    # though their routes are listed: the class pool below is rally-only, so an
+    # official event on an RX circuit would ask for a rally car on an RX track.
     loc_pool = sorted(
         l for l in STAGES
         if l not in used_locations
         and l not in RX_LOCATIONS
         and VERIFIED_STAGE_COUNTS.get(l, 0) > 0
+        and stage_conditions_for_location(l)
     )
     cls_pool = sorted(c for c in CAR_CLASSES if c not in used_classes)
     location = rng.choice(loc_pool)
     car_class = rng.choice(cls_pool)
-    conditions = rng.choice(CONDITIONS)
+    # Conditions are per-location, so roll from this location's verified set
+    # rather than a global list.
+    cond_id = rng.choice(stage_conditions_for_location(location))
+    conditions = stage_conditions_label(cond_id)
     surface = LOCATION_SURFACE.get(location, 'Gravel')
 
     # Pick from the location's VERIFIED routes so the stage names match the
@@ -163,7 +170,6 @@ def generate_event(
         k = min(STAGES_PER_TYPE[event_type], verified_cap)
     picked = rng.sample(verified_routes, min(k, len(verified_routes)))
 
-    cond_id = stage_conditions_for_web(conditions)
     stage_list = [
         {
             'name': name, 'track_id': track_id, 'distance_km': km,

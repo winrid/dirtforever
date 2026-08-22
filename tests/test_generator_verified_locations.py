@@ -66,3 +66,30 @@ def test_monthly_uses_all_verified_routes():
     loc = ev["location"]
     # A full monthly rally should use every verified route for its location.
     assert len(ev["stages"]) == server.VERIFIED_STAGE_COUNTS[loc]
+
+
+def test_generated_conditions_are_valid_for_their_location():
+    """Every stage's StageConditions must be one the location actually ships.
+
+    The generator used to roll from one global list of six ids regardless of
+    location, so ~42% of (location, conditions) pairs asked for lighting the
+    location has no assets for and the stage loaded with a broken skybox --
+    e.g. id 38 (Daytime / Overcast / Dry) at Germany, which only Poland and
+    Argentina ship. RaceNet accepts any id, so nothing upstream catches this.
+    """
+    from dr2server.game_data import stage_conditions_for_location
+
+    _server, gen = _load()
+    start = datetime(2026, 1, 1, 10, 0, 0)
+    end = datetime(2026, 1, 8, 10, 0, 0)
+    for i in range(300):
+        for etype in ("daily", "weekly", "monthly"):
+            ev = gen.generate_event(etype, f"{etype}-{i}", start, end, 1, set(), set())
+            valid = stage_conditions_for_location(ev["location"])
+            assert valid, f"{ev['location']!r} was rolled with no verified conditions"
+            for st in ev["stages"]:
+                assert st["conditions_id"] in valid, (
+                    f"{etype} event at {ev['location']!r} uses conditions "
+                    f"{st['conditions_id']}, which that location cannot load "
+                    f"(valid: {valid})"
+                )

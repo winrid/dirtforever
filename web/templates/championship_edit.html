@@ -3,7 +3,7 @@
 
 {% block content %}
 {# ── Reusable row / event markup (also cloned by enhance.js) ── #}
-{% macro stage_row(ei, sj, stage, routes) %}
+{% macro stage_row(ei, sj, stage, routes, conds) %}
 <tr class="champ-stage-row">
     <td class="champ-col-stage mono">{{ '%02d'|format(sj + 1) }}</td>
     <td>
@@ -15,9 +15,15 @@
         </select>
     </td>
     <td>
-        <select name="events[{{ ei }}][stages][{{ sj }}][conditions]" class="form-input form-select">
-            {% for cid, label in condition_options %}
-            <option value="{{ cid }}" {% if stage.conditions_id == cid %}selected{% endif %}>{{ label }}</option>
+        {# Conditions are per-location: only ids this location ships lighting for. #}
+        <select name="events[{{ ei }}][stages][{{ sj }}][conditions]" class="form-input form-select champ-conditions">
+            {% if not conds %}<option value="">Select a location first</option>{% endif %}
+            {% set valid_ids = conds|map(attribute=0)|list %}
+            {% for cid, label in conds %}
+            {# No global default — an unset or unsupported id falls back to this
+               location's own first option. #}
+            <option value="{{ cid }}"
+                    {% if stage.conditions_id == cid or (stage.conditions_id not in valid_ids and loop.first) %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
         </select>
     </td>
@@ -106,7 +112,7 @@
                 </thead>
                 <tbody>
                     {% for stage in event.stages %}
-                    {{ stage_row(ei, loop.index0, stage, stage_routes.get(event.location, [])) }}
+                    {{ stage_row(ei, loop.index0, stage, stage_routes.get(event.location, []), conditions_by_location.get(event.location, [])) }}
                     {% endfor %}
                 </tbody>
                 <tfoot>
@@ -173,4 +179,5 @@
 
 <script type="application/json" id="routesByLocation">{{ stage_routes|tojson }}</script>
 <script type="application/json" id="stageCaps">{{ stage_caps|tojson }}</script>
+<script type="application/json" id="conditionsByLocation">{{ conditions_by_location|tojson }}</script>
 {% endblock %}

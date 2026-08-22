@@ -21,11 +21,12 @@ from dr2server.game_data import (
     get_verified_routes_for_location,
     surface_degrad_for_level,
     service_area_for_level,
-    stage_conditions_for_web,
     SURFACE_DEGRAD_LEVELS,
     SERVICE_AREA_LEVELS,
-    STAGE_CONDITIONS_OPTIONS,
     STAGE_CONDITIONS_LABELS,
+    Location,
+    stage_conditions_for_location,
+    stage_conditions_options_for_location,
 )
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
@@ -80,11 +81,21 @@ def test_service_area_mapping() -> None:
     assert service_area_for_level("None") == (False, 0)
 
 
-def test_stage_conditions_options() -> None:
-    assert STAGE_CONDITIONS_OPTIONS
-    for cid, label in STAGE_CONDITIONS_OPTIONS:
+def test_stage_conditions_options_are_per_location() -> None:
+    """Dropdown options come from the location, never a global list.
+
+    STAGE_CONDITIONS_OPTIONS used to provide them and was removed: it
+    collapsed the ids sharing a label by picking one arbitrarily, resolving
+    "Sunset / Cloudy / Wet" to 34 -- which no location ships lighting for.
+    """
+    import dr2server.game_data as game_data
+
+    assert not hasattr(game_data, 'STAGE_CONDITIONS_OPTIONS')
+    opts = stage_conditions_options_for_location(Location.GERMANY)
+    assert opts
+    for cid, label in opts:
         assert STAGE_CONDITIONS_LABELS[cid] == label
-    assert STAGE_CONDITIONS_OPTIONS == sorted(STAGE_CONDITIONS_OPTIONS)
+    assert [cid for cid, _ in opts] == stage_conditions_for_location(Location.GERMANY)
 
 
 # ── web/server.py schema helpers ─────────────────────────
@@ -130,7 +141,11 @@ def test_normalize_legacy_event() -> None:
     assert ev["car_class"] == "Group A"
     assert ev["duration"]  # derived from the legacy type
     st = ev["stages"][0]
-    assert st["conditions_id"] == stage_conditions_for_web("Dusk")
+    # Stage values are passed through untouched: normalize reshapes, it does
+    # not convert. A legacy stage with no conditions_id keeps none here --
+    # filling it is web/migrations 0001's job, at deploy time.
+    assert "conditions_id" not in st
+    assert st["conditions"] == "Dusk"
     assert champ["settings"] == server.DEFAULT_CHAMP_SETTINGS
     # Input is never mutated.
     assert "events" not in legacy

@@ -380,3 +380,27 @@ def test_every_rallycross_location_resolves_a_track() -> None:
         assert len(get_tracks_for_location(int(loc))) == 1, (
             f"rallycross location {loc.display_name!r} resolves no track"
         )
+
+
+def test_stage_without_conditions_uses_the_locations_default() -> None:
+    """A stage carrying no conditions id must not fall back to a global value.
+
+    Stage()'s default is 1, which Varmland cannot load -- it offers snow
+    conditions only. Every writer sets an id now, so this is only reachable for
+    hand-edited or foreign data, but the fallback should still be one the
+    location can actually render.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from dr2server.account_store import AccountStore
+    from dr2server.dispatcher import RpcDispatcher
+    from dr2server.game_data import stage_conditions_for_location
+
+    disp = RpcDispatcher(AccountStore(Path(tempfile.mkdtemp())))
+    for location, track in (("Sweden", 521), ("Germany", 489)):
+        ev = {"location": location, "stages": [{"track_id": track}]}
+        stage = disp._stages_for_subevent(ev, 1, 0, [track])[0]
+        assert stage.stage_conditions in stage_conditions_for_location(location), (
+            f"{location} served {stage.stage_conditions}, which it cannot load"
+        )

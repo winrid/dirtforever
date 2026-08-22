@@ -14,7 +14,11 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from dr2server.game_data import Location, get_verified_routes_for_location
+from dr2server.game_data import (
+    Location,
+    get_verified_routes_for_location,
+    stage_conditions_for_location,
+)
 
 WEB_DIR = Path(__file__).resolve().parents[1] / "web"
 
@@ -305,9 +309,12 @@ def test_one_live_championship_per_club() -> None:
 
     try:
         # Quick Event starts now -> always overlaps a live one.
+        # The form posts a StageConditions id, not a weather word: conditions
+        # are per-location now, so the id has to be one Poland can load.
         quick = {
             "name": "Quick Clash", "location": "Poland", "car_class": "Group A",
-            "conditions": "Clear", "duration": "24h", "num_stages": "1",
+            "conditions": str(stage_conditions_for_location("Poland")[0]),
+            "duration": "24h", "num_stages": "1",
         }
         r = client.post("/clubs/slotclub/events", data=quick, follow_redirects=True)
         assert r.status_code == 200
@@ -483,3 +490,89 @@ def test_event_duration_beyond_the_cap_is_rejected() -> None:
     assert r.status_code == 302
     assert r.headers["Location"].endswith("/preview")
     assert not [e for e in server.get_all_events() if e.get("name") == "Too Long"]
+
+
+def test_validation_rejects_conditions_the_location_cannot_load() -> None:
+    """Conditions are validated per location, exactly as routes already are.
+
+    This is the last gate before publish. Validating conditions against the
+    global label table would accept a real id whose lighting the location does
+    not ship, which loads the stage with a broken sky -- the bug the
+    per-location table exists to prevent.
+    """
+    server = _load()
+    routes = get_verified_routes_for_location(int(Location.GERMANY))
+    germany = stage_conditions_for_location(Location.GERMANY)
+    # 38 (Daytime / Overcast / Dry) is a real id, but only Poland and Argentina
+    # ship the lighting for it.
+    assert 38 not in germany
+
+    def events(cid: int) -> list[dict]:
+        return [{
+            "location": Location.GERMANY.display_name, "car_class": "R5",
+            "duration": {"days": 1, "hours": 0, "mins": 0},
+            "stages": [{"track_id": routes[0][0], "conditions_id": cid,
+                        "surface_deg": "Medium", "service_area": "Medium"}],
+        }]
+
+    def conditions_errors(cid: int) -> list[str]:
+        return [e for e in server._validate_championship(events(cid))
+                if "conditions" in e]
+
+    assert not conditions_errors(germany[0])
+    assert conditions_errors(38)
+    # 34 renders the same label as 20 but no location ships its lighting.
+    assert conditions_errors(34)
+
+
+def test_club_event_form_works_without_javascript() -> None:
+    """The conditions select must ship real options, not just a placeholder.
+
+    enhance.js narrows it to the chosen location, but a select holding only
+    `<option value="">` while marked `required` cannot be submitted at all with
+    JS off -- the browser blocks it before the server sees anything. Every
+    location's options are rendered grouped instead, and the server rejects a
+    location/conditions pair that does not match.
+    """
+    server = _load()
+    server.app.config["WTF_CSRF_ENABLED"] = False
+    uname = "nojsowner"
+    if not server.get_user(uname):
+        server.create_user(uname, "nojs@example.com", "pw", email_verified=True)
+    server.save_club({
+        "id": "nojsclub", "name": "NoJS", "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    client = server.app.test_client()
+    with client.session_transaction() as sess:
+        sess["username"] = uname
+
+    html = client.get("/clubs/nojsclub").get_data(as_text=True)
+    select = html[html.index('id="ev_conditions"'):]
+    select = select[:select.index("</select>")]
+    assert "<optgroup" in select, "conditions select renders no options without JS"
+    served = sum(len(ids) for ids in
+                 __import__("dr2server.game_data", fromlist=["x"])
+                 .STAGE_CONDITIONS_BY_LOCATION.values())
+    assert select.count("<option value=") == served + 1  # +1 placeholder
+
+    # A location/conditions pair the game can load is accepted...
+    good = stage_conditions_for_location(Location.GERMANY)[1]
+    client.post("/clubs/nojsclub/events", data={
+        "name": "NoJS Good", "location": Location.GERMANY.display_name,
+        "car_class": "R5", "conditions": str(good),
+        "num_stages": "1", "duration": "24h"})
+    made = [e for e in server.get_all_events() if e.get("name") == "NoJS Good"]
+    assert made and made[0]["stages"][0]["conditions_id"] == good
+
+    # ...and one from another location's group is not.
+    server.save_club({
+        "id": "nojsclub2", "name": "NoJS2", "created_by": uname,
+        "members": [uname], "created_at": "2026-01-01T00:00:00",
+    })
+    assert 38 not in stage_conditions_for_location(Location.GERMANY)
+    client.post("/clubs/nojsclub2/events", data={
+        "name": "NoJS Mismatch", "location": Location.GERMANY.display_name,
+        "car_class": "R5", "conditions": "38",
+        "num_stages": "1", "duration": "24h"})
+    assert not [e for e in server.get_all_events() if e.get("name") == "NoJS Mismatch"]

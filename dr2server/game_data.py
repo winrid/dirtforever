@@ -1123,38 +1123,87 @@ WeatherPreset = WeatherBucket
 
 
 # ---------------------------------------------------------------------------
-# StageConditions composite-ID labels (verified in-game 2026-04-11)
+# StageConditions composite-ID labels (verified in-game 2026-08-19)
 # ---------------------------------------------------------------------------
 # Earlier notes hypothesised a packed-nibble encoding (high=surface,
 # low=preset) but the in-game discovery round REJECTED that theory.  Example:
 # SC=9 has high nibble 0 but is "Wet"; SC=16 has high nibble 1 but is "Dry".
-# The integer is an arbitrary index into a table the game maintains
-# internally.  Every StageConditions value observed in upstream club data has
-# been pinned below by probing it in-game on Spain / Descenso and OCR'ing
-# the Event Details panel.
+# The integer is an arbitrary index into a table the game maintains internally.
+#
+# Every id upstream accepts ({1..24, 26, 28, 29, 32..57}, established by
+# sweeping TimeTrial.GetLeaderboardId against the real RaceNet host) has been
+# pinned by serving it to the game as a one-stage club event and OCR'ing the
+# label off the Event Details panel -- see scripts/probe_condition_labels.py.
+# The labels are GLOBAL: an id renders the same text at a location that ships
+# no lighting for it, which is exactly why the client cannot be relied on to
+# reject a wrong one (see STAGE_CONDITIONS_BY_LOCATION).
+#
+# Three labels are shared by two ids apiece, marked below.  They appear to be
+# duplicates introduced by different content drops -- RaceNet's own events used
+# 2/16 at base-game locations and 38/42 at Poland -- so which one a given
+# location can load has to come from evidence, never from picking either.
 
 STAGE_CONDITIONS_LABELS: Dict[int, str] = {
-    1:  "Daytime / Clear / Dry",
-    3:  "Night / Clear / Dry",
-    4:  "Dusk / Cloudy / Dry",
-    5:  "Dusk / Overcast / Dry",
-    9:  "Daytime / Heavy Rain / Wet",
-    11: "Daytime / Cloudy / Wet",
-    16: "Sunset / Cloudy / Dry",   # verified via RaceNet club builder 2026-07-07
-    17: "Sunset / Overcast / Dry",
-    20: "Sunset / Cloudy / Wet",   # in-game OCR variant; RaceNet builder emits 34 for this label
-    26: "Daytime / Showers / Wet",
-    32: "Daytime / Rain / Wet",    # verified via RaceNet club builder 2026-07-07 (distinct from 9 "Heavy Rain")
-    34: "Sunset / Cloudy / Wet",   # verified via RaceNet club builder 2026-07-07 (builder-canonical; cf. 20)
-    35: "Sunset / Light Showers / Wet",
-    38: "Daytime / Overcast / Dry",
-    39: "Sunset / Light Rain / Wet",
-    40: "Dusk / Showers / Wet",
-    47: "Sunset / Clear / Dry",
+     1: 'Daytime / Clear / Dry',
+     2: 'Daytime / Overcast / Dry',  # same label as [38]
+     3: 'Night / Clear / Dry',
+     4: 'Dusk / Cloudy / Dry',
+     5: 'Dusk / Overcast / Dry',
+     6: 'Dusk / Heavy Rain / Wet',
+     7: 'Dusk / Clear / Snow',
+     8: 'Dusk / Cloudy / Wet',
+     9: 'Daytime / Heavy Rain / Wet',
+    10: 'Daytime / Heavy Snow / Snow',
+    11: 'Daytime / Cloudy / Wet',
+    12: 'Night / Overcast / Dry',
+    13: 'Night / Heavy Rain / Wet',
+    14: 'Night / Light Snow / Dry',
+    15: 'Night / Cloudy / Wet',
+    16: 'Sunset / Cloudy / Dry',  # same label as [42]
+    17: 'Sunset / Overcast / Dry',
+    18: 'Sunset / Heavy Rain / Wet',
+    19: 'Sunset / Light Snow / Dry',
+    20: 'Sunset / Cloudy / Wet',  # same label as [34]
+    21: 'Daytime / Light Rain / Wet',
+    22: 'lng_conditions_dusk_rain_showers',  # untranslated in-game; the raw key is what the game shows
+    23: 'lng_conditions_sunset_rain_light',  # untranslated in-game; the raw key is what the game shows
+    24: 'lng_conditions_night_rain_light',  # untranslated in-game; the raw key is what the game shows
+    26: 'Daytime / Showers / Wet',
+    28: 'Night / Light Showers / Wet',
+    29: 'Daytime / Light Showers / Wet',
+    32: 'Daytime / Rain / Wet',
+    33: 'Dusk / Light Rain / Wet',
+    34: 'Sunset / Cloudy / Wet',  # same label as [20]
+    35: 'Sunset / Light Showers / Wet',
+    36: 'Night / Cloudy / Dry',
+    37: 'lng_conditions_midday_rain_showers',  # untranslated in-game; the raw key is what the game shows
+    38: 'Daytime / Overcast / Dry',  # same label as [2]
+    39: 'Sunset / Light Rain / Wet',
+    40: 'Dusk / Showers / Wet',
+    41: 'Night / Showers / Wet',
+    42: 'Sunset / Cloudy / Dry',  # same label as [16]
+    43: 'Dawn / Cloudy / Dry',
+    44: 'Dawn / Heavy Rain / Wet',
+    45: 'Sunrise / Overcast / Dry',
+    46: 'Sunrise / Cloudy / Wet',
+    47: 'Sunset / Clear / Dry',
+    48: 'Sunrise / Cloudy / Dry',
+    49: 'Sunrise / Light Rain Showers / Dry',
+    50: 'Sunrise / Light Rain / Wet',
+    51: 'Sunrise / Overcast / Wet',
+    52: 'Daytime / Cloudy / Snow',
+    53: 'Sunset / Partly Cloudy / Snow',
+    54: 'Dusk / Cloudy / Snow',
+    55: 'Night / Cloudy / Snow',
+    56: 'Sunset / Heavy Snow / Snow',
+    57: 'Night / Heavy Snow / Snow',
 }
-# NOTE: id 42 ("Sunset / Cloudy / Dry") was a hypothesised duplicate of 16 and is
-# NOT reachable from the RaceNet builder — its single "Sunset / Cloudy / Dry"
-# option emits 16 (proxy-captured 2026-07-07).  Removed as a dead guess.
+# NOTE: 42 was once assumed to be an unreachable duplicate of 16, because the
+# RaceNet club builder emitted 16 for its single "Sunset / Cloudy / Dry" option
+# (proxy-captured 2026-07-07).  That was a sampling artifact -- the builder was
+# driven at a location that ships sunset_dry.  The two select DIFFERENT
+# lighting, and RaceNet's own events used 42 at Poland, which ships
+# sunset_overcast and not sunset_dry; see STAGE_CONDITIONS_BY_LOCATION.
 
 
 def stage_conditions_label(value: int) -> str:
@@ -1166,70 +1215,270 @@ def stage_conditions_label(value: int) -> str:
     return STAGE_CONDITIONS_LABELS.get(int(value), f"Conditions #{int(value)}")
 
 
-# Maps the web club-event "conditions" dropdown labels (see web/server.py
-# CONDITIONS) onto the verified StageConditions label they should load. The
-# numeric StageConditions id lives only in STAGE_CONDITIONS_LABELS; we resolve
-# it from the label (below) so the ordinals aren't duplicated here.
-WEB_CONDITIONS_TO_STAGE_LABEL: Dict[str, str] = {
-    "Clear":      "Daytime / Clear / Dry",
-    "Overcast":   "Daytime / Overcast / Dry",
-    "Light Rain": "Daytime / Showers / Wet",
-    "Heavy Rain": "Daytime / Heavy Rain / Wet",
-    "Dusk":       "Dusk / Cloudy / Dry",
-    "Night":      "Night / Clear / Dry",
+# NOTE: there is deliberately no global "web label -> StageConditions" mapping
+# and no global default any more.  Conditions are per-location (see
+# STAGE_CONDITIONS_BY_LOCATION below): a fixed label list would keep offering
+# ids at locations that ship no lighting for them, which loads the stage with a
+# broken sky, and no single id — id 1 included — is valid everywhere.
+
+
+# NOTE: there is deliberately no global list of conditions ids here either.
+# OBSERVED_STAGE_CONDITIONS / STAGE_CONDITIONS_OPTIONS used to serve that role
+# and were removed: any UI built from them offers ids the chosen location
+# cannot load.  Worse, collapsing the twins by label picked one arbitrarily --
+# it resolved "Sunset / Cloudy / Wet" to 34, which NO location ships lighting
+# for.  Use stage_conditions_options_for_location() instead.
+
+
+# ---------------------------------------------------------------------------
+# Per-location StageConditions  (VERIFIED in-game 2026-08-19)
+# ---------------------------------------------------------------------------
+# StageConditions is a GLOBAL enum -- id 9 reads "Daytime / Heavy Rain / Wet"
+# everywhere -- but a location only ships lighting assets for a subset of it.
+# Serving an id a location lacks does not error: RaceNet accepted any id for
+# any track, and the stage simply loads with a broken sky/lighting setup.  The
+# game client is the only validator, so the allowed set has to live here.
+#
+# Enumerated from Freeplay -> Custom -> Create Championship, whose per-stage
+# "Stage Conditions" selector (rally) and "Weather" row (rallycross) list
+# exactly what each location supports.  Raw sweep of all 26 selectable
+# locations: data/verified/conditions_by_location.json, collected by
+# scripts/probe_all_conditions.py and turned into this table by
+# scripts/_build_conditions_table.py.
+#
+# Ids appear in the order the game lists them, so entry 0 is the location's own
+# first option -- that is what callers pre-select.  There is deliberately no
+# global default: Varmland offers no "Daytime / Clear / Dry" at all, so id 1 is
+# not safe everywhere and no single id is.
+#
+# Three labels are each shared by two ids that select DIFFERENT lighting, so a
+# location loads only the twin whose file it ships -- Poland renders 42 and
+# tears the sky on 16 (both verified by loading the stage).  Each such option
+# is resolved by, strongest evidence first: loading it in-game; the location's
+# .nefs lighting file table; or, for the five rallycross circuits whose archive
+# is encrypted, the fact that every readable RX circuit ships an identical
+# lighting set and offers an identical in-game option list.
+#
+# Regenerate with scripts/_resolve_all_conditions.py + _apply_probed_labels.py.
+# The standard rallycross lighting set: every RX circuit that ships it
+# resolves identically, so it is named once rather than repeated -- a
+# correction here reaches all of them at once.
+_RX_CONDITIONS: tuple[int, ...] = (1, 11, 9, 16, 20, 18,)
+#    1 Daytime / Clear / Dry
+#   11 Daytime / Cloudy / Wet
+#    9 Daytime / Heavy Rain / Wet
+#   16 Sunset / Cloudy / Dry
+#   20 Sunset / Cloudy / Wet
+#   18 Sunset / Heavy Rain / Wet
+
+
+STAGE_CONDITIONS_BY_LOCATION: Dict[Location, tuple[int, ...]] = {
+    Location.ARGENTINA: (1, 2, 29, 21, 16, 4, 6, 3,),
+        #  1 Daytime / Clear / Dry
+        #  2 Daytime / Overcast / Dry
+        # 29 Daytime / Light Showers / Wet
+        # 21 Daytime / Light Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  6 Dusk / Heavy Rain / Wet
+        #  3 Night / Clear / Dry
+    Location.AUSTRALIA: (1, 11, 26, 32, 16, 17, 20, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 32 Daytime / Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+    Location.FINLAND: (1, 2, 9, 16, 8, 5, 6, 3,),
+        #  1 Daytime / Clear / Dry
+        #  2 Daytime / Overcast / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  8 Dusk / Cloudy / Wet
+        #  5 Dusk / Overcast / Dry
+        #  6 Dusk / Heavy Rain / Wet
+        #  3 Night / Clear / Dry
+    Location.GERMANY: (1, 9, 16, 18, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 18 Sunset / Heavy Rain / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+    Location.GREECE: (1, 2, 16, 18, 4, 3,),
+        #  1 Daytime / Clear / Dry
+        #  2 Daytime / Overcast / Dry
+        # 16 Sunset / Cloudy / Dry
+        # 18 Sunset / Heavy Rain / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+    Location.MONTE_CARLO: (1, 16, 19, 4, 3, 14,),
+        #  1 Daytime / Clear / Dry
+        # 16 Sunset / Cloudy / Dry
+        # 19 Sunset / Light Snow / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # 14 Night / Light Snow / Dry
+    Location.NEW_ZEALAND: (1, 11, 26, 16, 6, 33, 3, 15, 28,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 16 Sunset / Cloudy / Dry
+        #  6 Dusk / Heavy Rain / Wet
+        # 33 Dusk / Light Rain / Wet
+        #  3 Night / Clear / Dry
+        # 15 Night / Cloudy / Wet
+        # 28 Night / Light Showers / Wet
+    Location.POLAND: (1, 9, 38, 20, 35, 42, 4, 3, 13, 36,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 38 Daytime / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        # 35 Sunset / Light Showers / Wet
+        # 42 Sunset / Cloudy / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # 13 Night / Heavy Rain / Wet
+        # 36 Night / Cloudy / Dry
+    Location.SPAIN: (1, 11, 26, 17, 20, 39, 4, 8, 40, 3,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 17 Sunset / Overcast / Dry
+        # 20 Sunset / Cloudy / Wet
+        # 39 Sunset / Light Rain / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  8 Dusk / Cloudy / Wet
+        # 40 Dusk / Showers / Wet
+        #  3 Night / Clear / Dry
+    Location.SWEDEN: (52, 10, 53, 56, 54, 55, 57,),
+        # 52 Daytime / Cloudy / Snow
+        # 10 Daytime / Heavy Snow / Snow
+        # 53 Sunset / Partly Cloudy / Snow
+        # 56 Sunset / Heavy Snow / Snow
+        # 54 Dusk / Cloudy / Snow
+        # 55 Night / Cloudy / Snow
+        # 57 Night / Heavy Snow / Snow
+    Location.NEW_ENGLAND: (1, 11, 26, 20, 35, 4, 3, 13, 41, 36,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 26 Daytime / Showers / Wet
+        # 20 Sunset / Cloudy / Wet
+        # 35 Sunset / Light Showers / Wet
+        #  4 Dusk / Cloudy / Dry
+        #  3 Night / Clear / Dry
+        # 13 Night / Heavy Rain / Wet
+        # 41 Night / Showers / Wet
+        # 36 Night / Cloudy / Dry
+    Location.WALES: (1, 9, 16, 20, 3, 13,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 16 Sunset / Cloudy / Dry
+        # 20 Sunset / Cloudy / Wet
+        #  3 Night / Clear / Dry
+        # 13 Night / Heavy Rain / Wet
+    Location.SCOTLAND: (1, 9, 11, 47, 18, 6, 3, 13,),
+        #  1 Daytime / Clear / Dry
+        #  9 Daytime / Heavy Rain / Wet
+        # 11 Daytime / Cloudy / Wet
+        # 47 Sunset / Clear / Dry
+        # 18 Sunset / Heavy Rain / Wet
+        #  6 Dusk / Heavy Rain / Wet
+        #  3 Night / Clear / Dry
+        # 13 Night / Heavy Rain / Wet
+    Location.METTET: _RX_CONDITIONS,
+    Location.TROIS_RIVIERES: _RX_CONDITIONS,
+    Location.LYDDEN_HILL: _RX_CONDITIONS,
+    Location.SILVERSTONE: _RX_CONDITIONS,
+    Location.LOHEAC: _RX_CONDITIONS,
+    Location.ESTERING: _RX_CONDITIONS,
+    Location.BIKERNIEKI: _RX_CONDITIONS,
+    Location.HELL: _RX_CONDITIONS,
+    Location.MONTALEGRE: _RX_CONDITIONS,
+    Location.KILLARNEY: _RX_CONDITIONS,
+    Location.BARCELONA: _RX_CONDITIONS,
+    Location.HOLJES: _RX_CONDITIONS,
+    Location.YAS_MARINA: (1, 11, 20, 47, 4, 8,),
+        #  1 Daytime / Clear / Dry
+        # 11 Daytime / Cloudy / Wet
+        # 20 Sunset / Cloudy / Wet
+        # 47 Sunset / Clear / Dry
+        #  4 Dusk / Cloudy / Dry
+        #  8 Dusk / Cloudy / Wet
+    # TWIN_PEAKS: not offered in the Freeplay builder, so unverified
 }
 
-_STAGE_LABEL_TO_ID: Dict[str, int] = {
-    label: value for value, label in STAGE_CONDITIONS_LABELS.items()
-}
+
+def _resolve_location(location: object) -> Optional[Location]:
+    """Accept a Location, its int id, or its display name."""
+    if isinstance(location, Location):
+        return location
+    if isinstance(location, int):
+        try:
+            return Location(location)
+        except ValueError:
+            return None
+    if isinstance(location, str):
+        want = location.strip().lower()
+        for loc in Location:
+            if want in (loc.display_name.lower(), loc.name.lower()):
+                return loc
+    return None
 
 
-def stage_conditions_for_web(label: str) -> int:
-    """Resolve a web conditions label to a verified StageConditions int.
+def stage_conditions_for_location(location: object) -> List[int]:
+    """StageConditions ids this location actually ships lighting for.
 
-    Unknown labels fall back to 1 (Daytime / Clear / Dry), which is the same
-    default the game would otherwise load.
+    Empty when the location has not been swept, which callers must treat as
+    "cannot offer conditions here" rather than falling back to a global value.
     """
-    stage_label = WEB_CONDITIONS_TO_STAGE_LABEL.get(label)
-    if stage_label is None:
-        return 1
-    return _STAGE_LABEL_TO_ID[stage_label]
+    loc = _resolve_location(location)
+    if loc is None:
+        return []
+    return list(STAGE_CONDITIONS_BY_LOCATION.get(loc, ()))
 
 
-# StageConditions integer values observed in the wild (upstream club data +
-# time-trial captures).  Kept as a sorted list for UI dropdowns.
-OBSERVED_STAGE_CONDITIONS: List[int] = sorted(STAGE_CONDITIONS_LABELS.keys())
-
-# StageConditions ids the RaceNet club builder itself emits, verified 2026-07-07
-# by proxy-capturing Clubs.GetClubs from a championship built on real RaceNet.
-# When two ids render as the same in-game label (e.g. 20 and 34 both read
-# "Sunset / Cloudy / Wet"), the builder canonically uses the id listed here.
-RACENET_BUILDER_CONDITION_IDS: frozenset[int] = frozenset({1, 3, 4, 11, 16, 17, 26, 32, 34})
+def default_stage_conditions_for_location(location: object) -> Optional[int]:
+    """The location's own first option, or None if we have no verified set."""
+    ids = stage_conditions_for_location(location)
+    return ids[0] if ids else None
 
 
-def _build_stage_conditions_options() -> List[tuple[int, str]]:
-    """(composite_id, label) pairs for the championship-builder "Time of Day /
-    Conditions" dropdown — one row per distinct label.
+def stage_conditions_options_for_location(location: object) -> List[tuple[int, str]]:
+    """(id, label) pairs to populate a conditions dropdown for one location."""
+    return [(cid, stage_conditions_label(cid))
+            for cid in stage_conditions_for_location(location)]
 
-    Where several ids share a label, the RaceNet-builder-canonical id
-    (:data:`RACENET_BUILDER_CONDITION_IDS`) wins, so the builder writes the same
-    StageConditions int RaceNet's own builder would and the stage loads correctly
-    in-game.
+
+def stage_conditions_sibling_for_location(location: object,
+                                          conditions_id: object) -> Optional[int]:
+    """An id valid at ``location`` that renders the same label as the given one.
+
+    Three labels are each shared by two ids selecting different lighting, so an
+    id one location cannot load often has a sibling there that reads
+    identically -- 34 and 20 are both "Sunset / Cloudy / Wet", and no location
+    ships 34's lighting while 18 ship 20's.  Substituting the sibling keeps the
+    weather someone chose instead of silently resetting it.
+
+    Returns None when the location has no id with that label (or none at all).
     """
-    by_label: Dict[str, int] = {}
-    for cid, label in sorted(STAGE_CONDITIONS_LABELS.items()):
-        current = by_label.get(label)
-        if current is None:
-            by_label[label] = cid
-        elif cid in RACENET_BUILDER_CONDITION_IDS and current not in RACENET_BUILDER_CONDITION_IDS:
-            by_label[label] = cid
-    return sorted((cid, label) for label, cid in by_label.items())
-
-
-# (composite_id, label) pairs for the championship-builder "Time of Day /
-# Conditions" dropdown.  These are the CONFIRMED values from the table above,
-# so the per-stage conditions the user picks always load correctly in-game.
-STAGE_CONDITIONS_OPTIONS: List[tuple[int, str]] = _build_stage_conditions_options()
+    try:
+        cid = int(conditions_id)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    valid = stage_conditions_for_location(location)
+    if cid in valid:
+        return cid
+    label = stage_conditions_label(cid)
+    if label.startswith("Conditions #"):
+        return None               # unknown id: nothing to match on
+    for candidate in valid:
+        if stage_conditions_label(candidate) == label:
+            return candidate
+    return None
 
 
 # ---------------------------------------------------------------------------

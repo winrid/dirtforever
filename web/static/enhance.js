@@ -136,6 +136,30 @@
         catch (e) { caps = {}; }
 
         var hint = document.getElementById('ev_stage_hint');
+        var conds = document.getElementById('ev_conditions');
+
+        var condsByLocation;
+        try { condsByLocation = JSON.parse((conds && conds.getAttribute('data-conditions')) || '{}'); }
+        catch (e) { condsByLocation = {}; }
+
+        /* Conditions are per-location: a location only ships lighting for a
+           subset of them, so offer nothing else and preselect its first. */
+        function applyConditions() {
+            if (!conds) return;
+            var opts = condsByLocation[loc.value] || [];
+            var current = conds.value;
+            if (!opts.length) {
+                conds.innerHTML = '<option value="">'
+                    + (loc.value ? 'No verified conditions for this location yet'
+                                 : 'Select a location first') + '</option>';
+                return;
+            }
+            var keep = opts.some(function (o) { return String(o[0]) === String(current); });
+            conds.innerHTML = opts.map(function (o, i) {
+                var sel = keep ? (String(o[0]) === String(current)) : (i === 0);
+                return '<option value="' + o[0] + '"' + (sel ? ' selected' : '') + '>' + o[1] + '</option>';
+            }).join('');
+        }
 
         function applyCap() {
             var cap = caps[loc.value];
@@ -150,8 +174,9 @@
                 : 'This location supports up to ' + cap + ' stages.';
         }
 
-        loc.addEventListener('change', applyCap);
+        loc.addEventListener('change', function () { applyCap(); applyConditions(); });
         applyCap();
+        applyConditions();
     }
 
     /* ── Championship builder: routes, stage add/remove, live end ── */
@@ -166,6 +191,9 @@
         catch (e) { routesByLocation = {}; }
         try { stageCaps = JSON.parse((document.getElementById('stageCaps') || {}).textContent || '{}'); }
         catch (e) { stageCaps = {}; }
+        var conditionsByLocation = {};
+        try { conditionsByLocation = JSON.parse((document.getElementById('conditionsByLocation') || {}).textContent || '{}'); }
+        catch (e) { conditionsByLocation = {}; }
 
         function section(el) { return el.closest('.champ-event'); }
         function evIndex(sec) { return sec.getAttribute('data-event-index'); }
@@ -182,7 +210,30 @@
                 });
                 sel.innerHTML = html;
             });
+            populateConditions(sec);
             updateStageHint(sec);
+        }
+
+        /* Conditions are per-location: the game only ships lighting for a
+           subset at each one, so rebuild the list whenever the location
+           changes and keep the current pick only if it survives. */
+        function populateConditions(sec) {
+            var loc = sec.querySelector('.champ-location').value;
+            var opts = conditionsByLocation[loc] || [];
+            sec.querySelectorAll('.champ-conditions').forEach(function (sel) {
+                var current = sel.value;
+                if (!opts.length) {
+                    sel.innerHTML = '<option value="">'
+                        + (loc ? 'No verified conditions for this location yet'
+                               : 'Select a location first') + '</option>';
+                    return;
+                }
+                var keep = opts.some(function (o) { return String(o[0]) === String(current); });
+                sel.innerHTML = opts.map(function (o, i) {
+                    var isSel = keep ? (String(o[0]) === String(current)) : (i === 0);
+                    return '<option value="' + o[0] + '"' + (isSel ? ' selected' : '') + '>' + o[1] + '</option>';
+                }).join('');
+            });
         }
 
         function updateStageHint(sec) {
