@@ -17,6 +17,7 @@ if str(WEB_DIR) not in sys.path:
     sys.path.insert(0, str(WEB_DIR))
 
 import migrations  # noqa: E402
+from migrations import __main__ as mmain  # noqa: E402
 from migrations import m0001_per_location_stage_conditions as m0001  # noqa: E402
 
 
@@ -325,3 +326,37 @@ def test_revert_survives_a_deleted_file(tmp_path: Path) -> None:
 
     log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
     assert migrations.revert(data, log_file, log=lambda _m: None) == 0
+
+
+# ── the runner's DATA_DIR (regression: PR #53 deploy) ────────────────────────
+
+def test_default_data_dir_comes_from_the_deploy_dotenv(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Nothing sources .env into the service environment, so a runner that only
+    # read os.environ resolved web/data, which does not exist on a deploy --
+    # `set -e` in run.sh then took the whole service down instead of migrating.
+    env_file = tmp_path / ".env"
+    env_file.write_text("# comment\nSECRET_KEY=x\nDATA_DIR=/srv/store\n",
+                        encoding="utf-8")
+    monkeypatch.setattr(mmain, "ENV_FILE", env_file)
+    monkeypatch.delenv("DATA_DIR", raising=False)
+
+    assert mmain._default_data_dir() == "/srv/store"
+
+
+def test_real_env_wins_over_the_dotenv(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("DATA_DIR=/srv/store\n", encoding="utf-8")
+    monkeypatch.setattr(mmain, "ENV_FILE", env_file)
+    monkeypatch.setenv("DATA_DIR", "/explicit")
+
+    assert mmain._default_data_dir() == "/explicit"
+
+
+def test_missing_dotenv_falls_back_to_web_data(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(mmain, "ENV_FILE", tmp_path / "absent.env")
+    monkeypatch.delenv("DATA_DIR", raising=False)
+
+    assert mmain._default_data_dir() == str(WEB_DIR / "data")
