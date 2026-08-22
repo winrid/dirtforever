@@ -19,6 +19,7 @@ if str(WEB_DIR) not in sys.path:
 import migrations  # noqa: E402
 from migrations import __main__ as mmain  # noqa: E402
 from migrations import m0001_per_location_stage_conditions as m0001  # noqa: E402
+from migrations import m0002_nearest_stage_conditions as m0002  # noqa: E402
 
 
 def _store(tmp_path: Path, events: dict[str, dict]) -> Path:
@@ -33,6 +34,12 @@ def _read(data_dir: Path, name: str) -> dict:
     return json.loads((data_dir / "events" / f"{name}.json").read_text(encoding="utf-8"))
 
 
+def _log_for(data_dir: Path, migration_id: str) -> Path:
+    """One migration's changes.json. Each run writes its own, so a test that
+    reverts has to name the one it means."""
+    return next((data_dir / migrations.BACKUP_DIR).glob(f"{migration_id}*/changes.json"))
+
+
 # ── framework ────────────────────────────────────────────────────────────────
 
 def test_discover_ids_match_filenames() -> None:
@@ -43,8 +50,8 @@ def test_discover_ids_match_filenames() -> None:
 
 def test_runs_once_and_records_state(tmp_path: Path) -> None:
     data = _store(tmp_path, {})
-    assert migrations.run_pending(data, log=lambda _m: None) == 1
-    assert m0001.ID in migrations.applied_ids(data)
+    assert migrations.run_pending(data, log=lambda _m: None) == len(migrations.discover())
+    assert {m0001.ID, m0002.ID} <= migrations.applied_ids(data)
     # Second deploy: nothing pending.
     assert migrations.run_pending(data, log=lambda _m: None) == 0
 
@@ -100,9 +107,10 @@ def test_invalid_id_is_replaced_with_a_valid_one(tmp_path: Path) -> None:
     doc = _read(data, "evt-de")
     stage = doc["events"][0]["stages"][0]
     assert stage["conditions_id"] in stage_conditions_for_location("Germany")
-    # The label follows the id, so the site shows what the game will load.
-    assert stage["conditions"] == "Daytime / Clear / Dry"
-    assert doc["conditions"] == "Daytime / Clear / Dry"
+    # The label follows the id, so the site shows what the game will load,
+    # and 0002 keeps it on the dry surface it was written with.
+    assert stage["conditions"] == "Sunset / Cloudy / Dry"
+    assert doc["conditions"] == stage["conditions"]
 
 
 def test_twin_id_keeps_the_owners_weather(tmp_path: Path) -> None:
@@ -177,16 +185,19 @@ def test_legacy_label_without_id_is_resolved(tmp_path: Path) -> None:
     assert stage["conditions_id"] == 38
 
 
-def test_legacy_label_the_location_lacks_falls_back_to_its_first_option(tmp_path: Path) -> None:
+def test_legacy_label_the_location_lacks_lands_on_its_closest_option(tmp_path: Path) -> None:
+    # Germany has no midday overcast. 0001 reset this to the location's first
+    # option; 0002 keeps it on the closest dry option instead.
     data = _store(tmp_path, {"evt-old-de": {
         "id": "evt-old-de", "location": "Germany", "conditions": "Overcast",
         "stages": [{"name": "X", "conditions": "Overcast"}],
     }})
     migrations.run_pending(data, log=lambda _m: None)
 
-    from dr2server.game_data import default_stage_conditions_for_location
+    from dr2server.game_data import stage_conditions_for_location
     stage = _read(data, "evt-old-de")["stages"][0]
-    assert stage["conditions_id"] == default_stage_conditions_for_location("Germany")
+    assert stage["conditions_id"] in stage_conditions_for_location("Germany")
+    assert stage["conditions"].endswith("/ Dry")
 
 
 def test_unverified_location_is_untouched(tmp_path: Path) -> None:
@@ -242,9 +253,7 @@ def test_changes_file_records_before_and_after(tmp_path: Path) -> None:
     }})
     migrations.run_pending(data, log=lambda _m: None)
 
-    logs = list((data / migrations.BACKUP_DIR).glob("*/changes.json"))
-    assert len(logs) == 1
-    doc = json.loads(logs[0].read_text(encoding="utf-8"))
+    doc = json.loads(_log_for(data, m0001.ID).read_text(encoding="utf-8"))
     assert doc["migration"] == m0001.ID
     assert doc["count"] == len(doc["changes"])
 
@@ -271,7 +280,7 @@ def test_revert_restores_the_original_file(tmp_path: Path) -> None:
     migrations.run_pending(data, log=lambda _m: None)
     assert _read(data, "evt-mix") != original          # it really did change
 
-    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    log_file = _log_for(data, m0001.ID)
     migrations.revert(data, log_file, log=lambda _m: None)
     assert _read(data, "evt-mix") == original
 
@@ -285,7 +294,7 @@ def test_revert_restores_a_field_that_did_not_exist(tmp_path: Path) -> None:
     migrations.run_pending(data, log=lambda _m: None)
     assert "conditions_id" in _read(data, "evt-bare")["stages"][0]
 
-    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    log_file = _log_for(data, m0001.ID)
     migrations.revert(data, log_file, log=lambda _m: None)
     assert _read(data, "evt-bare") == original
 
@@ -307,7 +316,7 @@ def test_revert_leaves_unrelated_edits_alone(tmp_path: Path) -> None:
     doc["name"] = "Renamed after the migration"
     (data / "events" / "evt-later.json").write_text(json.dumps(doc), encoding="utf-8")
 
-    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    log_file = _log_for(data, m0001.ID)
     migrations.revert(data, log_file, log=lambda _m: None)
 
     after = _read(data, "evt-later")
@@ -324,7 +333,7 @@ def test_revert_survives_a_deleted_file(tmp_path: Path) -> None:
     migrations.run_pending(data, log=lambda _m: None)
     (data / "events" / "evt-gone.json").unlink()
 
-    log_file = next((data / migrations.BACKUP_DIR).glob("*/changes.json"))
+    log_file = _log_for(data, m0001.ID)
     assert migrations.revert(data, log_file, log=lambda _m: None) == 0
 
 
@@ -360,3 +369,98 @@ def test_missing_dotenv_falls_back_to_web_data(
     monkeypatch.delenv("DATA_DIR", raising=False)
 
     assert mmain._default_data_dir() == str(WEB_DIR / "data")
+
+
+# ── 0002: keep the surface instead of resetting to the location default ──────
+
+def test_0002_puts_back_the_wet_that_0001_flattened(tmp_path: Path) -> None:
+    # Argentina cannot load 9 (Daytime / Heavy Rain / Wet), so 0001 reset the
+    # stage to the location's dry first option. It ships three wet options, and
+    # the stage was deliberately made wet.
+    data = _store(tmp_path, {"evt-ar": {
+        "id": "evt-ar", "location": "Argentina",
+        "conditions": "Daytime / Heavy Rain / Wet",
+        "events": [{"location": "Argentina", "stages": [
+            {"track_id": 1, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+
+    doc = _read(data, "evt-ar")
+    stage = doc["events"][0]["stages"][0]
+    assert stage["conditions"] == "Daytime / Light Rain / Wet"
+    assert stage["conditions_id"] == 21
+    # The event-level mirror follows stage 1, as it did under 0001.
+    assert doc["conditions"] == stage["conditions"]
+
+
+def test_0002_leaves_a_stage_edited_since_alone(tmp_path: Path) -> None:
+    """Someone re-picking conditions after 0001 outranks the repair."""
+    data = _store(tmp_path, {"evt-ar": {
+        "id": "evt-ar", "location": "Argentina",
+        "events": [{"location": "Argentina", "stages": [
+            {"track_id": 1, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+            {"track_id": 2, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }})
+    # Apply 0001 alone, exactly as the runner does, so 0002 is still pending
+    # when the edit lands.
+    first = m0001.run(data)
+    migrations.write_changes(data, m0001.ID, first)
+    migrations.record(data, m0001.ID, first)
+    assert m0002.ID not in migrations.applied_ids(data)
+
+    doc = _read(data, "evt-ar")
+    doc["events"][0]["stages"][0] = {"track_id": 1, "conditions_id": 3,
+                                     "conditions": "Night / Clear / Dry"}
+    (data / "events" / "evt-ar.json").write_text(json.dumps(doc), encoding="utf-8")
+
+    migrations.run_pending(data, log=lambda _m: None)
+    stages = _read(data, "evt-ar")["events"][0]["stages"]
+    assert stages[0]["conditions_id"] == 3, "overwrote a choice made after 0001 ran"
+    # ...while the stage nobody touched still gets repaired, so the skip above
+    # is the check doing the work and not a migration that did nothing.
+    assert stages[1]["conditions_id"] == 21
+
+
+def test_0002_is_a_no_op_without_0001s_log(tmp_path: Path) -> None:
+    # Nothing to re-resolve: the store no longer records what was asked for, so
+    # guessing from the current value would be inventing intent.
+    data = _store(tmp_path, {"evt-pl": {
+        "id": "evt-pl", "location": "Poland",
+        "events": [{"location": "Poland", "stages": [{"conditions_id": 1}]}],
+    }})
+    result = m0002.run(data)
+    assert result.changed == 0
+    assert result.changes == []
+    assert _read(data, "evt-pl")["events"][0]["stages"][0]["conditions_id"] == 1
+
+
+def test_0002_is_idempotent(tmp_path: Path) -> None:
+    data = _store(tmp_path, {"evt-ar": {
+        "id": "evt-ar", "location": "Argentina",
+        "events": [{"location": "Argentina", "stages": [
+            {"track_id": 1, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+    once = _read(data, "evt-ar")
+
+    again = m0002.run(data)
+    assert again.changed == 0
+    assert _read(data, "evt-ar") == once
+
+
+def test_0002_reverts_value_by_value(tmp_path: Path) -> None:
+    data = _store(tmp_path, {"evt-ar": {
+        "id": "evt-ar", "location": "Argentina",
+        "events": [{"location": "Argentina", "stages": [
+            {"track_id": 1, "conditions_id": 9, "conditions": "Daytime / Heavy Rain / Wet"},
+        ]}],
+    }})
+    migrations.run_pending(data, log=lambda _m: None)
+    migrations.revert(data, _log_for(data, m0002.ID), log=lambda _m: None)
+
+    # Back to what 0001 left, not back to the unloadable original.
+    stage = _read(data, "evt-ar")["events"][0]["stages"][0]
+    assert stage["conditions_id"] == 1

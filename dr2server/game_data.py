@@ -1481,6 +1481,125 @@ def stage_conditions_sibling_for_location(location: object,
     return None
 
 
+# Ordinal scales behind nearest_stage_conditions_for_location().  Both run from
+# lightest/mildest to darkest/heaviest, so |a - b| is a usable distance.
+_TIME_OF_DAY_ORDER = ('Dawn', 'Sunrise', 'Daytime', 'Sunset', 'Dusk', 'Night')
+_WEATHER_ORDER = (
+    'Clear', 'Partly Cloudy', 'Cloudy', 'Overcast',
+    'Light Rain Showers', 'Light Showers', 'Showers',
+    'Light Rain', 'Rain', 'Heavy Rain',
+)
+# Snow sits on its own axis (it mostly pairs with the Snow surface), so it gets
+# positions parallel to the rain scale rather than its own metric.
+_WEATHER_POSITIONS = {name: i for i, name in enumerate(_WEATHER_ORDER)}
+_WEATHER_POSITIONS['Light Snow'] = _WEATHER_POSITIONS['Light Showers']
+_WEATHER_POSITIONS['Heavy Snow'] = _WEATHER_POSITIONS['Heavy Rain']
+
+# Those parallel positions make snow numerically close to the rain it mirrors,
+# which is wrong as a substitution: Monte Carlo ships no wet conditions at all,
+# and a stage asking for Showers is better served by its cloudy dry option than
+# by turning the rain into snow.  Rank a candidate that falls the same way
+# first, then one with no precipitation, and only then the other kind.
+_WEATHER_FAMILY = {name: ('snow' if 'Snow' in name else
+                          'rain' if ('Rain' in name or 'Showers' in name) else 'none')
+                   for name in _WEATHER_POSITIONS}
+
+# What each surface implies it is doing.  Once the surface has had to change --
+# Sweden is snow-only, so a wet stage there cannot stay wet -- the precipitation
+# native to the new surface counts as keeping the weather rather than swapping
+# it: heavy rain becomes heavy snow, not a clear day.
+_SURFACE_PRECIPITATION = {'Snow': 'snow', 'Wet': 'rain', 'Dry': 'none'}
+
+
+def split_stage_conditions_label(label: object) -> Optional[tuple[str, str, str]]:
+    """("Daytime", "Heavy Rain", "Wet") for a label, or None if it isn't one.
+
+    Four ids carry an untranslated ``lng_conditions_*`` string instead of a
+    label; those parse to None, and callers fall back rather than guess.
+    """
+    parts = [p.strip() for p in str(label or '').split('/')]
+    if len(parts) != 3 or not all(parts):
+        return None
+    if parts[0] not in _TIME_OF_DAY_ORDER or parts[1] not in _WEATHER_POSITIONS:
+        return None
+    return parts[0], parts[1], parts[2]
+
+
+def nearest_stage_conditions_for_location(location: object,
+                                          conditions_id: object = None,
+                                          label: object = None) -> Optional[int]:
+    """The closest thing ``location`` can actually load to what was asked for.
+
+    Conditions are per-location, so a pick has to be mapped onto the location's
+    own set.  An exact id, then a twin id reading the same label, are used
+    as-is.  Otherwise the surface is treated as the part worth protecting -- a
+    wet stage stays wet, a snow stage stays snow -- and among the options that
+    keep it we take the smallest combined distance in weather and time of day,
+    breaking a tie toward the one that keeps the time of day (lighting reads as
+    a bigger change than rain going from heavy to light).
+
+    Only when the location has no option sharing the surface do we score its
+    whole set, and only when there is nothing to score against at all does this
+    fall back to the location's first option.  Returns None when the location
+    has no verified set, which callers must treat as "cannot offer conditions
+    here" rather than substituting a global default.
+
+    Pass ``label`` for data that stored a label and no id.
+    """
+    valid = stage_conditions_for_location(location)
+    if not valid:
+        return None
+
+    exact = stage_conditions_sibling_for_location(location, conditions_id)
+    if exact is not None:
+        return exact
+
+    wanted = None
+    if conditions_id is not None:
+        try:
+            wanted = split_stage_conditions_label(
+                stage_conditions_label(int(conditions_id)))  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            wanted = None
+    if wanted is None:
+        wanted = split_stage_conditions_label(label)
+    if wanted is None:
+        return valid[0]
+
+    want_time, want_weather, want_surface = wanted
+    for candidate in valid:                      # a label match beats scoring
+        if stage_conditions_label(candidate) == ' / '.join(wanted):
+            return candidate
+
+    scored = []
+    for order, candidate in enumerate(valid):
+        parts = split_stage_conditions_label(stage_conditions_label(candidate))
+        if parts is None:
+            continue
+        cand_time, cand_weather, cand_surface = parts
+        time_distance = abs(_TIME_OF_DAY_ORDER.index(cand_time)
+                            - _TIME_OF_DAY_ORDER.index(want_time))
+        weather_distance = abs(_WEATHER_POSITIONS[cand_weather]
+                               - _WEATHER_POSITIONS[want_weather])
+        family = _WEATHER_FAMILY[cand_weather]
+        want_family = _WEATHER_FAMILY[want_weather]
+        if family == want_family or (
+                cand_surface != want_surface
+                and family == _SURFACE_PRECIPITATION.get(cand_surface)):
+            family_penalty = 0
+        else:
+            family_penalty = 1 if family == 'none' else 2
+        scored.append((cand_surface != want_surface,          # keep the surface
+                       family_penalty,                        # then how it falls
+                       time_distance + weather_distance,      # then closest overall
+                       time_distance,                         # then keep the lighting
+                       order,                                 # then the game's own order
+                       candidate))
+    if not scored:
+        return valid[0]
+    return min(scored)[-1]
+
+
 # ---------------------------------------------------------------------------
 # Surface degradation levels  (VERIFIED via RaceNet club builder 2026-07-07)
 # ---------------------------------------------------------------------------

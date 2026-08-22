@@ -16,7 +16,10 @@ from dr2server.game_data import (
     STAGE_CONDITIONS_BY_LOCATION,
     STAGE_CONDITIONS_LABELS,
     default_stage_conditions_for_location,
+    nearest_stage_conditions_for_location,
+    split_stage_conditions_label,
     stage_conditions_for_location,
+    stage_conditions_label,
     stage_conditions_options_for_location,
 )
 
@@ -139,3 +142,77 @@ def test_options_pair_ids_with_labels() -> None:
 def test_unknown_location_yields_nothing_rather_than_a_guess() -> None:
     assert stage_conditions_for_location('Atlantis') == []
     assert default_stage_conditions_for_location('Atlantis') is None
+
+
+# ---------------------------------------------------------------------------
+# Substituting conditions a location cannot load
+# ---------------------------------------------------------------------------
+# A pick the location cannot render has to become something it can. Resetting
+# it to the location's first option throws away the part the owner actually
+# chose: 0001 did exactly that and turned 395 deliberately wet stages dry.
+
+def test_wet_stays_wet_when_the_location_has_any_wet_option() -> None:
+    # Argentina cannot load 9 (Daytime / Heavy Rain / Wet) but ships three wet
+    # options, so the stage must land on one of them, not on its dry default.
+    got = nearest_stage_conditions_for_location(Location.ARGENTINA, 9)
+    assert got != default_stage_conditions_for_location(Location.ARGENTINA)
+    assert stage_conditions_label(got).endswith('/ Wet')
+    assert got in stage_conditions_for_location(Location.ARGENTINA)
+
+
+@pytest.mark.parametrize('loc', SWEPT, ids=lambda l: l.name)
+def test_every_unavailable_id_keeps_its_surface_where_one_exists(loc: Location) -> None:
+    valid = stage_conditions_for_location(loc)
+    available = {stage_conditions_label(cid).split('/')[2].strip() for cid in valid}
+    for cid in STAGE_CONDITIONS_LABELS:
+        parts = split_stage_conditions_label(stage_conditions_label(cid))
+        if parts is None or parts[2] not in available:
+            continue          # nothing at this location shares the surface
+        got = nearest_stage_conditions_for_location(loc, cid)
+        assert stage_conditions_label(got).split('/')[2].strip() == parts[2], (
+            f'{loc.name}: {cid} ({stage_conditions_label(cid)}) became '
+            f'{got} ({stage_conditions_label(got)}), losing the surface while '
+            f'{sorted(available)} were available'
+        )
+
+
+def test_an_id_the_location_has_is_returned_unchanged() -> None:
+    for cid in stage_conditions_for_location(Location.POLAND):
+        assert nearest_stage_conditions_for_location(Location.POLAND, cid) == cid
+
+
+def test_a_twin_reading_the_same_label_wins_over_scoring() -> None:
+    # 34 and 20 both read "Sunset / Cloudy / Wet" and no location ships 34.
+    got = nearest_stage_conditions_for_location(Location.AUSTRALIA, 34)
+    assert stage_conditions_label(got) == 'Sunset / Cloudy / Wet'
+
+
+def test_rain_does_not_become_snow_on_a_dry_location() -> None:
+    # Monte Carlo ships no wet conditions at all, and its only precipitation is
+    # light snow. A stage asking for showers is better served by its cloudy dry
+    # option than by turning the rain into snow.
+    got = nearest_stage_conditions_for_location(Location.MONTE_CARLO, 26)
+    assert 'Snow' not in stage_conditions_label(got)
+
+
+def test_rain_becomes_snow_where_snow_is_all_there_is() -> None:
+    # Sweden is snow-only, so heavy rain cannot stay wet -- but it can stay
+    # heavy, which reads closer than resetting it to the calmest option.
+    got = nearest_stage_conditions_for_location(Location.SWEDEN, 9)
+    assert stage_conditions_label(got) == 'Daytime / Heavy Snow / Snow'
+
+
+def test_a_tie_keeps_the_time_of_day() -> None:
+    # Argentina scores 21 (Daytime / Light Rain / Wet) and 6 (Dusk / Heavy Rain
+    # / Wet) identically against 9; lighting reads as the bigger change.
+    assert nearest_stage_conditions_for_location(Location.ARGENTINA, 9) == 21
+
+
+def test_a_label_resolves_when_the_stage_has_no_id() -> None:
+    got = nearest_stage_conditions_for_location(
+        Location.WALES, None, 'Daytime / Showers / Wet')
+    assert stage_conditions_label(got).endswith('/ Wet')
+
+
+def test_an_unverified_location_offers_nothing() -> None:
+    assert nearest_stage_conditions_for_location(Location.TWIN_PEAKS, 1) is None

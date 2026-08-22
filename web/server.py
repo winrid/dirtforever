@@ -49,7 +49,7 @@ from dr2server.game_data import (  # noqa: E402
     stage_conditions_label,
     stage_conditions_for_location,
     stage_conditions_options_for_location,
-    stage_conditions_sibling_for_location,
+    nearest_stage_conditions_for_location,
     get_tracks_for_location,
     get_verified_routes_for_location,
     vehicle_class_id_for_label,
@@ -1347,12 +1347,13 @@ def parse_championship_form(form: Any) -> dict[str, Any]:
             s = raw['stages'][sj]
             cond_id = _to_int_or_none(s.get('conditions'))
             if valid_conds and cond_id not in valid_conds:
-                # Keep the weather that was picked where the location can
-                # render it under a different id (the twin pairs), and only
-                # then fall back to its first option. An unresolvable pick is
-                # left for _validate_championship to reject at publish rather
-                # than being quietly corrected here.
-                cond_id = (stage_conditions_sibling_for_location(location, cond_id)
+                # Map the pick onto what this location can render rather than
+                # resetting it: the twin ids read identically, and past that
+                # the closest option that keeps the surface, so a wet stage
+                # stays wet. An unresolvable pick is left for
+                # _validate_championship to reject at publish rather than being
+                # quietly corrected here.
+                cond_id = (nearest_stage_conditions_for_location(location, cond_id)
                            or valid_conds[0])
             stages_out.append({
                 'track_id': _to_int_or_none(s.get('route')),
@@ -1474,10 +1475,7 @@ def _conditions_id_for_seed(location: str, word: str) -> int | None:
     if not valid:
         return None
     wanted = _SEED_CONDITION_LABELS.get(word, word)
-    for cid in valid:
-        if stage_conditions_label(cid) == wanted:
-            return cid
-    return valid[0]
+    return nearest_stage_conditions_for_location(location, label=wanted)
 
 
 def _seed_events_and_results(users: list[dict[str, Any]]) -> None:
