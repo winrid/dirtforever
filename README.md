@@ -29,7 +29,8 @@ Or run from source: `git clone https://github.com/winrid/dirtforever && cd dirtf
 
 - Login
 - Official Daily/Weekly/Monthly Events (auto-generated, shown on the in-game Events page)
-- Clubs with custom server-defined events
+- Clubs with custom server-defined events — rally and rallycross
+- Rallycross club events on all 13 circuits, with any car class (rally cars included)
 - Stage time submission and leaderboards (via dirtforever.net)
 - Vehicle select, repairs, tuning
 
