@@ -31,7 +31,7 @@ Usage examples::
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -1845,6 +1845,51 @@ VERIFIED_TRACK_IDS = (
     # web/server.py), not by omission from this list.
     639, 565, 436, 638, 536, 640, 641, 478, 537, 642, 538, 476, 643,
 )
+
+
+# ---------------------------------------------------------------------------
+# Rallycross stage format
+# ---------------------------------------------------------------------------
+# A rallycross stage is a lapped race, not a point-to-point run, and the game
+# crashes on load when it is handed an RX circuit with the rally stage shape
+# (StageType 0, NumberLaps 0).  Every discipline-2 stage RaceNet ever served
+# (data/upstream_templates/RaceNetChallenges_GetChallenges.bin and
+# RaceNetCareerLadder_GetRallycrossChampionship.bin) looks like this:
+#
+#   weekly / championship, 6 stages:  Q1-Q4  StageType 2, 4 laps
+#                                     semi   StageType 3, 6 laps
+#                                     final  StageType 4, 6 laps
+#   daily, 1 stage:                   heat   StageType 2, 6 laps
+#
+# always with HasServiceArea=True, SvcSettingsId=5, SurfaceDegrad=0.0, and
+# NumberRestarts=5 on the event.  NumberEntrants is 20 (the AI grid) on the
+# multi-stage formats and 0 on the solo daily.
+RX_STAGE_TYPE_HEAT  = 2
+RX_STAGE_TYPE_SEMI  = 3
+RX_STAGE_TYPE_FINAL = 4
+RX_HEAT_LAPS        = 4
+RX_SOLO_LAPS        = 6
+RX_KNOCKOUT_LAPS    = 6
+RX_SVC_SETTINGS_ID  = 5
+RX_NUMBER_RESTARTS  = 5
+RX_GRID_ENTRANTS    = 20
+RX_DRYING_TIME      = 600
+
+
+def rallycross_stage_plan(stage_count: int) -> List[Tuple[int, int]]:
+    """(StageType, NumberLaps) for each stage of an RX event of ``stage_count``.
+
+    One stage is the solo daily format.  Two or more follow RaceNet's
+    knockout shape: heats, then a semi-final and a final as the last two.
+    """
+    n = max(1, int(stage_count))
+    if n == 1:
+        return [(RX_STAGE_TYPE_HEAT, RX_SOLO_LAPS)]
+    knockout = [(RX_STAGE_TYPE_FINAL, RX_KNOCKOUT_LAPS)]
+    if n >= 3:
+        knockout.insert(0, (RX_STAGE_TYPE_SEMI, RX_KNOCKOUT_LAPS))
+    heats = [(RX_STAGE_TYPE_HEAT, RX_HEAT_LAPS)] * (n - len(knockout))
+    return heats + knockout
 
 
 def is_track_verified(track_id: int) -> bool:
