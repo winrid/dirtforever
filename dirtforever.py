@@ -298,22 +298,32 @@ def _windows_elevate_admin_helper(op: str, timeout: int = ELEVATION_TIMEOUT_SECO
         kernel32.CloseHandle(info.hProcess)
 
 
+# Exit codes of the elevated `--admin-helper` child. The parent reads these
+# via _windows_elevate_admin_helper to explain partial failures to the user.
+ADMIN_HELPER_OK = 0
+ADMIN_HELPER_BAD_OP = 1
+ADMIN_HELPER_EXCEPTION = 2
+ADMIN_HELPER_CERT_FAILED = 3   # hosts written, but cert trust install failed
+
+
 def _run_admin_helper(op: str) -> int:
     """Entry point for the elevated subprocess. Performs the privileged
     work (cert trust + hosts edits) and returns an exit code.
     """
     try:
         if op == "start":
-            if IS_WIN and cert_exists():
-                install_cert_trust()
+            # Hosts first: it's the part the game can't work without. A cert
+            # failure is reported separately so the parent can say so.
             add_hosts()
-            return 0
+            if IS_WIN and cert_exists() and not install_cert_trust():
+                return ADMIN_HELPER_CERT_FAILED
+            return ADMIN_HELPER_OK
         if op == "stop":
             remove_hosts()
-            return 0
+            return ADMIN_HELPER_OK
     except Exception:
-        return 2
-    return 1
+        return ADMIN_HELPER_EXCEPTION
+    return ADMIN_HELPER_BAD_OP
 
 
 # ---------------------------------------------------------------------------
@@ -1452,16 +1462,28 @@ def run_gui():
                 elif IS_WIN:
                     if not hosts_configured():
                         root.after(0, lambda: log("Setting up hosts & cert trust (admin required)..."))
+                        rc: Optional[int] = None
                         try:
-                            _windows_elevate_admin_helper("start")
+                            rc = _windows_elevate_admin_helper("start")
                         except subprocess.TimeoutExpired:
                             root.after(0, lambda: log(
                                 "WARNING: UAC prompt timed out after 5 minutes."))
 
-                        if hosts_configured():
-                            root.after(0, lambda: log("Hosts configured, cert trusted."))
+                        if not hosts_configured():
+                            root.after(0, lambda: log(
+                                f"WARNING: Could not configure hosts (helper exit {rc}). "
+                                "Did you decline the admin prompt?"))
+                        elif rc == ADMIN_HELPER_CERT_FAILED:
+                            root.after(0, lambda: log(
+                                "WARNING: Hosts configured, but installing the cert into the "
+                                "Windows Root store failed. The game will not trust the "
+                                "server; see dirtforever.net/install#manual."))
+                        elif rc != ADMIN_HELPER_OK:
+                            root.after(0, lambda: log(
+                                f"WARNING: Hosts configured, but the admin helper exited "
+                                f"with code {rc}."))
                         else:
-                            root.after(0, lambda: log("WARNING: Could not configure hosts. Run as admin?"))
+                            root.after(0, lambda: log("Hosts configured, cert trusted."))
                 else:
                     # Linux: one pkexec runs setcap (port 443) + writes /etc/hosts.
                     target_bin = _elevation_target_binary()
@@ -1559,7 +1581,11 @@ def run_gui():
             root.after(0, lambda: log("Removing hosts entries (admin required)..."))
             try:
                 if IS_WIN:
-                    _windows_elevate_admin_helper("stop")
+                    rc = _windows_elevate_admin_helper("stop")
+                    if rc != ADMIN_HELPER_OK:
+                        root.after(0, lambda: log(
+                            f"WARNING: admin helper exited with code {rc}; "
+                            "hosts entries may still be present."))
                 else:
                     helper_python = _system_python_for_helper()
                     if helper_python is None:
@@ -1580,8 +1606,14 @@ def run_gui():
                 root.after(0, lambda: log(
                     "WARNING: elevation prompt timed out after 5 minutes."))
 
-            root.after(0, lambda: log("Stopped. Game will use RaceNet servers now."))
-            root.after(0, lambda: set_status(False, "Hosts restored"))
+            if hosts_configured():
+                root.after(0, lambda: log(
+                    "WARNING: Stopped, but hosts entries are still present; the game "
+                    "will not reach RaceNet until they are removed."))
+                root.after(0, lambda: set_status(False, "Hosts NOT restored"))
+            else:
+                root.after(0, lambda: log("Stopped. Game will use RaceNet servers now."))
+                root.after(0, lambda: set_status(False, "Hosts restored"))
 
         threading.Thread(target=cleanup, daemon=True).start()
 

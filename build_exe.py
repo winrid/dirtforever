@@ -204,6 +204,9 @@ def build() -> None:
         "--windowed",  # No console window (GUI app)
         # Clean build artefacts from previous runs.
         "--clean",
+        # onedir asks "output directory will be REMOVED! Continue?" when
+        # dist/DirtForever/ already exists; never prompt (rebuilds, CI).
+        "--noconfirm",
         "--distpath", str(ROOT / "dist"),
         "--workpath", str(ROOT / "build"),
         "--specpath", str(ROOT),
