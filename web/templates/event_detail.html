@@ -29,6 +29,10 @@
                     <span class="countdown-value mono">{{ event.end_time | countdown }}</span>
                     {% endif %}
                 </div>
+                {% if club and current_user and current_user.username == club.created_by %}
+                <a href="/clubs/{{ club.id }}/championship/{{ event.id }}/delete"
+                   class="btn btn-ghost btn-sm">Delete Championship</a>
+                {% endif %}
             </div>
         </div>
     </div>

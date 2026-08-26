@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% block title %}Delete {{ event.name }} - {{ club.name }}{% endblock %}
+
+{% block content %}
+<section class="page-header">
+    <div class="container">
+        <div class="page-header-content">
+            <div>
+                <p class="page-breadcrumb">
+                    <a href="/clubs">Clubs</a> <span class="accent">/</span>
+                    <a href="/clubs/{{ club.id }}">{{ club.name }}</a> <span class="accent">/</span>
+                </p>
+                <h1 class="page-title">Delete Championship</h1>
+                <p class="page-subtitle text-muted">This cannot be undone.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="container">
+    <div class="card reveal">
+        <div class="card-header">
+            <h2 class="card-title"><span class="accent">//</span> {{ event.name }}</h2>
+            <span class="event-badge badge-{{ event.type }}">{{ event.type | upper }}</span>
+        </div>
+        <div class="card-body">
+            {% set n_rallies = (event.events | length) if event.events else 1 %}
+            <div class="lb-table-wrap delete-summary">
+            <table class="lb-table">
+                <tbody>
+                    <tr>
+                        <th scope="row">Rallies</th>
+                        <td>{{ n_rallies }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Vehicle Class</th>
+                        <td>{{ event.car_class }}</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Status</th>
+                        <td>
+                            {% if is_live %}Live, ends in {{ event.end_time | countdown }}
+                            {% elif is_upcoming %}Starts in {{ event.start_time | countdown }}
+                            {% else %}Ended{% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Drivers with results</th>
+                        <td>{{ driver_count }}</td>
+                    </tr>
+                </tbody>
+            </table>
+            </div>
+
+            {% if is_live %}
+            <p class="delete-warning">
+                This championship is live right now. Deleting it pulls it out of the
+                game immediately, and anyone part-way through a stage loses their run.
+            </p>
+            {% endif %}
+            {% if driver_count %}
+            <p class="delete-warning">
+                {{ driver_count }} {{ 'driver has' if driver_count == 1 else 'drivers have' }}
+                posted times. Their results are deleted with the championship and cannot
+                be recovered.
+            </p>
+            {% endif %}
+
+            <div class="create-event-actions">
+                <form method="post" action="/clubs/{{ club.id }}/championship/{{ event.id }}/delete">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete Championship</button>
+                </form>
+                <a href="/events/{{ event.id }}" class="btn btn-ghost">Cancel</a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

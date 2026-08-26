@@ -267,6 +267,18 @@ button { cursor: pointer; font-family: inherit; }
     background: var(--accent-dim);
 }
 
+.btn-danger {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+}
+.btn-danger:hover {
+    background: #DC2626;
+    border-color: #DC2626;
+    color: #fff;
+    box-shadow: 0 0 20px rgba(239,68,68,0.35);
+}
+
 .btn-sm {
     font-size: .85rem;
     padding: .45rem 1rem;
@@ -703,6 +715,7 @@ button { cursor: pointer; font-family: inherit; }
 .page-header-right {
     text-align: right;
 }
+.page-header-right .btn { margin-top: .75rem; }
 
 .countdown-large {
     display: flex;
@@ -1548,6 +1561,43 @@ th.lb-setup, td.lb-setup { width: 120px; text-align: right; }
     display: flex;
     gap: .75rem;
 }
+
+/* ─── Delete confirmation ───────────────────────────── */
+
+.delete-summary { margin-bottom: 1.25rem; }
+
+.delete-summary th[scope="row"] {
+    width: 40%;
+    white-space: nowrap;
+}
+
+.delete-warning {
+    background: var(--red-dim);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: .75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: .95rem;
+}
+
+/* Destructive action reads apart from the forward actions by colour, not
+   position -- an auto margin would fight .champ-footer's flex-end. */
+.champ-discard:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: var(--red-dim);
+}
+
+/* The row stays one clickable link; the owner's Delete sits beside it rather
+   than inside, so it is not swallowed by the anchor. */
+.champ-row-wrap {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+.champ-row-wrap .event-row { flex: 1; min-width: 0; }
+.champ-row-wrap > .btn { flex-shrink: 0; }
 
 .club-info-card,
 .event-info-card {

@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 from datetime import datetime, timedelta
+from html import unescape
 from pathlib import Path
 
 from dr2server.game_data import (
@@ -576,3 +577,164 @@ def test_club_event_form_works_without_javascript() -> None:
         "car_class": "R5", "conditions": "38",
         "num_stages": "1", "duration": "24h"})
     assert not [e for e in server.get_all_events() if e.get("name") == "NoJS Mismatch"]
+
+
+# ── Deleting championships and drafts ────────────────────
+
+def _stub_results(server, eid, usernames):
+    """Persist a results file shaped the way stage-complete writes one."""
+    server.save_results(eid, {
+        "event_id": eid,
+        "entries": [
+            {
+                "username": u, "car": "Ford Fiesta",
+                "stages": [
+                    {"time_ms": 60000 + i, "penalties_ms": 0,
+                     "submitted_at": "2026-01-01T00:00:00"}
+                    for i in range(2)
+                ],
+                "total_time_ms": 120000,
+            }
+            for u in usernames
+        ],
+    })
+
+
+def test_owner_deletes_championship_and_its_results() -> None:
+    """Delete takes the event and its standings, and frees the club slot."""
+    server = _load()
+    client = _owner_client(server, "delowner", "delclub")
+    ev = _live_event(server, "delclub", "evt-del-one", name="Doomed Cup")
+    _stub_results(server, ev["id"], ["driverA", "driverB"])
+
+    event_path = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+    results_path = os.path.join(server.RESULTS_DIR, ev["id"] + ".json")
+    assert os.path.exists(event_path) and os.path.exists(results_path)
+
+    try:
+        # The confirm page names the championship and warns about live drivers.
+        r = client.get(f"/clubs/delclub/championship/{ev['id']}/delete")
+        assert r.status_code == 200
+        page = r.get_data(as_text=True)
+        assert "Doomed Cup" in page
+        assert "live right now" in page
+        # Distinct drivers, not the 4 stage rows.
+        assert "2 drivers have" in page
+
+        r = client.post(f"/clubs/delclub/championship/{ev['id']}/delete",
+                        follow_redirects=True)
+        assert r.status_code == 200
+        # Jinja escapes the quotes around the name in the flash.
+        assert ('Championship "Doomed Cup" deleted.'
+                in unescape(r.get_data(as_text=True)))
+
+        assert not os.path.exists(event_path)
+        assert not os.path.exists(results_path), "standings outlived their event"
+        assert server.get_event(ev["id"]) is None
+        assert not [e for e in server.get_all_events() if e["id"] == ev["id"]]
+        # Slot is free again, so a new championship can start now.
+        assert server.club_event_conflict(
+            "delclub", datetime.now(), datetime.now() + timedelta(days=1)) is None
+    finally:
+        for p in (event_path, results_path):
+            if os.path.exists(p):
+                os.remove(p)
+
+
+def test_only_the_club_owner_can_delete_a_championship() -> None:
+    server = _load()
+    _owner_client(server, "keepowner", "keepclub")
+    ev = _live_event(server, "keepclub", "evt-keep-one", name="Kept Cup")
+    event_path = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+
+    # A verified user who owns some other club.
+    intruder = _owner_client(server, "intruder", "intruderclub")
+    try:
+        for method in (intruder.get, intruder.post):
+            r = method(f"/clubs/keepclub/championship/{ev['id']}/delete")
+            assert r.status_code == 403
+        assert os.path.exists(event_path)
+
+        # Logged out: bounced to login, event untouched.
+        anon = server.app.test_client()
+        r = anon.post(f"/clubs/keepclub/championship/{ev['id']}/delete")
+        assert r.status_code == 302
+        assert "/login" in r.headers["Location"]
+        assert os.path.exists(event_path)
+    finally:
+        if os.path.exists(event_path):
+            os.remove(event_path)
+
+
+def test_delete_route_refuses_an_event_from_another_club() -> None:
+    """The club in the URL must actually own the event, or an owner could
+    delete any club's championship through their own club's URL."""
+    server = _load()
+    client = _owner_client(server, "xowner", "xclub")
+    _owner_client(server, "otherowner", "otherclub")
+    ev = _live_event(server, "otherclub", "evt-x-other", name="Other Cup")
+    event_path = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+    try:
+        r = client.post(f"/clubs/xclub/championship/{ev['id']}/delete")
+        assert r.status_code == 404
+        assert os.path.exists(event_path)
+
+        r = client.get("/clubs/xclub/championship/evt-does-not-exist/delete")
+        assert r.status_code == 404
+    finally:
+        if os.path.exists(event_path):
+            os.remove(event_path)
+
+
+def test_owner_discards_a_draft() -> None:
+    server = _load()
+    client = _owner_client(server, "discardowner", "discardclub")
+    draft_id = _one_event_draft(client, server, "discardclub", "Abandoned")
+    assert server.get_draft(draft_id) is not None
+
+    # The builder offers the button.
+    page = client.get(f"/clubs/discardclub/championship/{draft_id}").get_data(as_text=True)
+    assert "Discard Draft" in page
+
+    r = client.post(f"/clubs/discardclub/championship/{draft_id}/discard",
+                    follow_redirects=True)
+    assert r.status_code == 200
+    assert "Draft discarded." in r.get_data(as_text=True)
+    assert server.get_draft(draft_id) is None
+    # Discarding is not publishing.
+    assert not [e for e in server.get_all_events() if e.get("name") == "Abandoned"]
+
+
+def test_cannot_discard_someone_elses_draft() -> None:
+    server = _load()
+    owner = _owner_client(server, "draftowner", "draftclub")
+    draft_id = _one_event_draft(owner, server, "draftclub", "Mine")
+
+    intruder = _owner_client(server, "draftintruder", "draftintruderclub")
+    # Their own club id: passes the owner gate, fails the draft gate.
+    r = intruder.post(f"/clubs/draftintruderclub/championship/{draft_id}/discard")
+    assert r.status_code == 404
+    # The draft's club: fails the owner gate.
+    r = intruder.post(f"/clubs/draftclub/championship/{draft_id}/discard")
+    assert r.status_code == 403
+    assert server.get_draft(draft_id) is not None
+
+    server.delete_draft(draft_id)
+
+
+def test_delete_links_show_only_for_the_owner() -> None:
+    server = _load()
+    owner = _owner_client(server, "linkowner", "linkclub")
+    ev = _live_event(server, "linkclub", "evt-link-one", name="Linked Cup")
+    delete_url = f"/clubs/linkclub/championship/{ev['id']}/delete"
+    try:
+        for path in ("/clubs/linkclub", f"/events/{ev['id']}"):
+            assert delete_url in owner.get(path).get_data(as_text=True), path
+
+        anon = server.app.test_client()
+        for path in ("/clubs/linkclub", f"/events/{ev['id']}"):
+            assert delete_url not in anon.get(path).get_data(as_text=True), path
+    finally:
+        p = os.path.join(server.EVENTS_DIR, ev["id"] + ".json")
+        if os.path.exists(p):
+            os.remove(p)

@@ -173,7 +173,14 @@
         <div class="champ-footer create-event-actions">
             <button type="submit" name="action" value="save" class="btn btn-ghost">Save Draft</button>
             <button type="submit" name="action" value="preview" class="btn btn-primary">Create Championship</button>
+            {# Nested forms are invalid, so the discard form sits outside the
+               builder form and this button reaches it by id. #}
+            <button type="submit" form="discardDraftForm" class="btn btn-ghost champ-discard">Discard Draft</button>
         </div>
+    </form>
+    <form id="discardDraftForm" method="post"
+          action="/clubs/{{ club.id }}/championship/{{ draft.id }}/discard">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     </form>
 </section>
 

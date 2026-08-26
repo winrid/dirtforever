@@ -222,6 +222,7 @@
                 <div class="event-list-compact">
                     {% for event in events %}
                     {% set n_rallies = (event.events | length) if event.events else 1 %}
+                    <div class="champ-row-wrap">
                     <a href="/events/{{ event.id }}" class="event-row">
                         <span class="event-badge badge-{{ event.type }}">{{ event.type[:1] | upper }}</span>
                         <span class="event-row-name">{{ event.name }}</span>
@@ -232,6 +233,11 @@
                         <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
                         {% endif %}
                     </a>
+                    {% if is_owner %}
+                    <a href="/clubs/{{ club.id }}/championship/{{ event.id }}/delete"
+                       class="btn btn-ghost btn-sm">Delete</a>
+                    {% endif %}
+                    </div>
                     {% endfor %}
                 </div>
                 {% else %}
