@@ -681,6 +681,21 @@ def save_results(eid: str, data: dict[str, Any]) -> None:
     _save(os.path.join(RESULTS_DIR, f'{eid}.json'), data)
 
 
+def delete_event(eid: str) -> None:
+    """Remove an event and its standings.
+
+    Nothing indexes events, so this is the whole cascade: readers either scan
+    the events dir (which stops listing it immediately) or look the event up
+    by id and already skip a miss. The results file goes with it -- left
+    behind it would be invisible to every reader but still on disk.
+    """
+    _validate_id(eid)
+    for p in (os.path.join(EVENTS_DIR, f'{eid}.json'),
+              os.path.join(RESULTS_DIR, f'{eid}.json')):
+        if os.path.exists(p):
+            os.remove(p)
+
+
 # ── Auth decorator ───────────────────────────────────────
 
 def login_required(f: Callable[..., Any]) -> Callable[..., Any]:
@@ -3393,6 +3408,49 @@ def championship_submit(club_id: str, draft_id: str) -> Response:
     return redirect(url_for('club_detail', club_id=club_id))
 
 
+def _require_club_event(club_id: str, event_id: str) -> dict[str, Any]:
+    """Load a published championship that belongs to this club, else 404."""
+    event = get_event(event_id)
+    if not event or event.get('club_id') != club_id:
+        abort(404)
+    return event
+
+
+@app.route('/clubs/<club_id>/championship/<event_id>/delete', methods=['GET'])
+@verified_required
+def championship_delete_confirm(club_id: str, event_id: str) -> str:
+    club, _user = _require_club_owner(club_id)
+    event = _require_club_event(club_id, event_id)
+    entries = get_results(event_id).get('entries', [])
+    # Distinct drivers, not stage rows -- "12 entries" from one driver's dozen
+    # stages would badly overstate what the delete throws away.
+    drivers = {e.get('username') for e in entries if e.get('username')}
+    return render_template('championship_delete.html', club=club, event=event,
+                           driver_count=len(drivers),
+                           is_live=event_is_active(event),
+                           is_upcoming=event_is_upcoming(event))
+
+
+@app.route('/clubs/<club_id>/championship/<event_id>/delete', methods=['POST'])
+@verified_required
+def championship_delete(club_id: str, event_id: str) -> Response:
+    _club, _user = _require_club_owner(club_id)
+    event = _require_club_event(club_id, event_id)
+    delete_event(event_id)
+    flash(f'Championship "{event.get("name", event_id)}" deleted.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/championship/<draft_id>/discard', methods=['POST'])
+@verified_required
+def championship_discard(club_id: str, draft_id: str) -> Response:
+    _club, user = _require_club_owner(club_id)
+    _require_draft(club_id, draft_id, user)
+    delete_draft(draft_id)
+    flash('Draft discarded.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
 @app.route('/events')
 def events() -> str:
     t = request.args.get('type', 'daily')
@@ -3414,6 +3472,9 @@ def event_detail(event_id: str) -> str:
     entries = results.get('entries', [])
     club = get_club(event['club_id']) if event.get('club_id') else None
     rallies = _championship_view(event)
+    # Owner-ness is decided in the template off the injected `current_user`
+    # (as club_detail.html does): current_user() here would be a second
+    # uncached user file read per render on a hot public page.
     return render_template('event_detail.html', event=event, entries=entries,
                            club=club, rallies=rallies)
 

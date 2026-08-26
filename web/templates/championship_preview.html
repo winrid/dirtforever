@@ -71,7 +71,14 @@
                 <div class="create-event-actions">
                     <a href="/clubs/{{ club.id }}/championship/{{ draft.id }}" class="btn btn-ghost">Back to Edit</a>
                     <button type="submit" class="btn btn-primary">Submit Championship</button>
+                    {# Nested forms are invalid, so the discard form sits outside
+                       the submit form and this button reaches it by id. #}
+                    <button type="submit" form="discardDraftForm" class="btn btn-ghost champ-discard">Discard Draft</button>
                 </div>
+            </form>
+            <form id="discardDraftForm" method="post"
+                  action="/clubs/{{ club.id }}/championship/{{ draft.id }}/discard">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             </form>
         </div>
     </div>
