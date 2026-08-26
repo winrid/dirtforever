@@ -14,7 +14,12 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: dist/DirtForever-windows.zip
+            # Transitional: the onefile DirtForever.exe is uploaded too so
+            # pre-zip installs still see the update banner (they look for
+            # that asset name). Remove once the fleet has moved to the zip.
+            artifact: |
+              dist/DirtForever-windows.zip
+              dist/DirtForever.exe
           - os: ubuntu-22.04
             artifact: dist/DirtForever-linux-x86_64
     runs-on: ${{ matrix.os }}
