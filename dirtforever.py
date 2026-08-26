@@ -782,15 +782,13 @@ def run_gui():
             with urllib.request.urlopen(req, timeout=5) as resp:
                 data = json.loads(resp.read())
             remote_tag = data.get("tag_name", "").lstrip("v")
-            # Match the canonical asset name exactly — debug builds, signed
-            # variants, etc. should not be picked up by the update banner.
-            wanted_name = "DirtForever-windows.zip" if IS_WIN else "DirtForever-linux-x86_64"
-            dl_url = ""
-            for asset in data.get("assets", []):
-                if asset.get("name") == wanted_name:
-                    dl_url = asset.get("browser_download_url", "")
-                    break
-            if not remote_tag or not dl_url:
+            # Link to the release page rather than a specific asset, so the
+            # banner doesn't depend on asset naming (that coupling is what
+            # made the exe -> zip switch invisible to older installs). Only
+            # require that the release has *some* files, so a half-published
+            # release whose build hasn't finished doesn't trigger it.
+            dl_url = data.get("html_url", "")
+            if not remote_tag or not dl_url or not data.get("assets"):
                 return
             # Simple version compare (works for semver with same segment count)
             remote_parts = [int(x) for x in remote_tag.split(".")]
