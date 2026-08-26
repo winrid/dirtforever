@@ -286,7 +286,13 @@ class RequestHandler(BaseHTTPRequestHandler):
             return
 
         if result.get("stub"):
-            result = {"Accepted": True}
+            # A stubbed/unhandled method still has to answer with a SUCCESS
+            # code.  The client treats X-EgoNet-Result=1 as a fatal
+            # "server unavailable" for write methods (Repairs.SetLivery,
+            # Repairs.FitTuning, the career stage-complete calls, ...), which
+            # surfaces in-game as the "CONNECTION FAILED" screen.  Keep the
+            # "ok" flag so the result-code below resolves to 0, not 1.
+            result = {"ok": True, "Accepted": True}
         result = self._sanitize_egonet_value(result)
         status = str(result.get("result_code", "0" if result.get("ok") else "1"))
         if "ok" in result:

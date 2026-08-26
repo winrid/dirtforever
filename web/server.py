@@ -3702,7 +3702,52 @@ def api_game_profile() -> Response | tuple[Response, int]:
         'soft_currency': user['soft_currency'],
         'hard_currency': user['hard_currency'],
         'garage_slots': user['garage_slots'],
+        # Per-vehicle-instance engine tuning / livery the player fitted in the
+        # garage. Keyed by VehicleInstId (string) -> {tuning_id, livery_id}.
+        # The game server reads this back into RaceNetInventory.GetInventory so
+        # fitted tuning/livery survive a restart and don't trip the
+        # local-vs-server "save discrepancy" reset.
+        'garage': user.get('garage', {}),
     })
+
+
+@app.route('/api/game/garage', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_garage_set() -> Response | tuple[Response, int]:
+    """Persist an engine-tuning or livery selection made in the garage.
+
+    Body: {vehicle_inst_id, tuning_id?, livery_id?}.  Only the fields present
+    are updated, so fitting tuning doesn't clear a previously-set livery and
+    vice versa.  VehicleInstId is the inventory instance id; transient in-event
+    ids (<= 0, e.g. the -2 "current vehicle" marker) are acknowledged but not
+    stored — only real garage vehicles persist.
+    """
+    data = request.get_json(silent=True) or {}
+    username = g.game_user
+    user = get_user(username)
+    if not user:
+        return _api_error('user not found', 404)
+
+    inst = data.get('vehicle_inst_id')
+    if inst is None:
+        return _api_error('vehicle_inst_id is required')
+    try:
+        inst_int = int(inst)
+    except (TypeError, ValueError):
+        return _api_error('invalid vehicle_inst_id')
+
+    if inst_int <= 0:
+        return jsonify({'ok': True, 'stored': False})
+
+    garage = user.setdefault('garage', {})
+    entry = garage.setdefault(str(inst_int), {})
+    if data.get('tuning_id') is not None:
+        entry['tuning_id'] = int(data['tuning_id'])
+    if data.get('livery_id') is not None:
+        entry['livery_id'] = int(data['livery_id'])
+    save_user(user)
+    return jsonify({'ok': True, 'stored': True, 'garage': garage})
 
 
 @app.route('/api/game/stage-begin', methods=['POST'])

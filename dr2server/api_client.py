@@ -370,13 +370,32 @@ class DirtForeverClient:
         """Fetch the authenticated user's game profile from the web API.
 
         Returns the profile dict (with keys username, display_name, country,
-        soft_currency, hard_currency, garage_slots) or None on error.
+        soft_currency, hard_currency, garage_slots, garage) or None on error.
         """
         result = self._get("/api/game/profile")
         if not result or not result.get("ok"):
             log.warning("get_profile: empty or error response")
             return None
         return result
+
+    def set_garage(
+        self,
+        vehicle_inst_id: int,
+        tuning_id: Optional[int] = None,
+        livery_id: Optional[int] = None,
+    ) -> bool:
+        """Persist a garage engine-tuning and/or livery selection.
+
+        Only the fields provided are updated server-side.  Returns True on a
+        successful acknowledgement, False on any error.
+        """
+        payload: Dict[str, Any] = {"vehicle_inst_id": int(vehicle_inst_id)}
+        if tuning_id is not None:
+            payload["tuning_id"] = int(tuning_id)
+        if livery_id is not None:
+            payload["livery_id"] = int(livery_id)
+        result = self._post("/api/game/garage", payload)
+        return bool(result and result.get("ok"))
 
     def submit_time_trial(
         self,

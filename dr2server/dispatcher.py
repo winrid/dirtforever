@@ -20,7 +20,7 @@ from .game_data import (
 )
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
-    Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward,
+    Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward, _val,
 )
 
 
@@ -201,6 +201,42 @@ class RpcDispatcher:
             "RaceNetCareerLadder.ResetRallycrossChampionship": self._template_handler("RaceNetCareerLadder.ResetRallycrossChampionship"),
             "Repairs.GetUpgradeTuningPrices": self._template_handler("Repairs.GetUpgradeTuningPrices"),
             "Repairs.ComputeRepairCost": self._template_handler("Repairs.ComputeRepairCost"),
+            # Write actions performed in the Service Area / Vehicle
+            # Preparation screens.  The client VALIDATES the response body of
+            # these: real upstream answers with a {"Result": 0, ...} envelope,
+            # NOT the {"Accepted": true} ack most methods use.  A bare ack (or
+            # the old default stub) makes the client show "LIVERY ERROR" /
+            # "unknown error applying engine tuning" even with result-code 0,
+            # and made the pre-fix stub emit result-code 1 (CONNECTION FAILED).
+            # Response shapes captured from real upstream (159.153.126.42) —
+            # see _repairs_* handlers below.
+            "Repairs.SetLivery": self._repairs_set_livery,
+            "Repairs.FitTuning": self._repairs_fit_tuning,
+            "Repairs.PurchaseTuning": self._repairs_fit_tuning,
+            "Repairs.PurchaseUpgrade": self._repairs_fit_tuning,
+            "Repairs.PerformRepairs": self._repairs_perform,
+            "Repairs.ApplyDamage": self._repairs_set_livery,
+            # No upstream capture yet for these; the result-0 ack clears the
+            # connection-failed screen.  Revisit with a capture if the client
+            # rejects the ack for a store purchase / sale.
+            "RaceNetInventory.Purchase": self._accepted,
+            "RaceNetInventory.Sell": self._accepted,
+            "Clubs.UpdateVehicleDamage": self._accepted,
+            # Challenge lifecycle acknowledgements (community Daily/Weekly/
+            # Monthly events).  The stage results themselves still go through
+            # RaceNetChallenges.StageBegin/StageComplete above; these bracket
+            # the attempt and only need a success ack.
+            "RaceNetChallenges.StartChallenge": self._accepted,
+            "RaceNetChallenges.ResumeChallenge": self._accepted,
+            "RaceNetChallenges.AbortChallenge": self._accepted,
+            # "My Team" career-ladder stage results (Career Rally / Career
+            # Rallycross).  That mode keeps progress client-side, so the
+            # backend call is a telemetry ack; return success so the end of a
+            # career stage doesn't hit the connection-failed screen.
+            "RaceNetCareerLadder.RallyStageBegin": self._accepted,
+            "RaceNetCareerLadder.RallyStageComplete": self._accepted,
+            "RaceNetCareerLadder.RallycrossStageBegin": self._accepted,
+            "RaceNetCareerLadder.RallycrossStageComplete": self._accepted,
             "RaceNetCareerLadder.RallyChampionshipBegin": self._accepted,
             "RaceNetCareerLadder.RallycrossChampionshipBegin": self._accepted,
             "Season.Get": self._season,
@@ -1836,6 +1872,7 @@ class RpcDispatcher:
         soft_currency = 0
         hard_currency = 0
         garage_slots = 8
+        garage: Dict[str, Any] = {}
 
         if self.api_client is not None:
             try:
@@ -1848,6 +1885,7 @@ class RpcDispatcher:
                 soft_currency = int(profile.get("soft_currency", 500000))
                 hard_currency = int(profile.get("hard_currency", 0))
                 garage_slots = int(profile.get("garage_slots", 8))
+                garage = profile.get("garage") or {}
             else:
                 # Profile fetch failed — give starter credits so the game is playable
                 soft_currency = 500000
@@ -1858,7 +1896,7 @@ class RpcDispatcher:
                 "SoftCurrency": soft_currency,
                 "HardCurrency": hard_currency,
                 "GarageSlots": 100,
-                "Vehicles": self._all_vehicles(),
+                "Vehicles": self._all_vehicles(garage),
                 "Upgrades": [],
                 "Entitlements": [],
                 "Liveries": [],
@@ -1867,8 +1905,14 @@ class RpcDispatcher:
         }
 
     @staticmethod
-    def _all_vehicles() -> list:
-        """Generate a full garage with every known vehicle, undamaged and ready."""
+    def _all_vehicles(garage: Optional[Dict[str, Any]] = None) -> list:
+        """Generate a full garage with every known vehicle, undamaged and ready.
+
+        ``garage`` maps VehicleInstId (str) -> {tuning_id, livery_id} for the
+        engine tuning / livery the player fitted, so a fitted setup persists
+        across restarts instead of every vehicle reverting to TuningId/LiveryId
+        0.  The instance id is the vehicle's ``Id`` field (idx + 1)."""
+        garage = garage or {}
         # All vehicle IDs from the upstream inventory capture
         vehicle_ids = [
             382, 395, 396, 399, 400, 401, 468, 469, 470, 471,
@@ -1882,10 +1926,14 @@ class RpcDispatcher:
         ]
         vehicles = []
         for idx, vid in enumerate(vehicle_ids):
+            inst_id = idx + 1
+            fitted = garage.get(str(inst_id), {}) if garage else {}
+            livery_id = int(fitted.get("livery_id", 0) or 0)
+            tuning_id = int(fitted.get("tuning_id", 0) or 0)
             vehicles.append({
                 "VehicleId": UInt32(vid),
-                "LiveryId": UInt32(0),
-                "TuningId": UInt32(0),
+                "LiveryId": UInt32(livery_id),
+                "TuningId": UInt32(tuning_id),
                 "UpgAvailable": 127,
                 "UpgEnabled": 127,
                 "TuningReady": 15,
@@ -1924,7 +1972,7 @@ class RpcDispatcher:
                 "EventsEntered": 0,
                 "EventsFinished": 0,
                 "Terminals": 0,
-                "Id": Int64(idx + 1),
+                "Id": Int64(inst_id),
             })
         return vehicles
 
@@ -1941,6 +1989,73 @@ class RpcDispatcher:
     def _rewards(params: Dict[str, Any]) -> Dict[str, Any]:
         # Real upstream returns just {"Rewards": []}
         return {"ok": True, "Rewards": []}
+
+    # -- Repairs.* write actions ------------------------------------------
+    # These are performed synchronously from the vehicle-prep UI and the
+    # client validates the response body.  Shapes captured from real upstream
+    # (159.153.126.42) on 2026-08-23:
+    #   Repairs.SetLivery {VehicleInstId, LiveryId}      -> {"Result": 0}
+    #   Repairs.FitTuning {VehicleInstId, EngineTuningId}-> {"Cost": N, "Result": 0}
+    #   Repairs.PerformRepairs {per-part levels}         -> {"Result": 0,
+    #        "Cost": N, "Damage": {..14 floats..},
+    #        "CompDamage": {..16 fields..}, "NewSellPrice": N}
+    # ``Cost`` is what the server charged; we return 0 so the community server
+    # applies liveries/tuning/repairs for free (Result 0 is the success flag).
+
+    def _repairs_set_livery(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        # Persist the garage livery so GetInventory reflects it after a
+        # restart.  VehicleInstId is the inventory instance id; the web side
+        # ignores transient (<= 0) ids.
+        inst = int(_val(params.get("VehicleInstId", 0)) or 0)
+        livery = int(_val(params.get("LiveryId", 0)) or 0)
+        if self.api_client is not None and inst > 0:
+            try:
+                self.api_client.set_garage(inst, livery_id=livery)
+            except Exception as exc:
+                print(f"[REPAIRS] SetLivery persist raised: {exc}")
+        return {"ok": True, "Result": 0}
+
+    def _repairs_fit_tuning(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        # Persist the fitted engine tuning so GetInventory reflects it after a
+        # restart.  EngineTuningId maps to the vehicle's inventory TuningId.
+        inst = int(_val(params.get("VehicleInstId", 0)) or 0)
+        tuning = int(_val(params.get("EngineTuningId", 0)) or 0)
+        if self.api_client is not None and inst > 0:
+            try:
+                self.api_client.set_garage(inst, tuning_id=tuning)
+            except Exception as exc:
+                print(f"[REPAIRS] FitTuning persist raised: {exc}")
+        return {"ok": True, "Result": 0, "Cost": 0}
+
+    def _repairs_perform(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        # Return the vehicle fully repaired (all damage zeroed): the client
+        # applies the returned Damage/CompDamage to the car.  Field layout
+        # mirrors the per-vehicle blocks in _all_vehicles().
+        damage = {
+            "QuickRepairs": 0, "Bodywork": 0.0, "Brakes": 0.0,
+            "Gearbox": 0.0, "Differential": 0.0, "Wheels": 0.0,
+            "Engine": 0.0, "Radiator": 0.0, "Turbo": 0.0,
+            "Exhaust": 0.0, "Dampers": 0.0, "Clutch": 0.0,
+            "Springs": 0.0, "Lights": 0.0,
+        }
+        comp_damage = {
+            "WheelsWear": UInt32(0), "Turbo": UInt32(0),
+            "Springs": UInt32(0), "Radiator": 0.0,
+            "Lights": 0.0, "Gearbox": UInt32(0),
+            "WheelsImpact": UInt32(0), "Exhaust": 0.0,
+            "DiffImpact": UInt32(0), "DiffWear": UInt32(0),
+            "Dampers": UInt32(0), "Clutch": 0.0,
+            "Brakes": UInt32(0), "Bodywork": UInt32(0),
+            "Engine": 0.0, "QuickRepairs": 0,
+        }
+        return {
+            "ok": True,
+            "Result": 0,
+            "Cost": 0,
+            "Damage": damage,
+            "CompDamage": comp_damage,
+            "NewSellPrice": 0,
+        }
 
     def _get_challenges(self, params: Dict[str, Any]) -> Union[Dict[str, Any], bytes]:
         """Serve the Events page (RaceNetChallenges.GetChallenges).
