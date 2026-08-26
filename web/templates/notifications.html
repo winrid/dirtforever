@@ -55,6 +55,13 @@
                             {% endif %}
                             invited you to
                             {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}a club{% endif %}.
+                        {% elif row.notif.type == 'club_admin_granted' %}
+                            {% if row.from_user %}<strong>{{ row.from_user.display_name }}</strong>{% else %}<strong>{{ row.notif.from_username }}</strong>{% endif %}
+                            made you an <span class="accent">admin</span> of
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}{{ row.notif.club_name or 'a club' }}{% endif %}.
+                        {% elif row.notif.type == 'club_admin_revoked' %}
+                            You are no longer an admin of
+                            {% if row.club %}<a href="/clubs/{{ row.club.id }}">{{ row.club.name }}</a>{% else %}{{ row.notif.club_name or 'a club' }}{% endif %}.
                         {% else %}
                             {{ row.notif.type }}
                         {% endif %}

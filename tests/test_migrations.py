@@ -20,6 +20,7 @@ import migrations  # noqa: E402
 from migrations import __main__ as mmain  # noqa: E402
 from migrations import m0001_per_location_stage_conditions as m0001  # noqa: E402
 from migrations import m0002_nearest_stage_conditions as m0002  # noqa: E402
+from migrations import m0004_club_admins as m0004  # noqa: E402
 
 
 def _store(tmp_path: Path, events: dict[str, dict]) -> Path:
@@ -464,3 +465,49 @@ def test_0002_reverts_value_by_value(tmp_path: Path) -> None:
     # Back to what 0001 left, not back to the unloadable original.
     stage = _read(data, "evt-ar")["events"][0]["stages"][0]
     assert stage["conditions_id"] == 1
+
+
+# ── 0004: every club gets an admins list ─────────────────────────────────────
+
+def _club_store(tmp_path: Path, clubs: dict[str, dict]) -> Path:
+    data = _store(tmp_path, {})
+    (data / "clubs").mkdir()
+    for name, doc in clubs.items():
+        (data / "clubs" / f"{name}.json").write_text(json.dumps(doc), encoding="utf-8")
+    return data
+
+
+def _read_club(data_dir: Path, name: str) -> dict:
+    return json.loads((data_dir / "clubs" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def test_0004_backfills_admins_and_keeps_existing(tmp_path: Path) -> None:
+    data = _club_store(tmp_path, {
+        "old": {"id": "old", "created_by": "a", "members": ["a", "b"]},
+        "new": {"id": "new", "created_by": "a", "members": ["a", "b"], "admins": ["b"]},
+    })
+    migrations.run_pending(data, log=lambda _m: None)
+    assert _read_club(data, "old")["admins"] == []
+    assert _read_club(data, "new")["admins"] == ["b"]
+    assert m0004.ID in migrations.applied_ids(data)
+
+
+def test_0004_is_idempotent_and_dry_run_safe(tmp_path: Path) -> None:
+    data = _club_store(tmp_path, {"old": {"id": "old", "created_by": "a", "members": ["a"]}})
+    dry = m0004.run(data, dry_run=True)
+    assert dry.changed == 1
+    assert "admins" not in _read_club(data, "old")
+    assert not (data / migrations.BACKUP_DIR).exists()
+
+    migrations.run_pending(data, log=lambda _m: None)
+    once = _read_club(data, "old")
+    again = m0004.run(data)
+    assert again.changed == 0 and again.changes == []
+    assert _read_club(data, "old") == once
+
+
+def test_0004_revert_removes_the_field(tmp_path: Path) -> None:
+    data = _club_store(tmp_path, {"old": {"id": "old", "created_by": "a", "members": ["a"]}})
+    migrations.run_pending(data, log=lambda _m: None)
+    migrations.revert(data, _log_for(data, m0004.ID), log=lambda _m: None)
+    assert "admins" not in _read_club(data, "old")

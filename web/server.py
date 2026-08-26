@@ -486,6 +486,32 @@ def user_is_owner(club: dict[str, Any], username: str | None) -> bool:
     return bool(username) and club.get('created_by') == username
 
 
+def user_is_admin(club: dict[str, Any], username: str | None) -> bool:
+    """Owner or promoted admin. Admins manage members and run championships."""
+    if not username:
+        return False
+    return user_is_owner(club, username) or username in (club.get('admins') or [])
+
+
+def club_reviewers(club: dict[str, Any]) -> list[str]:
+    """Owner first, then admins: everyone who reviews join requests."""
+    names: list[str] = []
+    for n in [club.get('created_by') or ''] + list(club.get('admins') or []):
+        if n and n not in names:
+            names.append(n)
+    return names
+
+
+def club_role(club: dict[str, Any], username: str | None) -> str | None:
+    if user_is_owner(club, username):
+        return 'owner'
+    if user_is_admin(club, username):
+        return 'admin'
+    if user_is_member(club, username):
+        return 'member'
+    return None
+
+
 def club_is_visible_to(club: dict[str, Any], user: dict[str, Any] | None) -> bool:
     if club_visibility(club) == 'public':
         return True
@@ -2207,6 +2233,7 @@ def create_club() -> Response:
         'created_by': user['username'],
         'created_at': datetime.now().isoformat(),
         'members': [user['username']],
+        'admins': [],
         'visibility': visibility,
         'join_policy': join_policy,
         'pending_requests': [],
@@ -2221,7 +2248,7 @@ def create_club() -> Response:
 @app.route('/clubs/<club_id>/edit', methods=['POST'])
 @verified_required
 def edit_club(club_id: str) -> Response:
-    """Owner edits the club name, description, visibility, and join policy."""
+    """Admins edit the club name, description, visibility, and join policy."""
     me = current_user()
     assert me is not None
     name = (request.form.get('name') or '').strip()
@@ -2243,11 +2270,14 @@ def edit_club(club_id: str) -> Response:
     if not os.path.exists(path):
         abort(404)
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         club['name'] = name
         club['description'] = desc
-        club['visibility'] = visibility
+        # Visibility decides who can find the club at all, so it stays with
+        # the owner; an admin's submission leaves it as it was.
+        if user_is_owner(club, me['username']):
+            club['visibility'] = visibility
         club['join_policy'] = join_policy
     flash('Club updated.', 'success')
     return redirect(url_for('club_detail', club_id=club_id))
@@ -2261,26 +2291,31 @@ def club_detail(club_id: str) -> str:
     user = current_user()
     if not club_is_visible_to(club, user):
         abort(404)
-    members = [get_user(m) for m in club.get('members', []) if get_user(m)]
+    members = []
+    for m in club.get('members', []):
+        mu = get_user(m)
+        if mu:
+            members.append({**mu, 'role': club_role(club, m)})
     events = sort_events([e for e in get_all_events() if e.get('club_id') == club_id])
-    # The game surfaces one championship per club, so the owner needs to see
+    # The game surfaces one championship per club, so admins need to see
     # what's occupying the slot before trying to create another one.
     live_event = next((e for e in events if event_is_active(e)), None)
     uname = user['username'] if user else None
+    is_admin = user_is_admin(club, uname)
     pending_users = []
-    if user_is_owner(club, uname):
+    if is_admin:
         for r in club.get('pending_requests', []) or []:
             pu = get_user(r.get('username', ''))
             if pu:
                 pending_users.append({'user': pu, 'requested_at': r.get('requested_at', '')})
     pending_invites = []
-    if user_is_owner(club, uname):
+    if is_admin:
         for inv in club.get('invites', []) or []:
             iu = get_user(inv.get('username', ''))
             if iu:
                 pending_invites.append({'user': iu, 'created_at': inv.get('created_at', '')})
     invite_links = []
-    if user_is_owner(club, uname):
+    if is_admin:
         for link in (club.get('invite_links') or []):
             if link.get('revoked'):
                 continue
@@ -2294,6 +2329,7 @@ def club_detail(club_id: str) -> str:
         stage_caps=STAGE_CAPS,
         live_event=live_event,
         is_owner=user_is_owner(club, uname),
+        is_admin=is_admin,
         is_member=user_is_member(club, uname),
         has_pending_request=user_has_pending_request(club, uname),
         has_pending_invite=user_has_invite(club, uname),
@@ -2356,7 +2392,7 @@ def join_club(club_id: str) -> Response:
             abort(404)
         club_name = club['name']
         if (club_join_policy(club) == 'approval'
-                and not user_is_owner(club, user['username'])):
+                and not user_is_admin(club, user['username'])):
             outcome = _enqueue_request(club, user['username'])
         else:
             if user['username'] not in (club.get('members') or []):
@@ -2371,7 +2407,7 @@ def join_club(club_id: str) -> Response:
         flash(f'Joined {club_name}!', 'success')
     elif outcome == _REQ_OK:
         _post_request_notify(club_id, user['username'], club_name)
-        flash(f'Requested to join {club_name}. The owner will review your request.', 'success')
+        flash(f'Requested to join {club_name}. A club admin will review your request.', 'success')
     elif outcome == _REQ_ALREADY_MEMBER or outcome == 'already_member':
         flash('You are already a member of this club.', 'info')
     elif outcome == _REQ_ALREADY_PENDING:
@@ -2397,30 +2433,29 @@ def _enqueue_request(club: dict[str, Any], username: str) -> str:
 
 def _post_request_notify(club_id: str, requester_username: str,
                          club_name: str) -> None:
-    """After a request was successfully enqueued, notify + email the owner.
-    Email is only sent when add_notification actually wrote a fresh row, so a
-    request/cancel/request loop produces at most one alert per cycle."""
+    """After a request was successfully enqueued, notify + email the owner and
+    every admin. Email is only sent when add_notification actually wrote a
+    fresh row, so a request/cancel/request loop produces at most one alert per
+    cycle per reviewer."""
     club = get_club(club_id)
     if not club:
         return
-    owner_username = club.get('created_by', '')
-    if not owner_username:
-        return
-    notif = add_notification(owner_username, {
-        'type': 'club_join_request',
-        'club_id': club_id,
-        'from_username': requester_username,
-    })
-    if notif is None:
-        return  # de-duped — owner already has an unread alert for this requester
-    owner = get_user(owner_username)
     requester = get_user(requester_username)
-    if not owner or not requester:
-        return
-    try:
-        _send_join_request_email(owner, requester, {'id': club_id, 'name': club_name})
-    except Exception:
-        log.exception('failed to send join-request email')
+    for reviewer_name in club_reviewers(club):
+        notif = add_notification(reviewer_name, {
+            'type': 'club_join_request',
+            'club_id': club_id,
+            'from_username': requester_username,
+        })
+        if notif is None:
+            continue  # de-duped: reviewer already has an unread alert for this requester
+        reviewer = get_user(reviewer_name)
+        if not reviewer or not requester:
+            continue
+        try:
+            _send_join_request_email(reviewer, requester, {'id': club_id, 'name': club_name})
+        except Exception:
+            log.exception('failed to send join-request email')
 
 
 @app.route('/clubs/<club_id>/request', methods=['POST'])
@@ -2443,7 +2478,7 @@ def request_join_club(club_id: str) -> Response:
         outcome = _enqueue_request(club, user['username'])
     if outcome == _REQ_OK:
         _post_request_notify(club_id, user['username'], club_name)
-        flash(f'Requested to join {club_name}. The owner will review your request.', 'success')
+        flash(f'Requested to join {club_name}. A club admin will review your request.', 'success')
     elif outcome == _REQ_ALREADY_MEMBER:
         flash('You are already a member of this club.', 'info')
     elif outcome == _REQ_ALREADY_PENDING:
@@ -2462,9 +2497,9 @@ def cancel_join_request(club_id: str) -> Response:
     if not os.path.exists(path):
         abort(404)
     canceled = False
-    owner_username = ''
+    reviewers: list[str] = []
     with _atomic_update(path) as club:
-        owner_username = club.get('created_by', '') or ''
+        reviewers = club_reviewers(club)
         pending = club.get('pending_requests', []) or []
         new_pending = [r for r in pending if r.get('username') != user['username']]
         if len(new_pending) != len(pending):
@@ -2472,8 +2507,8 @@ def cancel_join_request(club_id: str) -> Response:
             _set_cooldown(club, user['username'], COOLDOWN_AFTER_CANCEL)
             canceled = True
     if canceled:
-        if owner_username:
-            clear_join_request_notification(owner_username, club_id, user['username'])
+        for reviewer_name in reviewers:
+            clear_join_request_notification(reviewer_name, club_id, user['username'])
         flash('Join request canceled.', 'info')
     return redirect(url_for('club_detail', club_id=club_id))
 
@@ -2492,10 +2527,12 @@ def approve_join_request(club_id: str, username: str) -> Response:
         abort(404)
     approved = False
     club_name = ''
+    reviewers: list[str] = []
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         club_name = club['name']
+        reviewers = club_reviewers(club)
         pending = club.get('pending_requests', []) or []
         if not any(r.get('username') == username for r in pending):
             flash('No pending request from that user.', 'warning')
@@ -2521,7 +2558,8 @@ def approve_join_request(club_id: str, username: str) -> Response:
                     _send_join_approved_email(requester_obj, {'id': club_id, 'name': club_name})
                 except Exception:
                     log.exception('failed to send join-approved email')
-        clear_join_request_notification(me['username'], club_id, username)
+        for reviewer_name in reviewers:
+            clear_join_request_notification(reviewer_name, club_id, username)
         flash(f'Approved {username}.', 'success')
     return redirect(url_for('club_detail', club_id=club_id))
 
@@ -2540,10 +2578,12 @@ def deny_join_request(club_id: str, username: str) -> Response:
         abort(404)
     denied = False
     club_name = ''
+    reviewers: list[str] = []
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         club_name = club['name']
+        reviewers = club_reviewers(club)
         pending = club.get('pending_requests', []) or []
         if not any(r.get('username') == username for r in pending):
             flash('No pending request from that user.', 'warning')
@@ -2562,7 +2602,8 @@ def deny_join_request(club_id: str, username: str) -> Response:
                 _send_join_denied_email(requester, {'id': club_id, 'name': club_name})
             except Exception:
                 log.exception('failed to send join-denied email')
-        clear_join_request_notification(me['username'], club_id, username)
+        for reviewer_name in reviewers:
+            clear_join_request_notification(reviewer_name, club_id, username)
         flash(f'Denied request from {username}.', 'info')
     return redirect(url_for('club_detail', club_id=club_id))
 
@@ -2590,6 +2631,9 @@ def leave_club(club_id: str) -> Response:
                 members.remove(user['username'])
                 club['members'] = members
                 left = True
+            admins = club.get('admins') or []
+            if user['username'] in admins:
+                club['admins'] = [a for a in admins if a != user['username']]
     if is_owner_attempt:
         flash("You can't leave a club you own.", 'warning')
     elif left:
@@ -2597,6 +2641,89 @@ def leave_club(club_id: str) -> Response:
             if club_id in (u.get('clubs') or []):
                 u['clubs'].remove(club_id)
         flash(f'Left {club_name}.', 'info')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+# ── Club roles (owner / admin / member) ─────────────────
+
+@app.route('/clubs/<club_id>/admins/<username>/promote', methods=['POST'])
+@verified_required
+def promote_club_admin(club_id: str, username: str) -> Response:
+    """Only the owner makes a member an admin."""
+    me = current_user()
+    assert me is not None
+    try:
+        _validate_id(username)
+    except Exception:
+        abort(400)
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    outcome = ''
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club_name = club['name']
+        if user_is_owner(club, username):
+            outcome = 'owner'
+        elif not user_is_member(club, username):
+            outcome = 'not_member'
+        elif username in (club.get('admins') or []):
+            outcome = 'already'
+        else:
+            club.setdefault('admins', []).append(username)
+            outcome = 'promoted'
+    if outcome == 'promoted':
+        add_notification(username, {
+            'type': 'club_admin_granted',
+            'club_id': club_id,
+            'club_name': club_name,
+            'from_username': me['username'],
+        })
+        flash(f'{username} is now an admin of {club_name}.', 'success')
+    elif outcome == 'owner':
+        flash('The club owner is already an admin.', 'info')
+    elif outcome == 'already':
+        flash(f'{username} is already an admin.', 'info')
+    else:
+        flash(f'{username} is not a member of this club.', 'warning')
+    return redirect(url_for('club_detail', club_id=club_id))
+
+
+@app.route('/clubs/<club_id>/admins/<username>/demote', methods=['POST'])
+@verified_required
+def demote_club_admin(club_id: str, username: str) -> Response:
+    """Only the owner removes the admin role."""
+    me = current_user()
+    assert me is not None
+    try:
+        _validate_id(username)
+    except Exception:
+        abort(400)
+    path = _club_path(club_id)
+    if not os.path.exists(path):
+        abort(404)
+    demoted = False
+    club_name = ''
+    with _atomic_update(path) as club:
+        if not user_is_owner(club, me['username']):
+            abort(403)
+        club_name = club['name']
+        admins = club.get('admins') or []
+        if username in admins:
+            club['admins'] = [a for a in admins if a != username]
+            demoted = True
+    if demoted:
+        add_notification(username, {
+            'type': 'club_admin_revoked',
+            'club_id': club_id,
+            'club_name': club_name,
+            'from_username': me['username'],
+        })
+        flash(f'{username} is no longer an admin.', 'info')
+    else:
+        flash(f'{username} is not an admin of this club.', 'warning')
     return redirect(url_for('club_detail', club_id=club_id))
 
 
@@ -2628,7 +2755,7 @@ def invite_to_club(club_id: str) -> Response:
     outcome = ''
     club_name = ''
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         club_name = club['name']
         if invitee_name == me['username']:
@@ -2700,7 +2827,7 @@ def cancel_invite(club_id: str, username: str) -> Response:
         abort(404)
     canceled = False
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         invites = club.get('invites') or []
         new_invites = [i for i in invites if i.get('username') != username]
@@ -2784,7 +2911,7 @@ def create_invite_link(club_id: str) -> Response:
         abort(404)
     token = secrets.token_urlsafe(24)
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         club.setdefault('invite_links', []).append({
             'token': token,
@@ -2808,7 +2935,7 @@ def revoke_invite_link(club_id: str, token: str) -> Response:
         abort(404)
     revoked = False
     with _atomic_update(path) as club:
-        if not user_is_owner(club, me['username']):
+        if not user_is_admin(club, me['username']):
             abort(403)
         for link in (club.get('invite_links') or []):
             if link.get('token') == token and not link.get('revoked'):
@@ -2888,7 +3015,7 @@ def create_club_event(club_id: str) -> Response:
         abort(404)
     user = current_user()
     assert user is not None
-    if club['created_by'] != user['username']:
+    if not user_is_admin(club, user['username']):
         abort(403)
 
     name = request.form.get('name', '').strip()
@@ -2979,21 +3106,23 @@ def create_club_event(club_id: str) -> Response:
 
 # ── Championship builder (RaceNet-style multi-event) ─────
 
-def _require_club_owner(club_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+def _require_club_admin(club_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """Load the club and current user, enforcing 404/403; returns (club, user)."""
     club = get_club(club_id)
     if not club:
         abort(404)
     user = current_user()
     assert user is not None
-    if club['created_by'] != user['username']:
+    if not user_is_admin(club, user['username']):
         abort(403)
     return club, user
 
 
 def _require_draft(club_id: str, draft_id: str, user: dict[str, Any]) -> dict[str, Any]:
+    """Drafts are shared per club: any admin (already checked by the caller)
+    can open any draft belonging to the club. draft['owner'] is informational."""
     draft = get_draft(draft_id)
-    if not draft or draft.get('club_id') != club_id or draft.get('owner') != user['username']:
+    if not draft or draft.get('club_id') != club_id:
         abort(404)
     return draft
 
@@ -3017,7 +3146,7 @@ def _championship_edit_context(club: dict[str, Any], draft: dict[str, Any]) -> d
 @app.route('/clubs/<club_id>/championship/new', methods=['GET'])
 @verified_required
 def championship_new(club_id: str) -> str:
-    club, _user = _require_club_owner(club_id)
+    club, _user = _require_club_admin(club_id)
     return render_template('championship_new.html', club=club,
                            max_events=MAX_CHAMP_EVENTS, max_stages=MAX_STAGES_PER_EVENT)
 
@@ -3025,7 +3154,7 @@ def championship_new(club_id: str) -> str:
 @app.route('/clubs/<club_id>/championship/new', methods=['POST'])
 @verified_required
 def championship_generate(club_id: str) -> Response:
-    club, user = _require_club_owner(club_id)
+    club, user = _require_club_admin(club_id)
     num_events = _to_int_or_zero(request.form.get('num_events'))
     num_stages = _to_int_or_zero(request.form.get('num_stages'))
     errors: list[str] = []
@@ -3055,7 +3184,7 @@ def championship_generate(club_id: str) -> Response:
 @app.route('/clubs/<club_id>/championship/<draft_id>', methods=['GET'])
 @verified_required
 def championship_edit(club_id: str, draft_id: str) -> str:
-    club, user = _require_club_owner(club_id)
+    club, user = _require_club_admin(club_id)
     draft = _require_draft(club_id, draft_id, user)
     return render_template('championship_edit.html',
                            **_championship_edit_context(club, draft))
@@ -3064,7 +3193,7 @@ def championship_edit(club_id: str, draft_id: str) -> str:
 @app.route('/clubs/<club_id>/championship/<draft_id>', methods=['POST'])
 @verified_required
 def championship_action(club_id: str, draft_id: str) -> Response:
-    _club, user = _require_club_owner(club_id)
+    _club, user = _require_club_admin(club_id)
     draft = _require_draft(club_id, draft_id, user)
 
     # Always persist the whole editor form first so nothing is lost on a bounce.
@@ -3217,7 +3346,7 @@ def _championship_points(event: dict[str, Any],
 @app.route('/clubs/<club_id>/championship/<draft_id>/preview', methods=['GET'])
 @verified_required
 def championship_preview(club_id: str, draft_id: str) -> str:
-    club, user = _require_club_owner(club_id)
+    club, user = _require_club_admin(club_id)
     draft = _require_draft(club_id, draft_id, user)
     summary = _championship_summary(draft)
     now = datetime.now()
@@ -3308,7 +3437,7 @@ def _validate_championship(events: list[dict[str, Any]]) -> list[str]:
 @app.route('/clubs/<club_id>/championship/<draft_id>/submit', methods=['POST'])
 @verified_required
 def championship_submit(club_id: str, draft_id: str) -> Response:
-    club, user = _require_club_owner(club_id)
+    club, user = _require_club_admin(club_id)
     draft = _require_draft(club_id, draft_id, user)
 
     name = (request.form.get('name') or draft.get('name') or '').strip()
@@ -3419,7 +3548,7 @@ def _require_club_event(club_id: str, event_id: str) -> dict[str, Any]:
 @app.route('/clubs/<club_id>/championship/<event_id>/delete', methods=['GET'])
 @verified_required
 def championship_delete_confirm(club_id: str, event_id: str) -> str:
-    club, _user = _require_club_owner(club_id)
+    club, _user = _require_club_admin(club_id)
     event = _require_club_event(club_id, event_id)
     entries = get_results(event_id).get('entries', [])
     # Distinct drivers, not stage rows -- "12 entries" from one driver's dozen
@@ -3434,7 +3563,7 @@ def championship_delete_confirm(club_id: str, event_id: str) -> str:
 @app.route('/clubs/<club_id>/championship/<event_id>/delete', methods=['POST'])
 @verified_required
 def championship_delete(club_id: str, event_id: str) -> Response:
-    _club, _user = _require_club_owner(club_id)
+    _club, _user = _require_club_admin(club_id)
     event = _require_club_event(club_id, event_id)
     delete_event(event_id)
     flash(f'Championship "{event.get("name", event_id)}" deleted.', 'info')
@@ -3444,7 +3573,7 @@ def championship_delete(club_id: str, event_id: str) -> Response:
 @app.route('/clubs/<club_id>/championship/<draft_id>/discard', methods=['POST'])
 @verified_required
 def championship_discard(club_id: str, draft_id: str) -> Response:
-    _club, user = _require_club_owner(club_id)
+    _club, user = _require_club_admin(club_id)
     _require_draft(club_id, draft_id, user)
     delete_draft(draft_id)
     flash('Draft discarded.', 'info')
