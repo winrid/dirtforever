@@ -14,7 +14,7 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact: dist/DirtForever.exe
+            artifact: dist/DirtForever-windows.zip
           - os: ubuntu-22.04
             artifact: dist/DirtForever-linux-x86_64
     runs-on: ${{ matrix.os }}

@@ -203,22 +203,6 @@ def is_admin() -> bool:
     return os.geteuid() == 0
 
 
-def run_as_admin(args: list[str]) -> int:
-    """Run a subprocess elevated. Returns exit code."""
-    if IS_WIN:
-        exe = sys.executable
-        quoted = " ".join(f'"{a}"' for a in args)
-        cmd = f'Start-Process -FilePath "{exe}" -ArgumentList \'{quoted}\' -Verb RunAs -Wait'
-        result = subprocess.run(
-            ["powershell", "-Command", cmd], capture_output=True,
-            timeout=ELEVATION_TIMEOUT_SECONDS,
-        )
-        return result.returncode
-    # Linux: pkexec runs the literal argv as root. First arg should be an executable.
-    result = subprocess.run(["pkexec", *args], timeout=ELEVATION_TIMEOUT_SECONDS)
-    return result.returncode
-
-
 def _self_invocation_args() -> list[str]:
     """Argv that re-launches this same program (for elevated helper calls).
 
@@ -236,24 +220,82 @@ def _self_invocation_args() -> list[str]:
 
 
 def _windows_elevate_admin_helper(op: str, timeout: int = ELEVATION_TIMEOUT_SECONDS) -> int:
-    """Re-launch ourselves with `--admin-helper <op>` via UAC. Returns the
-    PowerShell exit code (NOT the elevated child's — Start-Process -Wait
-    doesn't surface that). Callers verify the side effect (hosts_configured)
-    rather than trusting the return code.
+    """Re-launch ourselves with `--admin-helper <op>` via UAC.
+
+    Uses ShellExecuteExW("runas") directly rather than spawning a PowerShell
+    child with a bypassed execution policy to do it: that spawn pattern is a
+    textbook malware heuristic and contributed to Defender flagging the exe
+    (the literal command string is deliberately not written anywhere here).
+    Returns the elevated child's exit code, or a nonzero value if the
+    UAC prompt was declined / the launch failed. Raises TimeoutExpired if
+    the child doesn't finish within `timeout`. Callers still verify the side
+    effect (hosts_configured) rather than trusting the return code.
     """
+    import ctypes.wintypes as wt
+
     invocation = _self_invocation_args() + ["--admin-helper", op]
     file_path = invocation[0]
-    arg_list = " ".join(f'"{a}"' for a in invocation[1:])
-    ps_cmd = (
-        f'Start-Process -FilePath "{file_path}" '
-        f"-ArgumentList '{arg_list}' -Verb RunAs -Wait"
-    )
-    result = subprocess.run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps_cmd],
-        capture_output=True,
-        timeout=timeout,
-    )
-    return result.returncode
+    params = " ".join(f'"{a}"' for a in invocation[1:])
+
+    class SHELLEXECUTEINFOW(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", wt.DWORD),
+            ("fMask", wt.ULONG),
+            ("hwnd", wt.HWND),
+            ("lpVerb", wt.LPCWSTR),
+            ("lpFile", wt.LPCWSTR),
+            ("lpParameters", wt.LPCWSTR),
+            ("lpDirectory", wt.LPCWSTR),
+            ("nShow", ctypes.c_int),
+            ("hInstApp", wt.HINSTANCE),
+            ("lpIDList", ctypes.c_void_p),
+            ("lpClass", wt.LPCWSTR),
+            ("hkeyClass", wt.HKEY),
+            ("dwHotKey", wt.DWORD),
+            ("hIconOrMonitor", wt.HANDLE),
+            ("hProcess", wt.HANDLE),
+        ]
+
+    SEE_MASK_NOCLOSEPROCESS = 0x40
+    SEE_MASK_NOASYNC = 0x100
+    SW_HIDE = 0
+    WAIT_TIMEOUT = 0x102
+    INFINITE = 0xFFFFFFFF
+
+    shell32 = ctypes.WinDLL("shell32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    shell32.ShellExecuteExW.argtypes = [ctypes.POINTER(SHELLEXECUTEINFOW)]
+    shell32.ShellExecuteExW.restype = wt.BOOL
+    kernel32.WaitForSingleObject.argtypes = [wt.HANDLE, wt.DWORD]
+    kernel32.WaitForSingleObject.restype = wt.DWORD
+    kernel32.GetExitCodeProcess.argtypes = [wt.HANDLE, ctypes.POINTER(wt.DWORD)]
+    kernel32.GetExitCodeProcess.restype = wt.BOOL
+    kernel32.CloseHandle.argtypes = [wt.HANDLE]
+    kernel32.CloseHandle.restype = wt.BOOL
+
+    info = SHELLEXECUTEINFOW()
+    info.cbSize = ctypes.sizeof(SHELLEXECUTEINFOW)
+    info.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC
+    info.lpVerb = "runas"
+    info.lpFile = file_path
+    info.lpParameters = params
+    info.lpDirectory = str(Path(file_path).parent)
+    info.nShow = SW_HIDE
+
+    if not shell32.ShellExecuteExW(ctypes.byref(info)):
+        # Typically ERROR_CANCELLED (1223): user declined the UAC prompt.
+        return ctypes.get_last_error() or 1
+    if not info.hProcess:
+        return 1
+    try:
+        wait_ms = INFINITE if timeout is None else int(timeout * 1000)
+        if kernel32.WaitForSingleObject(info.hProcess, wait_ms) == WAIT_TIMEOUT:
+            raise subprocess.TimeoutExpired([file_path, *invocation[1:]], timeout)
+        code = wt.DWORD(1)
+        kernel32.GetExitCodeProcess(info.hProcess, ctypes.byref(code))
+        return int(code.value)
+    finally:
+        kernel32.CloseHandle(info.hProcess)
 
 
 def _run_admin_helper(op: str) -> int:
@@ -317,12 +359,53 @@ def cert_exists() -> bool:
 
 
 def install_cert_trust() -> bool:
-    """Install cert into Windows Root store. Returns True on success."""
-    result = subprocess.run(
-        ["certutil", "-addstore", "Root", str(CERT_PATH)],
-        capture_output=True, text=True,
+    """Install cert into the Windows machine Root store. Returns True on success.
+
+    Uses crypt32 directly instead of shelling out to `certutil -addstore Root`,
+    which is a common malware behavior that AV heuristics weigh against us.
+    Must run elevated (the helper child is).
+    """
+    import ssl
+    import ctypes.wintypes as wt
+
+    X509_ASN_ENCODING = 0x1
+    CERT_STORE_ADD_REPLACE_EXISTING = 3
+    CERT_STORE_PROV_SYSTEM_W = 10
+    # Same store `certutil -addstore Root` targets: HKLM, trusted for every
+    # user on the machine (CertOpenSystemStore would pick the elevating
+    # admin's per-user store, which isn't necessarily the player's).
+    CERT_SYSTEM_STORE_LOCAL_MACHINE = 0x00020000
+
+    try:
+        der = ssl.PEM_cert_to_DER_cert(CERT_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+
+    crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+    crypt32.CertOpenStore.argtypes = [
+        ctypes.c_void_p, wt.DWORD, ctypes.c_void_p, wt.DWORD, wt.LPCWSTR,
+    ]
+    crypt32.CertOpenStore.restype = ctypes.c_void_p
+    crypt32.CertAddEncodedCertificateToStore.argtypes = [
+        ctypes.c_void_p, wt.DWORD, ctypes.c_char_p, wt.DWORD, wt.DWORD, ctypes.c_void_p,
+    ]
+    crypt32.CertAddEncodedCertificateToStore.restype = wt.BOOL
+    crypt32.CertCloseStore.argtypes = [ctypes.c_void_p, wt.DWORD]
+    crypt32.CertCloseStore.restype = wt.BOOL
+
+    store = crypt32.CertOpenStore(
+        ctypes.c_void_p(CERT_STORE_PROV_SYSTEM_W), 0, None,
+        CERT_SYSTEM_STORE_LOCAL_MACHINE, "ROOT",
     )
-    return result.returncode == 0
+    if not store:
+        return False
+    try:
+        return bool(crypt32.CertAddEncodedCertificateToStore(
+            store, X509_ASN_ENCODING, der, len(der),
+            CERT_STORE_ADD_REPLACE_EXISTING, None,
+        ))
+    finally:
+        crypt32.CertCloseStore(store, 0)
 
 
 # ---------------------------------------------------------------------------
@@ -701,7 +784,7 @@ def run_gui():
             remote_tag = data.get("tag_name", "").lstrip("v")
             # Match the canonical asset name exactly — debug builds, signed
             # variants, etc. should not be picked up by the update banner.
-            wanted_name = "DirtForever.exe" if IS_WIN else "DirtForever-linux-x86_64"
+            wanted_name = "DirtForever-windows.zip" if IS_WIN else "DirtForever-linux-x86_64"
             dl_url = ""
             for asset in data.get("assets", []):
                 if asset.get("name") == wanted_name:

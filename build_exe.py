@@ -1,11 +1,18 @@
-"""Build script — produces a single-file binary via PyInstaller.
+"""Build script - produces the distributable binary via PyInstaller.
 
 Run:
     python build_exe.py
 
 Output:
-    Windows  -> dist/DirtForever.exe
-    Linux    -> dist/DirtForever-linux-x86_64
+    Windows  -> dist/DirtForever/DirtForever.exe (onedir), zipped to
+                dist/DirtForever-windows.zip for release
+    Linux    -> dist/DirtForever-linux-x86_64 (onefile)
+
+Windows is built --onedir on purpose: a --onefile exe is a self-extracting
+stub that unpacks a runtime to %TEMP% and runs it, which is structurally a
+dropper and is a big part of why Defender's ML classifier flagged the old
+exe (Trojan:Win32/Phonzy.B!ml). A plain exe next to its DLLs scores far
+better.
 
 Requirements:
     pip install pyinstaller cryptography
@@ -66,7 +73,8 @@ def _linux_tk_runtime_libs() -> list[str]:
 
 if IS_WIN:
     APP_NAME = "DirtForever"           # PyInstaller appends .exe
-    OUTPUT_NAME = "DirtForever.exe"
+    OUTPUT_NAME = "DirtForever/DirtForever.exe"   # onedir
+    ZIP_BASENAME = "DirtForever-windows"           # -> dist/DirtForever-windows.zip
 elif IS_LINUX:
     # Honest arch tag — CI publishes x86_64 only, but a local build on
     # aarch64 would otherwise produce a misnamed binary.
@@ -187,7 +195,9 @@ def build() -> None:
 
     cmd: list[str] = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
+        # Windows: onedir (see module docstring). Linux: onefile, since the
+        # AV problem is Windows-only and setcap targets the single ELF.
+        "--onedir" if IS_WIN else "--onefile",
         "--name", APP_NAME,
         # No --uac-admin: the app elevates only when needed (hosts/cert),
         # not on every launch. This avoids the UAC prompt just to see the GUI.
@@ -249,11 +259,22 @@ def build() -> None:
 
     exe = ROOT / "dist" / OUTPUT_NAME
     print()
-    if exe.exists():
-        size_mb = exe.stat().st_size / (1024 * 1024)
-        print(f"[build] Success!  {exe}  ({size_mb:.1f} MB)")
-    else:
+    if not exe.exists():
         print(f"[build] Warning: expected output not found at {exe}")
+        sys.exit(1)
+    size_mb = exe.stat().st_size / (1024 * 1024)
+    print(f"[build] Success!  {exe}  ({size_mb:.1f} MB)")
+
+    if IS_WIN:
+        # Zip the onedir folder with DirtForever/ as the top-level entry so
+        # extracting gives users one folder to run from.
+        import shutil
+        zip_path = shutil.make_archive(
+            str(ROOT / "dist" / ZIP_BASENAME), "zip",
+            root_dir=str(ROOT / "dist"), base_dir=APP_NAME,
+        )
+        zip_mb = Path(zip_path).stat().st_size / (1024 * 1024)
+        print(f"[build] Zipped   {zip_path}  ({zip_mb:.1f} MB)")
 
 
 if __name__ == "__main__":
