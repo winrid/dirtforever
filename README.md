@@ -10,8 +10,8 @@ A community alternative to the RaceNet/EgoNet backend. Run a small local server 
 
 1. Create an account at [dirtforever.net](https://dirtforever.net/register)
 2. Log in, go to Dashboard, click **Generate Game Token**
-3. Download [DirtForever.exe](https://github.com/winrid/dirtforever/releases/latest)
-4. Run DirtForever.exe — it will set up everything and ask for your token
+3. Download [DirtForever-windows.zip](https://github.com/winrid/dirtforever/releases/latest) and extract it anywhere
+4. Run `DirtForever\DirtForever.exe` from the extracted folder (keep the exe inside that folder, it needs the files next to it). It will set up everything and ask for your token
 5. Launch DiRT Rally 2.0 via Steam
 
 To play in future sessions, just run DirtForever.exe before launching the game.

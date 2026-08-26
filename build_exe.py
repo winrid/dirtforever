@@ -1,11 +1,19 @@
-"""Build script — produces a single-file binary via PyInstaller.
+"""Build script - produces the distributable binary via PyInstaller.
 
 Run:
     python build_exe.py
 
 Output:
-    Windows  -> dist/DirtForever.exe
-    Linux    -> dist/DirtForever-linux-x86_64
+    Windows  -> dist/DirtForever/DirtForever.exe (onedir), zipped to
+                dist/DirtForever-windows.zip for release, plus a
+                transitional onefile dist/DirtForever.exe (see build())
+    Linux    -> dist/DirtForever-linux-x86_64 (onefile)
+
+Windows is built --onedir on purpose: a --onefile exe is a self-extracting
+stub that unpacks a runtime to %TEMP% and runs it, which is structurally a
+dropper and is a big part of why Defender's ML classifier flagged the old
+exe (Trojan:Win32/Phonzy.B!ml). A plain exe next to its DLLs scores far
+better.
 
 Requirements:
     pip install pyinstaller cryptography
@@ -66,7 +74,9 @@ def _linux_tk_runtime_libs() -> list[str]:
 
 if IS_WIN:
     APP_NAME = "DirtForever"           # PyInstaller appends .exe
-    OUTPUT_NAME = "DirtForever.exe"
+    OUTPUT_NAME = "DirtForever/DirtForever.exe"   # onedir
+    ZIP_BASENAME = "DirtForever-windows"           # -> dist/DirtForever-windows.zip
+    LEGACY_EXE_NAME = "DirtForever.exe"            # transitional onefile build
 elif IS_LINUX:
     # Honest arch tag — CI publishes x86_64 only, but a local build on
     # aarch64 would otherwise produce a misnamed binary.
@@ -185,15 +195,18 @@ def build() -> None:
         "dr2server.account_store",
     ]
 
+    # Bundle mode (--onedir / --onefile) is inserted per run below.
     cmd: list[str] = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
         "--name", APP_NAME,
         # No --uac-admin: the app elevates only when needed (hosts/cert),
         # not on every launch. This avoids the UAC prompt just to see the GUI.
         "--windowed",  # No console window (GUI app)
         # Clean build artefacts from previous runs.
         "--clean",
+        # onedir asks "output directory will be REMOVED! Continue?" when
+        # dist/DirtForever/ already exists; never prompt (rebuilds, CI).
+        "--noconfirm",
         "--distpath", str(ROOT / "dist"),
         "--workpath", str(ROOT / "build"),
         "--specpath", str(ROOT),
@@ -238,22 +251,46 @@ def build() -> None:
     # Entry point
     cmd.append(str(ROOT / "dirtforever.py"))
 
-    print("[build] Running PyInstaller …")
-    print("[build] Command:", " ".join(cmd))
-    print()
+    def run_pyinstaller(mode: str, expected: Path) -> None:
+        full = cmd[:3] + [mode] + cmd[3:]
+        print(f"[build] Running PyInstaller ({mode}) ...")
+        print("[build] Command:", " ".join(full))
+        print()
+        result = subprocess.run(full, cwd=str(ROOT))
+        if result.returncode != 0:
+            print(f"\n[build] PyInstaller failed (exit {result.returncode}).")
+            sys.exit(result.returncode)
+        print()
+        if not expected.exists():
+            print(f"[build] Warning: expected output not found at {expected}")
+            sys.exit(1)
+        size_mb = expected.stat().st_size / (1024 * 1024)
+        print(f"[build] Success!  {expected}  ({size_mb:.1f} MB)")
 
-    result = subprocess.run(cmd, cwd=str(ROOT))
-    if result.returncode != 0:
-        print(f"\n[build] PyInstaller failed (exit {result.returncode}).")
-        sys.exit(result.returncode)
-
-    exe = ROOT / "dist" / OUTPUT_NAME
-    print()
-    if exe.exists():
-        size_mb = exe.stat().st_size / (1024 * 1024)
-        print(f"[build] Success!  {exe}  ({size_mb:.1f} MB)")
+    if IS_WIN:
+        # Transitional: also build the legacy single-file DirtForever.exe so
+        # installs from before the zip switch still see the update banner
+        # (they look for that exact asset name). Drop once the fleet has
+        # moved over. Built first so the onedir run's --clean has no effect
+        # on it (they land at different paths: dist/DirtForever.exe vs
+        # dist/DirtForever/).
+        run_pyinstaller("--onefile", ROOT / "dist" / LEGACY_EXE_NAME)
+        run_pyinstaller("--onedir", ROOT / "dist" / OUTPUT_NAME)
     else:
-        print(f"[build] Warning: expected output not found at {exe}")
+        # Linux: onefile, since the AV problem is Windows-only and setcap
+        # targets the single ELF.
+        run_pyinstaller("--onefile", ROOT / "dist" / OUTPUT_NAME)
+
+    if IS_WIN:
+        # Zip the onedir folder with DirtForever/ as the top-level entry so
+        # extracting gives users one folder to run from.
+        import shutil
+        zip_path = shutil.make_archive(
+            str(ROOT / "dist" / ZIP_BASENAME), "zip",
+            root_dir=str(ROOT / "dist"), base_dir=APP_NAME,
+        )
+        zip_mb = Path(zip_path).stat().st_size / (1024 * 1024)
+        print(f"[build] Zipped   {zip_path}  ({zip_mb:.1f} MB)")
 
 
 if __name__ == "__main__":

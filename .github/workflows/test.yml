@@ -39,7 +39,7 @@ jobs:
 
       - name: Run --admin-helper start against temp hosts
         shell: pwsh
-        run: python tests/integration_admin_helper_exe.py dist/DirtForever.exe
+        run: python tests/integration_admin_helper_exe.py dist/DirtForever/DirtForever.exe
 
   admin-helper-linux:
     name: Admin helper end-to-end (built binary, linux)
