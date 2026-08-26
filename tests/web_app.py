@@ -119,6 +119,7 @@ class WebApp:
         *,
         members: Iterable[str],
         name: Optional[str] = None,
+        admins: Optional[Iterable[str]] = None,
     ) -> None:
         members_list = list(members)
         club = {
@@ -128,6 +129,7 @@ class WebApp:
             "created_by": members_list[0] if members_list else "",
             "created_at": "2026-01-01T00:00:00",
             "members": members_list,
+            "admins": list(admins or []),
         }
         self._write("clubs", club_id, club)
 

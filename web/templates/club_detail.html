@@ -19,12 +19,18 @@
                 <p class="page-subtitle text-muted">{{ club.description }}</p>
             </div>
             {% if current_user %}
-                {% if is_owner %}
+                {% if is_admin %}
                 <div style="display:flex; gap:.5rem;">
                     <button type="button" class="btn btn-ghost btn-sm"
                             onclick="document.getElementById('editClub').classList.toggle('hidden')">
                         Edit Club
                     </button>
+                    {% if not is_owner %}
+                    <form method="post" action="/clubs/{{ club.id }}/leave" style="margin:0;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-ghost btn-sm">Leave Club</button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% elif is_member %}
                 <form method="post" action="/clubs/{{ club.id }}/leave">
@@ -65,7 +71,7 @@
 
 <div class="container club-detail-grid">
     <div class="club-detail-main">
-        {% if is_owner %}
+        {% if is_admin %}
         <div id="editClub" class="card reveal hidden" style="margin-bottom:1rem;">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Edit Club</h2>
@@ -84,6 +90,7 @@
                             <input type="text" id="edit_description" name="description" class="form-input"
                                    value="{{ club.description }}">
                         </div>
+                        {% if is_owner %}
                         <div class="form-group">
                             <label for="edit_visibility" class="form-label">Visibility</label>
                             <select id="edit_visibility" name="visibility" class="form-input form-select">
@@ -91,6 +98,7 @@
                                 <option value="private" {% if visibility == 'private' %}selected{% endif %}>Private (hidden from non-members)</option>
                             </select>
                         </div>
+                        {% endif %}
                         <div class="form-group">
                             <label for="edit_join_policy" class="form-label">Join policy</label>
                             <select id="edit_join_policy" name="join_policy" class="form-input form-select">
@@ -111,7 +119,7 @@
         <div class="card reveal">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Championships</h2>
-                {% if current_user and current_user.username == club.created_by %}
+                {% if is_admin %}
                 <div style="display:flex; gap:.5rem; flex-wrap:wrap;">
                     <a href="/clubs/{{ club.id }}/championship/new" class="btn btn-primary btn-sm">
                         + Create Championship
@@ -126,7 +134,7 @@
                 {% endif %}
             </div>
 
-            {% if is_owner and live_event %}
+            {% if is_admin and live_event %}
             <div class="card-body club-slot-note">
                 <p><strong>{{ live_event.name }}</strong> is live for another
                     {{ live_event.end_time | countdown }}. The game shows one championship
@@ -135,7 +143,7 @@
             </div>
             {% endif %}
 
-            {% if current_user and current_user.username == club.created_by %}
+            {% if is_admin %}
             <div id="createEvent" class="card-body create-event-form-wrap hidden">
                 <form method="post" action="/clubs/{{ club.id }}/events" class="create-event-form">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -233,7 +241,7 @@
                         <span class="event-row-countdown mono">{{ event.end_time | countdown }}</span>
                         {% endif %}
                     </a>
-                    {% if is_owner %}
+                    {% if is_admin %}
                     <a href="/clubs/{{ club.id }}/championship/{{ event.id }}/delete"
                        class="btn btn-ghost btn-sm">Delete</a>
                     {% endif %}
@@ -248,7 +256,7 @@
     </div>
 
     <div class="club-detail-side">
-        {% if is_owner and pending_users %}
+        {% if is_admin and pending_users %}
         <div class="card reveal">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Pending requests <span class="text-muted">({{ pending_users | length }})</span></h2>
@@ -278,7 +286,7 @@
         </div>
         {% endif %}
 
-        {% if is_owner %}
+        {% if is_admin %}
         <div class="card reveal">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Invite members</h2>
@@ -337,13 +345,40 @@
             <div class="card-body">
                 <div class="member-list">
                     {% for member in members %}
+                    {% set can_promote = is_owner and member.role == 'member' %}
+                    {% set can_demote = is_owner and member.role == 'admin' %}
+                    {% if can_promote or can_demote %}
+                    <div class="member-row" style="display:flex; flex-direction:column; gap:.4rem; align-items:stretch;">
+                        <div style="display:flex; align-items:center; gap:.5rem;">
+                            <a href="/profile/{{ member.username }}" class="member-name" style="flex:1;">{{ member.display_name }}</a>
+                            <span class="member-country text-muted">{{ member.country | country_flag }} {{ member.country }}</span>
+                            {% if member.role == 'admin' %}
+                            <span class="member-badge">Admin</span>
+                            {% endif %}
+                        </div>
+                        {% if can_promote %}
+                        <form method="post" action="/clubs/{{ club.id }}/admins/{{ member.username }}/promote" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;">Make admin</button>
+                        </form>
+                        {% else %}
+                        <form method="post" action="/clubs/{{ club.id }}/admins/{{ member.username }}/demote" style="margin:0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-sm" style="width:100%;">Remove admin</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% else %}
                     <a href="/profile/{{ member.username }}" class="member-row">
                         <span class="member-name">{{ member.display_name }}</span>
                         <span class="member-country text-muted">{{ member.country | country_flag }} {{ member.country }}</span>
-                        {% if member.username == club.created_by %}
+                        {% if member.role == 'owner' %}
                         <span class="member-badge">Owner</span>
+                        {% elif member.role == 'admin' %}
+                        <span class="member-badge">Admin</span>
                         {% endif %}
                     </a>
+                    {% endif %}
                     {% endfor %}
                 </div>
             </div>
