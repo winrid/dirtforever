@@ -1,0 +1,26 @@
+{
+  "Entries": [
+    {
+      "CumulativeBest": 150000,
+      "GhostAvailable": false,
+      "IsFounder": false,
+      "IsVIP": false,
+      "LiveryId": 0,
+      "Nationality": 0,
+      "PersonalBest": 150000,
+      "Presence": {
+        "AccountRef": 5301121648421453870,
+        "EgoNetId": 5301121648421453870,
+        "IsCrossPlatform": false,
+        "Name": "ann",
+        "NetworkId": 0
+      },
+      "Rank": 1,
+      "TimeDiff": 0,
+      "VehicleId": 393
+    }
+  ],
+  "PlayerRank": 0,
+  "TotalEntries": 1,
+  "ok": true
+}

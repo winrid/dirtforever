@@ -1,0 +1,158 @@
+{
+  "results": {
+    "evt-multi-rally": {
+      "entries": [
+        {
+          "attempts_used": 0,
+          "car": "",
+          "stages": [
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 110000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 110000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 60000,
+              "vehicle_id": 393
+            }
+          ],
+          "total_time_ms": 280000,
+          "username": "bob",
+          "vehicle_id": 393
+        },
+        {
+          "attempts_used": 0,
+          "car": "",
+          "stages": [
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 100000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 100000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 70000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 80000,
+              "vehicle_id": 393
+            }
+          ],
+          "total_time_ms": 350000,
+          "username": "ann",
+          "vehicle_id": 393
+        },
+        {
+          "attempts_used": 0,
+          "car": "Ford RS200",
+          "stages": [
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 300000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 300000,
+              "vehicle_id": 393
+            },
+            {
+              "comp_damage": {
+                "bodywork": 0,
+                "brakes": 0,
+                "clutch": 0.0,
+                "dampers": 0,
+                "diff_impact": 0,
+                "diff_wear": 0,
+                "engine": 0.0,
+                "exhaust": 0.0,
+                "gearbox": 0,
+                "lights": 0.0,
+                "quick_repairs": 0,
+                "radiator": 0.0,
+                "springs": 0,
+                "turbo": 0,
+                "wheels_impact": 0,
+                "wheels_wear": 0
+              },
+              "distance_driven": 10000,
+              "has_repaired": false,
+              "livery_id": 0,
+              "meters_driven": 10000,
+              "nationality_id": 0,
+              "penalties_ms": 0,
+              "race_status": 0,
+              "repair_penalty_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 65000,
+              "tuning_setup_b64": "",
+              "tyre_compound": 7,
+              "tyres_remaining": 2,
+              "using_assists": false,
+              "using_wheel": false,
+              "vehicle_id": 393,
+              "vehicle_mud": {
+                "clean_dirt": 0.0,
+                "clean_height": 0.0,
+                "clean_mud": 0.0,
+                "dirt": 0.0,
+                "mud": 0.0,
+                "wheel_mud_0": 0.0,
+                "wheel_mud_1": 0.0,
+                "wheel_mud_2": 0.0,
+                "wheel_mud_3": 0.0
+              }
+            }
+          ],
+          "total_time_ms": 665000,
+          "username": "sgt",
+          "vehicle_id": 393
+        }
+      ],
+      "event_id": "evt-multi-rally",
+      "in_progress": {
+        "sgt": {
+          "2": {
+            "livery_id": 0,
+            "nationality_id": 0,
+            "tuning_setup_b64": "",
+            "tyre_compound": 7,
+            "tyres_remaining": 2,
+            "vehicle_id": 393
+          },
+          "3": {
+            "livery_id": 0,
+            "nationality_id": 0,
+            "tuning_setup_b64": "",
+            "tyre_compound": 7,
+            "tyres_remaining": 2,
+            "vehicle_id": 393
+          }
+        }
+      }
+    }
+  },
+  "time_trials": {}
+}

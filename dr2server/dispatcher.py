@@ -887,7 +887,7 @@ class RpcDispatcher:
             vehicle_id=vehicle_id,
             livery_id=livery_id,
             meters_driven=last.get("meters_driven", 0) or 0,
-            champ_time_ms=(ep or {}).get("total_time_ms", 0),
+            champ_time_ms=self._time_in_range(completed, offset, event_stage_count),
             has_repaired=bool(last.get("has_repaired", False)),
             repair_penalty_ms=int(last.get("repair_penalty_ms", 0) or 0),
             vehicle_damage=self._damage_from_dict(last.get("vehicle_damage")),
@@ -1444,23 +1444,29 @@ class RpcDispatcher:
     def _cap_entries_at_stage(
         entries: List[Dict[str, Any]],
         cutoff_stage_index: int,
+        start_stage_index: int = 0,
     ) -> List[Dict[str, Any]]:
-        """Return entries that completed every stage in [0, cutoff_stage_index].
+        """Return entries that completed every stage in
+        [start_stage_index, cutoff_stage_index].
 
         Each kept entry is a shallow copy annotated with ``partial_total_ms``
-        (sum of ``time_ms + penalties_ms`` across stages 0..cutoff inclusive).
+        (sum of ``time_ms + penalties_ms`` across stages start..cutoff
+        inclusive). ``start_stage_index`` is the flat ordinal of the first
+        stage of the rally being viewed, so a multi-rally championship shows
+        each rally's own times instead of a running championship total.
         Entries are excluded when any stage in that range is missing, ``None``,
         or has ``time_ms <= 0``. The result is stably sorted ascending by
         ``partial_total_ms``.
         """
         kept: List[Dict[str, Any]] = []
+        start_stage_index = max(0, start_stage_index)
         for e in entries:
             stages = e.get("stages") or []
             if len(stages) <= cutoff_stage_index:
                 continue
             partial = 0
             ok = True
-            for i in range(cutoff_stage_index + 1):
+            for i in range(start_stage_index, cutoff_stage_index + 1):
                 s = stages[i]
                 if not s:
                     ok = False
@@ -1543,26 +1549,64 @@ class RpcDispatcher:
         # or chal_id*10+N (stage-level). Try both schemes.
         event_id = None
         stage_index_for_lb: Optional[int] = None  # stage-level: FLAT ordinal
+        # Flat-ordinal range of the rally (sub-event) this board belongs to.
+        # Each rally of a championship is served as its own challenge, so its
+        # boards must only ever total that rally's stages. range_count None
+        # means "single-event / unknown": the whole flat list is one rally.
+        range_start = 0
+        range_count: Optional[int] = None
+        # Layouts fetched during THIS request only (one web call per event);
+        # nothing is kept across requests so a championship edit is always
+        # picked up on the next call.
+        layouts: Dict[str, List[int]] = {}
+
+        def layout_of(eid: str) -> List[int]:
+            if eid not in layouts:
+                layouts[eid] = self._champ_layout(eid)
+            return layouts[eid]
+
         chal_id = lb_id - 800000 if lb_id >= 800000 else None
         if chal_id and chal_id in self._challenge_event_map:
             event_id = self._challenge_event_map[chal_id]
-        elif (lb_id // 10) in self._challenge_event_map:
+            sub = self._challenge_subevent_map.get(chal_id)
+            if sub is not None:
+                range_start, range_count = self._subevent_range(
+                    event_id, sub, layout_of(event_id))
+        elif (
+            (lb_id // 10) in self._challenge_event_map
+            and self._challenge_subevent_map.get(lb_id // 10, 0) == 0
+        ):
+            # Stage ids are derived from the championship's BASE challenge id
+            # (sub-event 0). A served challenge id for sub-event k is base+k,
+            # so only a base id can be decoded this way; anything else goes
+            # through the general decode below.
             event_id = self._challenge_event_map[lb_id // 10]
             stage_index_for_lb = lb_id % 10  # event 0: flat ordinal == stage index
+            if (lb_id // 10) in self._challenge_subevent_map:
+                range_start, range_count = self._subevent_range(
+                    event_id, 0, layout_of(event_id))
 
-        # Multi-event championship stage id: chal_id*10 + event_index*1_000_000
-        # + stage_index (event_index >= 1; event 0 is handled above). Resolve to
-        # a FLAT ordinal so the cutoff/pre-persist land on the right stage.
+        # Championship stage id: base_chal_id*10 + event_index*1_000_000
+        # + stage_index. The map holds the SERVED id (base + event_index), so
+        # recover the base first. Resolve to a FLAT ordinal so the
+        # cutoff/pre-persist land on the right stage.
         if event_id is None:
             for cid, eid in self._challenge_event_map.items():
-                diff = lb_id - cid * 10
-                if diff <= 0:
+                base = cid - self._challenge_subevent_map.get(cid, 0)
+                diff = lb_id - base * 10
+                if diff < 0:
                     continue
                 ei, si = divmod(diff, 1_000_000)
-                if ei >= 1 and si < 100:
-                    event_id = eid
-                    stage_index_for_lb = self._stage_offset(eid, ei) + si
-                    break
+                if ei >= 100 or si >= 100:
+                    continue
+                layout = layout_of(eid)
+                if ei >= len(layout) or si >= layout[ei]:
+                    continue
+                event_id = eid
+                range_start = sum(layout[:ei])
+                range_count = layout[ei]
+                stage_index_for_lb = range_start + si
+                break
 
         # Fallback: game may have cached an old leaderboard_id. Use the
         # first active event.
@@ -1621,6 +1665,7 @@ class RpcDispatcher:
         # completed stage so opponents who finished more stages don't look
         # artificially slower. cutoff=None means "no cap" (full totals).
         cutoff: Optional[int] = None
+        range_end = (range_start + range_count) if range_count else None
         if stage_index_for_lb is not None:
             cutoff = stage_index_for_lb
         else:
@@ -1632,13 +1677,19 @@ class RpcDispatcher:
                 if my_entry:
                     max_idx = -1
                     for i, s in enumerate(my_entry.get("stages") or []):
+                        if i < range_start or (range_end is not None and i >= range_end):
+                            continue
                         if s and int(s.get("time_ms", 0) or 0) > 0:
                             max_idx = i
                     if max_idx >= 0:
                         cutoff = max_idx
+            # A rally the player hasn't started yet: show the finished-rally
+            # standings rather than the whole championship's running totals.
+            if cutoff is None and range_end is not None:
+                cutoff = range_end - 1
 
         if cutoff is not None:
-            source = self._cap_entries_at_stage(entries, cutoff)
+            source = self._cap_entries_at_stage(entries, cutoff, range_start)
             use_partial = True
         else:
             source = entries
@@ -2232,6 +2283,31 @@ class RpcDispatcher:
             return 0
         return sum(self._champ_layout(event_id)[:event_index])
 
+    def _subevent_range(self, event_id: str, event_index: int,
+                        layout: Optional[List[int]] = None) -> tuple[int, Optional[int]]:
+        """``(offset, count)`` flat-ordinal range of sub-event ``event_index``;
+        count is None when the layout is unknown. Pass ``layout`` when the
+        caller already fetched it so a request doesn't hit the web twice."""
+        if layout is None:
+            layout = self._champ_layout(event_id)
+        if not layout or event_index < 0 or event_index >= len(layout):
+            return 0, None
+        return sum(layout[:event_index]), layout[event_index]
+
+    @staticmethod
+    def _time_in_range(completed_stages: List[Dict[str, Any]],
+                       offset: int, count: Optional[int]) -> int:
+        """Sum of completed-stage times whose flat ``stage_index`` falls in
+        this rally's range. Each rally is its own challenge, so its
+        ChampTimeMs must not carry earlier rallies' times."""
+        total = 0
+        for s in completed_stages:
+            idx = int(s.get("stage_index", 0) or 0)
+            if idx < offset or (count is not None and idx >= offset + count):
+                continue
+            total += int(s.get("time_ms", 0) or 0)
+        return total
+
     def _total_stages_for_event(self, event_id: str) -> int:
         """Total configured stage count across ALL sub-events (championship
         total). 0 if unknown; equals the stage count for single-event events."""
@@ -2291,7 +2367,13 @@ class RpcDispatcher:
         # (Vehicle/Livery/Tyres/Tuning).
         ep = self._user_progress_for_event(event_id) if event_id else None
         completed_stages = (ep or {}).get("completed_stages", []) if ep else []
-        prior_completed = [s for s in completed_stages if s.get("stage_index", 0) < gidx]
+        # Only THIS rally's earlier stages count: each rally of a championship
+        # is its own challenge, so its time (and damage) starts from zero.
+        rally_offset = gidx - req.stage_index
+        prior_completed = [
+            s for s in completed_stages
+            if rally_offset <= int(s.get("stage_index", 0) or 0) < gidx
+        ]
         last_prior = prior_completed[-1] if prior_completed else None
 
         if last_prior is not None:
@@ -2385,11 +2467,12 @@ class RpcDispatcher:
         # championship serves one event per challenge (each with its own stages),
         # so the championship-wide total would tell the client to advance to a
         # stage the served challenge doesn't have — which crashes the game.
+        # One layout fetch for this request; reused for the ChampTimeMs range.
+        _layout = self._champ_layout(event_id) if event_id else []
         if req.challenge_id in self._challenge_subevent_map:
-            _layout = self._champ_layout(event_id) if event_id else []
             event_stage_count = _layout[sub_index] if 0 <= sub_index < len(_layout) else 0
         else:
-            event_stage_count = self._total_stages_for_event(event_id) if event_id else 0
+            event_stage_count = sum(_layout)
 
         # The StageComplete request doesn't carry TuningSetup / TyreCompound /
         # TyresRemaining — those were set at StageBegin and persisted by the
@@ -2416,14 +2499,19 @@ class RpcDispatcher:
             target_stage_index = req.stage_index + 1
             state_out = 0  # between stages, ready for next StageBegin
 
-        # ChampTimeMs: prefer the web side's recomputed total when available,
-        # otherwise sum what we have locally (request value included).
-        if ep and "total_time_ms" in ep:
-            champ_time_ms = int(ep.get("total_time_ms", 0) or 0)
+        # ChampTimeMs: this rally's stages only (each rally is its own
+        # challenge). Add this stage's time if the web fetch hasn't seen the
+        # submission yet.
+        if req.challenge_id in self._challenge_subevent_map and event_id:
+            rally_offset, rally_count = self._subevent_range(event_id, sub_index, _layout)
         else:
-            champ_time_ms = sum(int(s.get("time_ms", 0) or 0) for s in completed_stages)
-            if req.race_status == 0:
-                champ_time_ms += time_ms
+            rally_offset, rally_count = 0, None
+        gidx = rally_offset + req.stage_index
+        champ_time_ms = self._time_in_range(completed_stages, rally_offset, rally_count)
+        if req.race_status == 0 and not any(
+            int(s.get("stage_index", 0) or 0) == gidx for s in completed_stages
+        ):
+            champ_time_ms += time_ms
 
         progress = self._build_progress_dict(
             challenge_id=req.challenge_id,

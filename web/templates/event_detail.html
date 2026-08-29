@@ -90,7 +90,7 @@
                                     <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
                                 </span>
                             </td>
-                            <td class="lb-car text-muted">{{ entry.car }}</td>
+                            <td class="lb-car text-muted">{{ entry | car_label }}</td>
                             <td class="lb-time mono">{{ entry.total_time_ms | rally_time }}</td>
                             <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
                                 {% if loop.index == 1 %}&mdash;{% else %}{{ (entry.total_time_ms - leader) | time_diff }}{% endif %}
