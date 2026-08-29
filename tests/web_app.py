@@ -142,7 +142,16 @@ class WebApp:
         location: str = "Finland",
         car_class: str = "Group B (RWD)",
         stages: Optional[List[Dict[str, Any]]] = None,
+        events: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
+        """Seed a championship.
+
+        ``events`` (v2 shape: one dict per rally with its own ``location``,
+        ``car_class`` and ``stages``) makes a multi-rally championship; the
+        top-level ``stages`` then mirror rally 0, as the web app stores them.
+        """
+        if events:
+            stages = list(events[0].get("stages", []) or [])
         event = {
             "id": event_id,
             "name": name or event_id,
@@ -159,7 +168,27 @@ class WebApp:
             "club_id": club_id,
             "system": False,
         }
+        if events:
+            event["schema_version"] = 2
+            event["events"] = events
         self._write("events", event_id, event)
+
+    def seed_results(self, event_id: str, entries: List[Dict[str, Any]]) -> None:
+        """Seed a results file. Each entry needs ``username`` and ``stages``
+        (flat, championship-wide ordinals); ``total_time_ms`` is derived and
+        entries are stored sorted by it, as the web app keeps them."""
+        out = []
+        for e in entries:
+            e = dict(e)
+            e["total_time_ms"] = sum(
+                int(s.get("time_ms", 0) or 0) + int(s.get("penalties_ms", 0) or 0)
+                for s in e.get("stages", []) if s and int(s.get("time_ms", 0) or 0) > 0
+            )
+            e.setdefault("car", "")
+            e.setdefault("attempts_used", 0)
+            out.append(e)
+        out.sort(key=lambda e: e["total_time_ms"])
+        self._write("results", event_id, {"event_id": event_id, "entries": out})
 
     def _write(self, subdir: str, name: str, payload: Dict[str, Any]) -> None:
         (self.data_dir / subdir / f"{name}.json").write_text(

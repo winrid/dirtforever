@@ -840,6 +840,36 @@ def country_flag_filter(country: str) -> str:
     return COUNTRIES.get(country, '')
 
 
+def _car_label(entry: dict[str, Any]) -> str:
+    """Human-readable car for a results entry.
+
+    Entries created by the game only carry a numeric ``vehicle_id`` (and the
+    first write for a driver is the leaderboard pre-persist, which carries no
+    car at all, so ``car`` is usually blank). Resolve the name from the
+    vehicle id; fall back to whatever ``car`` text is stored.
+    """
+    vid = entry.get('vehicle_id')
+    car = str(entry.get('car') or '')
+    if vid is None and car.isdigit():
+        vid = car
+    try:
+        vid_int = int(vid) if vid is not None else None
+    except (TypeError, ValueError):
+        vid_int = None
+    if vid_int is not None:
+        meta = GAME_VEHICLES.get(vid_int)
+        if meta:
+            return str(meta['name'])
+        if not car:
+            return f'Vehicle {vid_int}'
+    return car
+
+
+@app.template_filter('car_label')
+def car_label_filter(entry: dict[str, Any]) -> str:
+    return _car_label(entry or {})
+
+
 @app.template_filter('user_flag')
 def user_flag_filter(username: str) -> str:
     if not username:
@@ -1709,7 +1739,7 @@ def home() -> str:
                 'event_name': evt['name'],
                 'event_id': evt['id'],
                 'total_time_ms': entry['total_time_ms'],
-                'car': entry['car'],
+                'car': _car_label(entry),
                 'position': pos,
                 'submitted_at': entry['stages'][-1]['submitted_at'] if entry['stages'] else evt['start_time'],
             })
@@ -2044,7 +2074,7 @@ def leaderboards() -> str | Response:
                             st = e['stages'][stage_idx]
                             filtered.append({
                                 'username': e['username'],
-                                'car': e['car'],
+                                'car': _car_label(e),
                                 'time_ms': st['time_ms'] + st['penalties_ms'],
                                 'penalties_ms': st['penalties_ms'],
                             })
@@ -2054,7 +2084,7 @@ def leaderboards() -> str | Response:
                     entries = [
                         {
                             'username': e['username'],
-                            'car': e['car'],
+                            'car': _car_label(e),
                             'time_ms': e['total_time_ms'],
                             'penalties_ms': sum(s.get('penalties_ms', 0) for s in e.get('stages', [])),
                         }
@@ -3308,7 +3338,8 @@ def _rally_standings(entries: list[dict[str, Any]], offset: int, count: int) -> 
             continue
         rows.append({
             'username': e.get('username', ''),
-            'car': e.get('car', ''),
+            'car': _car_label(e),
+            'vehicle_id': e.get('vehicle_id'),
             'stages': seg,
             'total_time_ms': subtotal,
         })
@@ -4099,6 +4130,7 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
     )
     if vehicle_id is not None:
         existing['vehicle_id'] = vehicle_id
+        existing['car'] = _car_label({'vehicle_id': vehicle_id})
 
     entries.sort(key=lambda e: e['total_time_ms'])
     results['entries'] = entries

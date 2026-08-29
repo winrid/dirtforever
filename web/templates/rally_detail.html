@@ -93,7 +93,7 @@
                                     <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
                                 </span>
                             </td>
-                            <td class="lb-car text-muted">{{ entry.car }}</td>
+                            <td class="lb-car text-muted">{{ entry | car_label }}</td>
                             {% for stage in rally.stages %}
                                 {% set st = entry.stages[loop.index0] if entry.stages | length > loop.index0 else None %}
                                 <td class="lb-stage-time mono text-muted">{% if st and st.time_ms %}{{ st.time_ms | rally_time }}{% else %}&mdash;{% endif %}</td>

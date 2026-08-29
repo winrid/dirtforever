@@ -1,0 +1,64 @@
+{
+  "Entries": [
+    {
+      "CumulativeBest": 60000,
+      "GhostAvailable": false,
+      "IsFounder": false,
+      "IsVIP": false,
+      "LiveryId": 0,
+      "Nationality": 0,
+      "PersonalBest": 60000,
+      "Presence": {
+        "AccountRef": 123347444893402842,
+        "EgoNetId": 123347444893402842,
+        "IsCrossPlatform": false,
+        "Name": "bob",
+        "NetworkId": 0
+      },
+      "Rank": 1,
+      "TimeDiff": 0,
+      "VehicleId": 393
+    },
+    {
+      "CumulativeBest": 65000,
+      "GhostAvailable": false,
+      "IsFounder": false,
+      "IsVIP": false,
+      "LiveryId": 0,
+      "Nationality": 0,
+      "PersonalBest": 65000,
+      "Presence": {
+        "AccountRef": 4857398522365813364,
+        "EgoNetId": 4857398522365813364,
+        "IsCrossPlatform": false,
+        "Name": "sgt",
+        "NetworkId": 0
+      },
+      "Rank": 2,
+      "TimeDiff": 5000,
+      "VehicleId": 393
+    },
+    {
+      "CumulativeBest": 70000,
+      "GhostAvailable": false,
+      "IsFounder": false,
+      "IsVIP": false,
+      "LiveryId": 0,
+      "Nationality": 0,
+      "PersonalBest": 70000,
+      "Presence": {
+        "AccountRef": 5301121648421453870,
+        "EgoNetId": 5301121648421453870,
+        "IsCrossPlatform": false,
+        "Name": "ann",
+        "NetworkId": 0
+      },
+      "Rank": 3,
+      "TimeDiff": 10000,
+      "VehicleId": 393
+    }
+  ],
+  "PlayerRank": 2,
+  "TotalEntries": 3,
+  "ok": true
+}
