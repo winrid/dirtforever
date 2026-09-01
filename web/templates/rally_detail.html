@@ -98,9 +98,9 @@
                                 {% set st = entry.stages[loop.index0] if entry.stages | length > loop.index0 else None %}
                                 <td class="lb-stage-time mono text-muted">{% if st and st.time_ms %}{{ st.time_ms | rally_time }}{% else %}&mdash;{% endif %}</td>
                             {% endfor %}
-                            <td class="lb-time mono">{{ entry.total_time_ms | rally_time }}</td>
+                            <td class="lb-time mono">{{ entry.total_time_ms | rally_time }}{% if entry.dnf_stages %} <span class="text-red">({{ entry.dnf_stages }} DNF)</span>{% endif %}</td>
                             <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
-                                {% if loop.index == 1 %}&mdash;{% else %}{{ (entry.total_time_ms - leader) | time_diff }}{% endif %}
+                                {% if loop.index == 1 %}-{% else %}{{ (entry.total_time_ms - leader) | time_diff }}{% endif %}
                             </td>
                         </tr>
                     {% endfor %}
