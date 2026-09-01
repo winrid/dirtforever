@@ -95,10 +95,10 @@
                             </span>
                         </td>
                         <td class="lb-car text-muted">{{ entry.car }}</td>
-                        <td class="lb-time mono">{{ entry.time_ms | rally_time }}</td>
+                        <td class="lb-time mono">{{ entry.time_ms | rally_time }}{% if entry.stages_done is defined and entry.stages_done < entry.stages_total %} <span class="text-red">({{ entry.stages_done }}/{{ entry.stages_total }})</span>{% endif %}</td>
                         <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
                             {% if loop.index == 1 %}
-                            &mdash;
+                            -
                             {% else %}
                             {{ (entry.time_ms - leader_time) | time_diff }}
                             {% endif %}

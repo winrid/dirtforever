@@ -9,33 +9,6 @@
             {
               "penalties_ms": 0,
               "submitted_at": "<TIMESTAMP>",
-              "time_ms": 110000,
-              "vehicle_id": 393
-            },
-            {
-              "penalties_ms": 0,
-              "submitted_at": "<TIMESTAMP>",
-              "time_ms": 110000,
-              "vehicle_id": 393
-            },
-            {
-              "penalties_ms": 0,
-              "submitted_at": "<TIMESTAMP>",
-              "time_ms": 60000,
-              "vehicle_id": 393
-            }
-          ],
-          "total_time_ms": 280000,
-          "username": "bob",
-          "vehicle_id": 393
-        },
-        {
-          "attempts_used": 0,
-          "car": "",
-          "stages": [
-            {
-              "penalties_ms": 0,
-              "submitted_at": "<TIMESTAMP>",
               "time_ms": 100000,
               "vehicle_id": 393
             },
@@ -60,6 +33,33 @@
           ],
           "total_time_ms": 350000,
           "username": "ann",
+          "vehicle_id": 393
+        },
+        {
+          "attempts_used": 0,
+          "car": "",
+          "stages": [
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 110000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 110000,
+              "vehicle_id": 393
+            },
+            {
+              "penalties_ms": 0,
+              "submitted_at": "<TIMESTAMP>",
+              "time_ms": 60000,
+              "vehicle_id": 393
+            }
+          ],
+          "total_time_ms": 280000,
+          "username": "bob",
           "vehicle_id": 393
         },
         {

@@ -64,11 +64,11 @@
         <div class="card reveal" style="animation-delay:.1s">
             <div class="card-header">
                 <h2 class="card-title"><span class="accent">//</span> Championship Standings</h2>
-                <span class="text-muted">{{ entries | length }} entries</span>
+                <span class="text-muted">{{ standings | length }} entries</span>
             </div>
             <div class="card-body">
-                {% if entries %}
-                {% set leader = entries[0].total_time_ms %}
+                {% if standings %}
+                {% set leader = standings[0] %}
                 <div class="lb-table-wrap">
                 <table class="lb-table">
                     <thead>
@@ -76,12 +76,13 @@
                             <th class="lb-pos">Pos</th>
                             <th class="lb-driver">Driver</th>
                             <th class="lb-car">Car</th>
+                            <th class="lb-stages">Stages</th>
                             <th class="lb-time">Total</th>
                             <th class="lb-diff">Gap</th>
                         </tr>
                     </thead>
                     <tbody>
-                    {% for entry in entries %}
+                    {% for entry in standings %}
                         <tr class="{% if current_user and entry.username == current_user.username %}lb-row-me{% endif %}">
                             <td class="lb-pos"><span class="pos-badge pos-{{ loop.index }}">{{ loop.index }}</span></td>
                             <td class="lb-driver">
@@ -90,10 +91,11 @@
                                     <a href="/profile/{{ entry.username }}">{{ entry.username }}</a>
                                 </span>
                             </td>
-                            <td class="lb-car text-muted">{{ entry | car_label }}</td>
+                            <td class="lb-car text-muted">{{ entry.car }}</td>
+                            <td class="lb-stages mono">{{ entry.stages_done }}/{{ entry.stages_total }}</td>
                             <td class="lb-time mono">{{ entry.total_time_ms | rally_time }}</td>
                             <td class="lb-diff mono {% if loop.index == 1 %}text-green{% else %}text-red{% endif %}">
-                                {% if loop.index == 1 %}&mdash;{% else %}{{ (entry.total_time_ms - leader) | time_diff }}{% endif %}
+                                {% if loop.index == 1 %}-{% else %}{{ (entry.total_time_ms - leader.total_time_ms) | time_diff }}{% endif %}
                             </td>
                         </tr>
                     {% endfor %}
@@ -124,7 +126,7 @@
                 </div>
                 <div class="event-info-row">
                     <span class="text-muted">Entries</span>
-                    <span>{{ entries | length }}</span>
+                    <span>{{ standings | length }}</span>
                 </div>
             </div>
         </div>

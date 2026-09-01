@@ -1188,6 +1188,7 @@ th.lb-driver, td.lb-driver { min-width: 140px; }
 th.lb-car, td.lb-car { min-width: 100px; font-size: .85rem; }
 th.lb-time, td.lb-time { width: 110px; text-align: right; font-weight: 500; }
 th.lb-diff, td.lb-diff { width: 100px; text-align: right; font-size: .85rem; }
+th.lb-stages, td.lb-stages { width: 80px; text-align: right; font-size: .85rem; }
 th.lb-stage-time, td.lb-stage-time { width: 95px; text-align: right; font-size: .82rem; }
 
 .pos-badge {

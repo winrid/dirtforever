@@ -2071,7 +2071,11 @@ def leaderboards() -> str | Response:
                     filtered = []
                     for e in raw:
                         if stage_idx < len(e.get('stages', [])):
-                            st = e['stages'][stage_idx]
+                            st = e['stages'][stage_idx] or {}
+                            # Padding zeros (driver joined mid-event) are not
+                            # real times; showing them would put 0:00 on top.
+                            if int(st.get('time_ms', 0) or 0) <= 0:
+                                continue
                             filtered.append({
                                 'username': e['username'],
                                 'car': _car_label(e),
@@ -2083,12 +2087,13 @@ def leaderboards() -> str | Response:
                 else:
                     entries = [
                         {
-                            'username': e['username'],
-                            'car': _car_label(e),
-                            'time_ms': e['total_time_ms'],
-                            'penalties_ms': sum(s.get('penalties_ms', 0) for s in e.get('stages', [])),
+                            'username': row['username'],
+                            'car': row['car'],
+                            'time_ms': row['total_time_ms'],
+                            'stages_done': row['stages_done'],
+                            'stages_total': row['stages_total'],
                         }
-                        for e in raw
+                        for row in _overall_standings(selected_event, raw)
                     ]
                 if entries:
                     leader_time = entries[0]['time_ms']
@@ -3317,33 +3322,123 @@ def _championship_view(event: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
-def _rally_standings(entries: list[dict[str, Any]], offset: int, count: int) -> list[dict[str, Any]]:
-    """Per-rally leaderboard: slice each entry's flat stages to this rally's
-    range and keep only drivers who finished every stage of it, sorted by the
-    rally subtotal."""
+# DNF "bogey times", the original game's rule for a stage a driver did not
+# finish: a fixed 15:00.000 on a sprint stage, 30:00.000 on a long stage,
+# 15:00.000 on every rallycross circuit. "Long" is relative to the stage's
+# own location, not a global distance cutoff (Poland's 9.25 km routes are
+# sprints while an Argentina 7.98 km route is long): each rally location is
+# authored as 2 long routes plus reverses and 4 sprints plus reverses, the
+# sprints being halves of the longs, so the 4 longest routes of a location
+# carry the 30-minute bogey. The bogey is a constant, not a cap (slow real
+# finishes above it stand), it accrues for every unfinished stage, and
+# drivers rank by the resulting total, interleaved with slow finishers
+# rather than forced to the bottom.
+BOGEY_SHORT_MS = 15 * 60 * 1000
+BOGEY_LONG_MS = 30 * 60 * 1000
+
+
+def _long_stage_cutoff_km(location: str) -> float | None:
+    """Distance at or above which a stage of this location scores the long
+    bogey: the 4th-longest route of the location's full roster. ``None``
+    (everything short) for rallycross circuits, unknown locations, and
+    rosters too small to have a long/sprint split."""
+    if location in RX_LOCATIONS:
+        return None
+    kms = sorted((km for _name, km in STAGES.get(location, [])), reverse=True)
+    if len(kms) < 5:
+        return None
+    return kms[3]
+
+
+def _flat_stage_bogeys_ms(event: dict[str, Any]) -> list[int]:
+    """Per flat stage ordinal, the bogey time an unfinished stage scores."""
+    out: list[int] = []
+    for rally in _championship_view(event):
+        cutoff = _long_stage_cutoff_km(rally['location'])
+        for s in rally['stages']:
+            km = float((s or {}).get('distance_km') or 0)
+            out.append(BOGEY_LONG_MS if cutoff is not None and km >= cutoff
+                       else BOGEY_SHORT_MS)
+    return out
+
+
+def _adjusted_total_ms(entry: dict[str, Any], bogeys: list[int],
+                       offset: int = 0) -> int:
+    """Total the way the game scored it: real time + penalties where a stage
+    was finished, that stage's bogey time where it wasn't. ``bogeys`` are the
+    per-stage bogey times starting at flat ordinal ``offset``."""
+    stages = entry.get('stages') or []
+    total = 0
+    for i, bogey in enumerate(bogeys):
+        s = stages[offset + i] if offset + i < len(stages) else None
+        t = int((s or {}).get('time_ms', 0) or 0)
+        if t > 0:
+            total += t + int((s or {}).get('penalties_ms', 0) or 0)
+        else:
+            total += bogey
+    return total
+
+
+def _stages_completed(entry: dict[str, Any]) -> int:
+    """Stages this entry has a real time for. Padding zeros (added when a
+    driver first submits mid-event) don't count."""
+    return sum(1 for s in (entry.get('stages') or [])
+               if s and int(s.get('time_ms', 0) or 0) > 0)
+
+
+def _overall_rank_key(event: dict[str, Any]) -> Callable[[dict[str, Any]], tuple[int, int]]:
+    """Sort key for a championship's overall standings: bogey-adjusted total,
+    with more completed stages breaking exact ties in favor of real times."""
+    bogeys = _flat_stage_bogeys_ms(event)
+    return lambda e: (_adjusted_total_ms(e, bogeys), -_stages_completed(e))
+
+
+def _rally_standings(entries: list[dict[str, Any]],
+                     rally: dict[str, Any]) -> list[dict[str, Any]]:
+    """Per-rally leaderboard: every championship entry, scored over this
+    rally's stage range with bogey times for unfinished stages and sorted by
+    that subtotal. Rows carry ``dnf_stages`` (unfinished stages in this
+    rally) so the UI can flag them and points can skip them."""
+    offset, count = rally['offset'], rally['count']
+    cutoff = _long_stage_cutoff_km(rally['location'])
+    bogeys = [BOGEY_LONG_MS if cutoff is not None
+              and float((s or {}).get('distance_km') or 0) >= cutoff
+              else BOGEY_SHORT_MS for s in rally['stages']]
     rows: list[dict[str, Any]] = []
     for e in entries:
         seg = (e.get('stages', []) or [])[offset:offset + count]
-        if len(seg) < count:
-            continue
-        subtotal = 0
-        complete = True
-        for s in seg:
-            t = int((s or {}).get('time_ms', 0) or 0)
-            if t <= 0:
-                complete = False
-                break
-            subtotal += t + int((s or {}).get('penalties_ms', 0) or 0)
-        if not complete:
-            continue
+        seg += [None] * (count - len(seg))
+        done = sum(1 for s in seg if s and int(s.get('time_ms', 0) or 0) > 0)
         rows.append({
             'username': e.get('username', ''),
             'car': _car_label(e),
             'vehicle_id': e.get('vehicle_id'),
             'stages': seg,
-            'total_time_ms': subtotal,
+            'total_time_ms': _adjusted_total_ms({'stages': seg}, bogeys),
+            'dnf_stages': count - done,
         })
-    rows.sort(key=lambda r: r['total_time_ms'])
+    rows.sort(key=lambda r: (r['total_time_ms'], r['dnf_stages']))
+    return rows
+
+
+def _overall_standings(event: dict[str, Any],
+                       entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Championship-wide standings for the site: every driver, ranked by
+    bogey-adjusted total (see the bogey constants above). Rows carry
+    ``stages_done``/``stages_total`` so templates can flag partial entries;
+    ``total_time_ms`` is the adjusted total, as the game displayed it."""
+    bogeys = _flat_stage_bogeys_ms(event)
+    stages_total = len(bogeys)
+    rows = [{
+        'username': e.get('username', ''),
+        'car': _car_label(e),
+        'vehicle_id': e.get('vehicle_id'),
+        'total_time_ms': _adjusted_total_ms(e, bogeys),
+        'stages_done': _stages_completed(e),
+        'stages_total': stages_total,
+    } for e in entries]
+    # Same order as _overall_rank_key, off the values computed above.
+    rows.sort(key=lambda r: (r['total_time_ms'], -r['stages_done']))
     return rows
 
 
@@ -3359,16 +3454,19 @@ def _championship_points(event: dict[str, Any],
     """Championship points per username.
 
     Each rally of the championship is scored on its own finishing order
-    (``_rally_standings``: drivers who completed every stage of that rally,
-    fastest first) using ``RALLY_POINTS``, and a driver's total is the sum
-    across rallies. A driver who did not complete a rally scores nothing for
-    it but keeps the points from the others. Every driver in ``entries`` is
-    present in the result, with 0 if they scored nothing.
+    (``_rally_standings``, restricted to drivers who completed every stage of
+    that rally, fastest first) using ``RALLY_POINTS``, and a driver's total is
+    the sum across rallies. Bogey times rank a DNF driver on the rally board,
+    but points still require finishing every stage of the rally: a driver who
+    did not scores nothing for it and keeps the points from the others. Every
+    driver in ``entries`` is present in the result, with 0 if they scored
+    nothing.
     """
     points: dict[str, int] = {e.get('username', ''): 0 for e in entries}
     for rally in _championship_view(event):
-        standings = _rally_standings(entries, rally['offset'], rally['count'])
-        for pos, row in enumerate(standings[:len(RALLY_POINTS)]):
+        finishers = [r for r in _rally_standings(entries, rally)
+                     if r['dnf_stages'] == 0]
+        for pos, row in enumerate(finishers[:len(RALLY_POINTS)]):
             name = row['username']
             points[name] = points.get(name, 0) + RALLY_POINTS[pos]
     return points
@@ -3629,14 +3727,14 @@ def event_detail(event_id: str) -> str:
     if not event:
         abort(404)
     results = get_results(event_id)
-    entries = results.get('entries', [])
+    standings = _overall_standings(event, results.get('entries', []))
     club = get_club(event['club_id']) if event.get('club_id') else None
     rallies = _championship_view(event)
     # Owner-ness is decided in the template off the injected `current_user`
     # (as club_detail.html does): current_user() here would be a second
     # uncached user file read per render on a hot public page.
-    return render_template('event_detail.html', event=event, entries=entries,
-                           club=club, rallies=rallies)
+    return render_template('event_detail.html', event=event,
+                           standings=standings, club=club, rallies=rallies)
 
 
 @app.route('/events/<event_id>/rally/<int:rally_index>')
@@ -3650,8 +3748,7 @@ def rally_detail(event_id: str, rally_index: int) -> str:
         abort(404)
     rally = rallies[rally_index]
     results = get_results(event_id)
-    standings = _rally_standings(results.get('entries', []),
-                                 rally['offset'], rally['count'])
+    standings = _rally_standings(results.get('entries', []), rally)
     club = get_club(event['club_id']) if event.get('club_id') else None
     return render_template('rally_detail.html', event=event, rally=rally,
                            standings=standings, club=club, rally_count=len(rallies))
@@ -3670,7 +3767,9 @@ def profile(username: str) -> str:
     best_positions = []
     for evt in events:
         res = get_results(evt['id'])
-        for i, entry in enumerate(res.get('entries', [])):
+        # Stored order can predate bogey-adjusted ranking; rank here.
+        ranked = sorted(res.get('entries', []), key=_overall_rank_key(evt))
+        for i, entry in enumerate(ranked):
             if entry['username'] == username:
                 pos = i + 1
                 best_positions.append(pos)
@@ -4132,7 +4231,7 @@ def api_game_stage_complete() -> Response | tuple[Response, int]:
         existing['vehicle_id'] = vehicle_id
         existing['car'] = _car_label({'vehicle_id': vehicle_id})
 
-    entries.sort(key=lambda e: e['total_time_ms'])
+    entries.sort(key=_overall_rank_key(event))
     results['entries'] = entries
     save_results(event_id, results)
 
@@ -4206,6 +4305,10 @@ def api_game_leaderboard(event_id: str) -> Response | tuple[Response, int]:
     results = get_results(event_id)
     entries = results.get('entries', [])
     event = get_event(event_id)
+    if event:
+        # Results written before bogey-adjusted ranking landed may still be
+        # stored in raw total_time_ms order, so never trust the stored order.
+        entries = sorted(entries, key=_overall_rank_key(event))
     points = _championship_points(event, entries) if event else {}
     out = []
     for i, e in enumerate(entries):
