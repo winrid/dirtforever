@@ -33,10 +33,11 @@ Or run from source: `git clone https://github.com/winrid/dirtforever && cd dirtf
 - Rallycross club events on all 13 circuits, with any car class (rally cars included)
 - Stage time submission and leaderboards (via dirtforever.net)
 - Vehicle select, repairs, tuning
+- My Team career (Career Rally / Career Rallycross), with progress stored on your dirtforever.net account
 
 ### What Doesn't Work Yet
 
-- Full championship progression
+- Career tier promotion/relegation thresholds are approximations until confirmed against RaceNet captures
 - Multiplayer / Time Trial ghosts
 - In-game currency / store (uses placeholder data)
 

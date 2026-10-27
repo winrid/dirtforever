@@ -18,9 +18,11 @@ from .game_data import (
     RX_DRYING_TIME, RX_GRID_ENTRANTS, RX_NUMBER_RESTARTS, RX_SVC_SETTINGS_ID,
     rallycross_stage_plan,
 )
+from .career import CareerLadder
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
     Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward, _val,
+    damage_to_egonet, zero_reward,
 )
 
 
@@ -155,6 +157,11 @@ class RpcDispatcher:
         # Local player's web username, lazily resolved via api_client.test_token().
         # Used to identify the player's own row in leaderboard responses.
         self._my_username: Optional[str] = None
+        # My Team career ladder, created on the first RaceNetCareerLadder
+        # call (see _career_ladder); the set tracks which ops have had their
+        # request keys logged.
+        self._career: Optional[CareerLadder] = None
+        self._career_logged_ops: set = set()
         # Streaming-overlay state: track the most recent event/club/vehicle the
         # player engaged with, plus a cached copy of the last clubs payload.
         # Read by StreamingWriter via get_streaming_state(); see dr2server/streaming.py.
@@ -193,12 +200,23 @@ class RpcDispatcher:
             "RaceNetChallenges.GetStageSplits": self._stage_splits,
             "RaceNetChallenges.StageBegin": self._stage_begin,
             "RaceNetChallenges.StageComplete": self._stage_complete,
-            "RaceNetCareerLadder.GetRallyTierList": self._rally_tier_list,
-            "RaceNetCareerLadder.GetRallycrossTierList": self._rallycross_tier_list,
-            "RaceNetCareerLadder.GetRallyChampionship": self._template_handler("RaceNetCareerLadder.GetRallyChampionship"),
-            "RaceNetCareerLadder.GetRallycrossChampionship": self._template_handler("RaceNetCareerLadder.GetRallycrossChampionship"),
-            "RaceNetCareerLadder.ResetRallyChampionship": self._template_handler("RaceNetCareerLadder.ResetRallyChampionship"),
-            "RaceNetCareerLadder.ResetRallycrossChampionship": self._template_handler("RaceNetCareerLadder.ResetRallycrossChampionship"),
+            # "My Team" career ladder.  The game treats the server as the
+            # source of truth for the championship and the player's position
+            # in it, and resets the local save whenever the two disagree, so
+            # all ten calls go through one per-player state machine
+            # (career.CareerLadder) persisted on the web user record.
+            "RaceNetCareerLadder.GetRallyTierList": self._career_handler("rally", "tier_list"),
+            "RaceNetCareerLadder.GetRallycrossTierList": self._career_handler("rallycross", "tier_list"),
+            "RaceNetCareerLadder.GetRallyChampionship": self._career_handler("rally", "get"),
+            "RaceNetCareerLadder.GetRallycrossChampionship": self._career_handler("rallycross", "get"),
+            "RaceNetCareerLadder.ResetRallyChampionship": self._career_handler("rally", "reset"),
+            "RaceNetCareerLadder.ResetRallycrossChampionship": self._career_handler("rallycross", "reset"),
+            "RaceNetCareerLadder.RallyChampionshipBegin": self._career_handler("rally", "champ_begin"),
+            "RaceNetCareerLadder.RallycrossChampionshipBegin": self._career_handler("rallycross", "champ_begin"),
+            "RaceNetCareerLadder.RallyStageBegin": self._career_handler("rally", "stage_begin"),
+            "RaceNetCareerLadder.RallycrossStageBegin": self._career_handler("rallycross", "stage_begin"),
+            "RaceNetCareerLadder.RallyStageComplete": self._career_handler("rally", "stage_complete"),
+            "RaceNetCareerLadder.RallycrossStageComplete": self._career_handler("rallycross", "stage_complete"),
             "Repairs.GetUpgradeTuningPrices": self._template_handler("Repairs.GetUpgradeTuningPrices"),
             "Repairs.ComputeRepairCost": self._template_handler("Repairs.ComputeRepairCost"),
             # Write actions performed in the Service Area / Vehicle
@@ -229,22 +247,68 @@ class RpcDispatcher:
             "RaceNetChallenges.StartChallenge": self._accepted,
             "RaceNetChallenges.ResumeChallenge": self._accepted,
             "RaceNetChallenges.AbortChallenge": self._accepted,
-            # "My Team" career-ladder stage results (Career Rally / Career
-            # Rallycross).  That mode keeps progress client-side, so the
-            # backend call is a telemetry ack; return success so the end of a
-            # career stage doesn't hit the connection-failed screen.
-            "RaceNetCareerLadder.RallyStageBegin": self._accepted,
-            "RaceNetCareerLadder.RallyStageComplete": self._accepted,
-            "RaceNetCareerLadder.RallycrossStageBegin": self._accepted,
-            "RaceNetCareerLadder.RallycrossStageComplete": self._accepted,
-            "RaceNetCareerLadder.RallyChampionshipBegin": self._accepted,
-            "RaceNetCareerLadder.RallycrossChampionshipBegin": self._accepted,
             "Season.Get": self._season,
             "Esports.SeasonActivityCheck": self._esports_activity,
             "Esports.EnabledCheck": self._esports_enabled,
             "Esports.ActivityCheck": self._esports_activity,
             "Esports.HasAcceptedTerms": self._esports_terms_status,
         }
+
+    def _career_ladder(self) -> CareerLadder:
+        """The player's My Team state machine, built on first use.
+
+        Backed by the web user record when an api_client is configured;
+        otherwise it lives in memory for the life of the process.
+        """
+        if self._career is None:
+            load = save = None
+            if self.api_client is not None:
+                load = self.api_client.get_career
+                save = self.api_client.set_career
+            self._career = CareerLadder(load=load, save=save)
+        return self._career
+
+    def _career_handler(self, discipline: str, op: str) -> Handler:
+        """Bind one RaceNetCareerLadder method to the career state machine.
+
+        Never answers with a failure code: the client shows CONNECTION
+        FAILED for result 1 on these, so an internal error degrades to the
+        current Progress instead.
+        """
+        def handler(params: Dict[str, Any]) -> Dict[str, Any]:
+            ladder = self._career_ladder()
+            key = f"{discipline}:{op}"
+            if key not in self._career_logged_ops:
+                # Request shapes for these calls are not captured yet (see
+                # GitHub issue #69); log the first of each so a user's
+                # debug log can confirm them.
+                self._career_logged_ops.add(key)
+                print(f"[CAREER] {op} {discipline} keys={sorted(params)}")
+            try:
+                if op == "get":
+                    resp = ladder.get_championship(discipline)
+                elif op == "reset":
+                    resp = ladder.reset_championship(discipline)
+                elif op == "tier_list":
+                    resp = ladder.tier_list(discipline)
+                elif op == "champ_begin":
+                    resp = ladder.championship_begin(discipline, StageBeginRequest.from_egonet(params))
+                elif op == "stage_begin":
+                    resp = ladder.stage_begin(discipline, StageBeginRequest.from_egonet(params))
+                elif op == "stage_complete":
+                    resp = ladder.stage_complete(discipline, StageCompleteRequest.from_egonet(params))
+                else:
+                    raise ValueError(f"unknown career op {op}")
+            except Exception as exc:
+                print(f"[CAREER] {op} {discipline} failed: {exc!r}")
+                try:
+                    resp = {"Progress": ladder.current_progress(discipline), "ResultCode": 0}
+                except Exception:
+                    from .career import fresh_progress, progress_to_egonet
+                    resp = {"Progress": progress_to_egonet(fresh_progress(discipline)), "ResultCode": 0}
+            return {"ok": True, **resp}
+
+        return handler
 
     def _template_handler(self, method: str) -> Handler:
         """Return a handler that serves raw upstream binary template for the given method."""
@@ -1003,25 +1067,7 @@ class RpcDispatcher:
     # parses this as an ordered struct. Used by Progress builders below.
     @staticmethod
     def _damage_from_dict(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        d = d or {}
-        return {
-            "WheelsWear":   UInt32(int(d.get("wheels_wear", 0))),
-            "Turbo":        UInt32(int(d.get("turbo", 0))),
-            "Springs":      UInt32(int(d.get("springs", 0))),
-            "Radiator":     float(d.get("radiator", 0.0)),
-            "Lights":       float(d.get("lights", 0.0)),
-            "Gearbox":      UInt32(int(d.get("gearbox", 0))),
-            "WheelsImpact": UInt32(int(d.get("wheels_impact", 0))),
-            "Exhaust":      float(d.get("exhaust", 0.0)),
-            "DiffImpact":   UInt32(int(d.get("diff_impact", 0))),
-            "DiffWear":     UInt32(int(d.get("diff_wear", 0))),
-            "Dampers":      UInt32(int(d.get("dampers", 0))),
-            "Clutch":       float(d.get("clutch", 0.0)),
-            "Brakes":       UInt32(int(d.get("brakes", 0))),
-            "Bodywork":     UInt32(int(d.get("bodywork", 0))),
-            "Engine":       float(d.get("engine", 0.0)),
-            "QuickRepairs": UInt16(int(d.get("quick_repairs", 0))),
-        }
+        return damage_to_egonet(d)
 
     # VehicleMud field order MUST match upstream exactly — only included in
     # StageComplete responses (not StageBegin, not Clubs.GetClubs).
@@ -1094,29 +1140,8 @@ class RpcDispatcher:
 
     @staticmethod
     def _zero_reward() -> Dict[str, Any]:
-        """Build a fully-zeroed EventReward/ChampReward matching upstream's shape.
-
-        Field order and EgoNet types verified against the StageComplete capture.
-        ``Reason.Source`` mirrors the observed upstream wire value (4) — see
-        :class:`game_data.RewardSource.UNKNOWN_4`.
-        """
-        from .game_data import RewardSource
-        return {
-            "Id": Int64(0),
-            "Reason": {
-                "Source":         int(RewardSource.UNKNOWN_4),
-                "Type":           0,
-                "FinishPosition": 0,
-                "FinishTimeMs":   0,
-                "SourceEntityId": Int64(0),
-                "SourceName":     "",
-            },
-            "Message":         "",
-            "SoftCurrency":    0,
-            "GarageSlots":     0,
-            "Items":           [],
-            "IsGlobalBoosted": False,
-        }
+        """Zeroed EventReward/ChampReward; see :func:`models.zero_reward`."""
+        return zero_reward()
 
     def _get_my_progress_safe(self) -> Optional[Dict[str, Any]]:
         """Fetch get_my_progress(), suppressing/logging any error."""
@@ -2550,31 +2575,6 @@ class RpcDispatcher:
     @staticmethod
     def _stage_splits(params: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": True, "Splits": [], "Entries": []}
-
-    @staticmethod
-    def _rally_tier_list(params: Dict[str, Any]) -> Dict[str, Any]:
-        # Real upstream structure: double-nested TierList with only DriverID per entry
-        tier_entries = [{"DriverID": i} for i in range(150)]
-        return {
-            "ok": True,
-            "TierList": {
-                "TierList": tier_entries,
-                "PrevPlayerTier": 0,
-                "PlayerTier": 0,
-            },
-        }
-
-    @staticmethod
-    def _rallycross_tier_list(params: Dict[str, Any]) -> Dict[str, Any]:
-        tier_entries = [{"DriverID": i} for i in range(100)]
-        return {
-            "ok": True,
-            "TierList": {
-                "TierList": tier_entries,
-                "PrevPlayerTier": 0,
-                "PlayerTier": 0,
-            },
-        }
 
     @staticmethod
     def _season(params: Dict[str, Any]) -> Dict[str, Any]:

@@ -48,8 +48,14 @@ class WebApp:
         # @csrf.exempt but other routes aren't, and we only hit the game ones.
         os.environ.setdefault("WTF_CSRF_ENABLED", "0")
 
-        if str(WEB_DIR) not in sys.path:
-            sys.path.insert(0, str(WEB_DIR))
+        # web/ must be AHEAD of the repo root, which also has a server.py (the
+        # game server entrypoint).  web/server.py itself inserts the repo root
+        # at sys.path[0] when imported, so if any earlier test module already
+        # imported it at collection time, a plain "not in sys.path" check
+        # would leave the root first and we would import the wrong module.
+        while str(WEB_DIR) in sys.path:
+            sys.path.remove(str(WEB_DIR))
+        sys.path.insert(0, str(WEB_DIR))
         # Force a fresh import so module-level os.makedirs uses our DATA_DIR.
         sys.modules.pop("server", None)
         self._module = importlib.import_module("server")
