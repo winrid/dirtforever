@@ -9,7 +9,66 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from .egonet import Int64, Timestamp, UInt8, UInt32
+from .egonet import Int64, Timestamp, UInt8, UInt16, UInt32
+
+
+# ---------------------------------------------------------------------------
+# Shared Progress / Reward wire builders
+# ---------------------------------------------------------------------------
+
+def damage_to_egonet(d: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """VehicleDamage block in upstream wire order and types.
+
+    The game parses this as an ordered struct, so the key order MUST match
+    the captured upstream responses exactly.  ``d`` uses the snake_case keys
+    of :class:`CompDamage` (``dataclasses.asdict(CompDamage)``); missing
+    keys read as zero.
+    """
+    d = d or {}
+    return {
+        "WheelsWear":   UInt32(int(d.get("wheels_wear", 0))),
+        "Turbo":        UInt32(int(d.get("turbo", 0))),
+        "Springs":      UInt32(int(d.get("springs", 0))),
+        "Radiator":     float(d.get("radiator", 0.0)),
+        "Lights":       float(d.get("lights", 0.0)),
+        "Gearbox":      UInt32(int(d.get("gearbox", 0))),
+        "WheelsImpact": UInt32(int(d.get("wheels_impact", 0))),
+        "Exhaust":      float(d.get("exhaust", 0.0)),
+        "DiffImpact":   UInt32(int(d.get("diff_impact", 0))),
+        "DiffWear":     UInt32(int(d.get("diff_wear", 0))),
+        "Dampers":      UInt32(int(d.get("dampers", 0))),
+        "Clutch":       float(d.get("clutch", 0.0)),
+        "Brakes":       UInt32(int(d.get("brakes", 0))),
+        "Bodywork":     UInt32(int(d.get("bodywork", 0))),
+        "Engine":       float(d.get("engine", 0.0)),
+        "QuickRepairs": UInt16(int(d.get("quick_repairs", 0))),
+    }
+
+
+def zero_reward() -> Dict[str, Any]:
+    """A fully-zeroed EventReward/ChampReward matching upstream's shape.
+
+    Field order and EgoNet types verified against the StageComplete capture.
+    ``Reason.Source`` mirrors the observed upstream wire value (4), see
+    :class:`game_data.RewardSource.UNKNOWN_4`.
+    """
+    from .game_data import RewardSource
+    return {
+        "Id": Int64(0),
+        "Reason": {
+            "Source":         int(RewardSource.UNKNOWN_4),
+            "Type":           0,
+            "FinishPosition": 0,
+            "FinishTimeMs":   0,
+            "SourceEntityId": Int64(0),
+            "SourceName":     "",
+        },
+        "Message":         "",
+        "SoftCurrency":    0,
+        "GarageSlots":     0,
+        "Items":           [],
+        "IsGlobalBoosted": False,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -331,7 +390,6 @@ class CompDamage:
 
 def _val(v: Any) -> Any:
     """Unwrap EgoNet type wrappers to plain Python values."""
-    from .egonet import UInt16
     if isinstance(v, (UInt32, UInt16, UInt8, Int64, Timestamp)):
         return v.value
     return v

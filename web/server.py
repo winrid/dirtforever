@@ -4070,6 +4070,55 @@ def api_game_garage_set() -> Response | tuple[Response, int]:
     return jsonify({'ok': True, 'stored': True, 'garage': garage})
 
 
+# My Team career ladder (Career Rally / Career Rallycross).  The local game
+# server owns the semantics (see dr2server/career.py); the web side just
+# keeps one JSON blob per discipline on the user record so a player's
+# career follows their account across machines and reinstalls.
+CAREER_DISCIPLINES = ('rally', 'rallycross')
+CAREER_MAX_BYTES = 32 * 1024
+
+
+@app.route('/api/game/career')
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_career_get() -> Response | tuple[Response, int]:
+    user = get_user(g.game_user)
+    if not user:
+        return _api_error('user not found', 404)
+    career = user.get('career')
+    return jsonify({'ok': True, 'career': career if isinstance(career, dict) else {}})
+
+
+@app.route('/api/game/career', methods=['POST'])
+@csrf.exempt  # type: ignore[untyped-decorator]
+@game_auth_required
+def api_game_career_set() -> Response | tuple[Response, int]:
+    """Replace one discipline's career state.
+
+    Body: {discipline: 'rally'|'rallycross', state: {...}}.  The other
+    discipline's blob is left untouched.
+    """
+    data = request.get_json(silent=True) or {}
+    discipline = data.get('discipline')
+    state = data.get('state')
+    if discipline not in CAREER_DISCIPLINES:
+        return _api_error('invalid discipline')
+    if not isinstance(state, dict):
+        return _api_error('state must be an object')
+    if len(json.dumps(state, separators=(',', ':'))) > CAREER_MAX_BYTES:
+        return _api_error('state too large', 413)
+    username = g.game_user
+    if not get_user(username):
+        return _api_error('user not found', 404)
+    with _atomic_update(_user_path(username)) as user:
+        career = user.get('career')
+        if not isinstance(career, dict):
+            career = {}
+            user['career'] = career
+        career[discipline] = state
+    return jsonify({'ok': True})
+
+
 @app.route('/api/game/stage-begin', methods=['POST'])
 @csrf.exempt  # type: ignore[untyped-decorator]
 @game_auth_required

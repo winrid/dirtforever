@@ -397,6 +397,26 @@ class DirtForeverClient:
         result = self._post("/api/game/garage", payload)
         return bool(result and result.get("ok"))
 
+    def get_career(self) -> Optional[Dict[str, Any]]:
+        """Fetch the user's My Team career state.
+
+        Returns ``{"rally": {...}, "rallycross": {...}}`` (either key may be
+        missing for a player who has not opened that discipline yet), or
+        None on any transport/auth error so the caller can tell "no state"
+        from "backend unreachable".
+        """
+        result = self._get("/api/game/career")
+        if not result or not result.get("ok"):
+            log.warning("get_career: empty or error response")
+            return None
+        career = result.get("career")
+        return career if isinstance(career, dict) else {}
+
+    def set_career(self, discipline: str, state: Dict[str, Any]) -> bool:
+        """Replace one discipline's career state.  True on acknowledgement."""
+        result = self._post("/api/game/career", {"discipline": discipline, "state": state})
+        return bool(result and result.get("ok"))
+
     def submit_time_trial(
         self,
         vehicle_class_id: int,
