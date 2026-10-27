@@ -665,6 +665,12 @@ CONFIRMED_VEHICLE_CLASS_IDS: frozenset = frozenset(int(vc) for vc in VehicleClas
 # label (lower-cased) -> confirmed VehicleClassId.  Seeded from the enum labels,
 # then extended with alternate spellings used by the web UI / seed data.  Each
 # alias is an exact synonym for a confirmed class — NOT a fallback.
+#
+# "rally gt" is deliberately NOT listed below: it is seeded from
+# VehicleClass.RGT.label above.  An old alias from before RGT (107) was
+# confirmed pointed it at NR4/R4, so every Rally GT championship was served
+# to the game as an NR4 event (issue #66).  Keep this table to spellings only;
+# test_every_enum_label_resolves_to_its_own_class guards against a repeat.
 _VCLASS_LABEL_TO_ID: Dict[str, int] = {vc.label.lower(): int(vc) for vc in VehicleClass}
 _VCLASS_LABEL_TO_ID.update({
     "h1 (fwd)":           int(VehicleClass.H1_FWD),
@@ -676,7 +682,6 @@ _VCLASS_LABEL_TO_ID.update({
     "group b (rwd)":      int(VehicleClass.GROUP_B_RWD),
     "group b rallycross": int(VehicleClass.GROUP_B_RX),
     "f2 kit cars":        int(VehicleClass.F2_KIT_CAR),
-    "rally gt":           int(VehicleClass.NR4_R4),  # no confirmed Rally GT ID
     "2000cc":             int(VehicleClass.CC_4WD),  # web UI label for 2000cc 4WD
     "2000cc 4wd":         int(VehicleClass.CC_4WD),
     "4wd <= 2000cc":      int(VehicleClass.CC_4WD),

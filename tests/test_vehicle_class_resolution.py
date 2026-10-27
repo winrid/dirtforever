@@ -46,3 +46,19 @@ def test_confirmed_set_tracks_the_enum() -> None:
     # Spot-check classes that a hard-coded list had previously omitted.
     assert int(VehicleClass.RGT) in CONFIRMED_VEHICLE_CLASS_IDS
     assert int(VehicleClass.RX_SUPERCARS_2019) in CONFIRMED_VEHICLE_CLASS_IDS
+
+
+def test_rally_gt_maps_to_rgt_not_nr4() -> None:
+    # Regression for issue #66: a stale alias pointed "Rally GT" at NR4/R4, so
+    # a Rally GT championship was served to the game as an NR4 event.
+    assert vehicle_class_id_for_label("Rally GT") == int(VehicleClass.RGT)
+    assert vehicle_class_id_for_label("rally gt") != int(VehicleClass.NR4_R4)
+
+
+def test_every_enum_label_resolves_to_its_own_class() -> None:
+    # No alias may silently redirect a canonical class label to another class.
+    for vc in VehicleClass:
+        resolved = vehicle_class_id_for_label(vc.label)
+        assert resolved == int(vc), (
+            f"label {vc.label!r} resolves to {resolved}, expected {int(vc)} ({vc.name})"
+        )
