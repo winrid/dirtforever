@@ -193,6 +193,7 @@ def build() -> None:
         "dr2server.game_data",
         "dr2server.api_client",
         "dr2server.account_store",
+        "dr2server.tls",
     ]
 
     # Bundle mode (--onedir / --onefile) is inserted per run below.

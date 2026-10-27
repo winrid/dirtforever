@@ -26,6 +26,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Dict, List, Optional
 
+from . import tls
 from .game_data import (
     Location, Track, VERIFIED_TRACK_IDS,
     vehicle_class_id_for_label,
@@ -151,7 +152,7 @@ class DirtForeverClient:
         url = f"{self.base_url}{path}"
         try:
             req = urllib.request.Request(url, headers=self._auth_headers())
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10, context=tls.client_context()) as resp:
                 raw = resp.read()
             return json.loads(raw)
         except urllib.error.HTTPError as exc:
@@ -174,7 +175,7 @@ class DirtForeverClient:
                 method="POST",
                 headers=headers,
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10, context=tls.client_context()) as resp:
                 raw = resp.read()
             return json.loads(raw)
         except urllib.error.HTTPError as exc:
