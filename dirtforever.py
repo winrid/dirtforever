@@ -784,12 +784,13 @@ def run_gui():
 
     def _check_for_updates():
         import urllib.request
+        from dr2server import tls
         try:
             req = urllib.request.Request(
                 "https://api.github.com/repos/winrid/dirtforever/releases/latest",
                 headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "DirtForever"},
             )
-            with urllib.request.urlopen(req, timeout=5) as resp:
+            with urllib.request.urlopen(req, timeout=5, context=tls.client_context()) as resp:
                 data = json.loads(resp.read())
             remote_tag = data.get("tag_name", "").lstrip("v")
             # Link to the release page rather than a specific asset, so the
