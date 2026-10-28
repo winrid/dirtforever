@@ -309,6 +309,71 @@ def test_dnf_keeps_position_and_duplicate_complete_is_ignored():
     assert (dup["StageIndex"], dup["ChampTimeMs"].value) == (1, 100_000)
 
 
+def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
+    """The game sends only VehicleInstId to ChampionshipBegin (issue #68 log,
+    2026-10-28).  The Progress must still carry a consistent vehicle block
+    and the fresh tyre allocation, and the next Get must repeat it exactly,
+    or the client resets the championship."""
+    looked_up = []
+
+    def lookup(inst):
+        looked_up.append(inst)
+        return (538, 2926) if inst == 32 else None
+
+    ladder = CareerLadder(rng=random.Random(5), vehicle_lookup=lookup)
+    resp = ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=32))
+    p = resp["Progress"]
+    assert looked_up == [32]
+    assert (p["EventIndex"], p["StageIndex"], p["State"]) == (0, 0, STATE_BETWEEN_STAGES)
+    assert p["VehicleInstId"].value == 32
+    assert p["VehicleId"].value == 538
+    assert p["LiveryId"].value == 2926
+    assert p["TyresRemaining"].value == career._DISC_CFG["rallycross"]["fresh_tyres"]
+    assert p["TyreCompound"].value == 0
+    assert p["AttemptsLeft"] == 1
+    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(p)
+
+    # An unknown instance keeps the id and leaves the rest at zero rather
+    # than failing; explicit client values win over the lookup.
+    p = ladder.championship_begin("rally", StageBeginRequest(vehicle_inst_id=999))["Progress"]
+    assert (p["VehicleInstId"].value, p["VehicleId"].value, p["LiveryId"].value) == (999, 0, 0)
+    assert p["TyresRemaining"].value == career._DISC_CFG["rally"]["fresh_tyres"]
+    p = ladder.championship_begin("rally", StageBeginRequest(
+        vehicle_inst_id=32, vehicle_id=478, livery_id=2915, tyres_remaining=3, tyre_compound=2))["Progress"]
+    assert (p["VehicleId"].value, p["LiveryId"].value) == (478, 2915)
+    assert (p["TyresRemaining"].value, p["TyreCompound"].value) == (3, 2)
+
+
+def test_dispatcher_resolves_begin_vehicle_from_the_garage(capsys):
+    from dr2server.dispatcher import _INVENTORY_VEHICLE_IDS, _LIVERY_FOR_VEHICLE
+
+    api = MagicMock()
+    api.get_career.return_value = {}
+    api.set_career.return_value = True
+    api.get_profile.return_value = {"ok": True, "garage": {"12": {"livery_id": 4242}}}
+    d = RpcDispatcher(account_store=MagicMock(), api_client=api)
+
+    got = d.dispatch("RaceNetCareerLadder.RallycrossChampionshipBegin", {"VehicleInstId": Int64(12)})
+    p = got["Progress"]
+    assert p["VehicleInstId"].value == 12
+    assert p["VehicleId"].value == _INVENTORY_VEHICLE_IDS[11]
+    assert p["LiveryId"].value == 4242
+
+    # No fitted livery: the vehicle's default livery, never 0 with a VehicleId.
+    got = d.dispatch("RaceNetCareerLadder.RallyChampionshipBegin", {"VehicleInstId": Int64(11)})
+    vid = _INVENTORY_VEHICLE_IDS[10]
+    assert (got["Progress"]["VehicleId"].value, got["Progress"]["LiveryId"].value) == (vid, _LIVERY_FOR_VEHICLE[vid])
+
+    # Every career call logs its decoded request and the Progress it returned.
+    d.dispatch("RaceNetCareerLadder.ResetRallycrossChampionship",
+               {"IsAutomatic": True, "Reason": 3, "SingleStage": False})
+    out = capsys.readouterr().out
+    assert '[CAREER] champ_begin rallycross request={"VehicleInstId": 12}' in out
+    assert '[CAREER] reset rallycross request={"IsAutomatic": true, "Reason": 3, "SingleStage": false}' in out
+    assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=0 vehicle inst=12" in out
+    assert "[CAREER] reset rallycross -> event=0 stage=0 state=5" in out
+
+
 def test_stage_begin_adopts_the_clients_position():
     ladder = _ladder()
     ladder.championship_begin("rally", _begin(0, 0))

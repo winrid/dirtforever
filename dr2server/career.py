@@ -485,6 +485,8 @@ def validate_state(obj: Any, discipline: str) -> bool:
 
 LoadFn = Callable[[], Optional[Dict[str, Any]]]
 SaveFn = Callable[[str, Dict[str, Any]], bool]
+# VehicleInstId -> (VehicleId, LiveryId) as the inventory serves them, or None.
+VehicleLookupFn = Callable[[int], Optional[tuple[int, int]]]
 
 
 class CareerLadder:
@@ -503,9 +505,11 @@ class CareerLadder:
         rng: Optional[random.Random] = None,
         log: Callable[[str], None] = print,
         now: Optional[Callable[[], float]] = None,
+        vehicle_lookup: Optional[VehicleLookupFn] = None,
     ) -> None:
         self._load = load
         self._save = save
+        self._vehicle_lookup = vehicle_lookup
         self._rng = rng or random.Random()
         self._log = log
         self._now = now or time.time
@@ -664,8 +668,32 @@ class CareerLadder:
             state = self._state(discipline)
             p = fresh_progress(discipline)
             p["state"] = STATE_BETWEEN_STAGES
-            if req.vehicle_id or req.vehicle_inst_id:
-                self._apply_vehicle(p, req)
+            # The game sends only VehicleInstId here (verbose log in issue
+            # #68, 2026-10-28).  The real server owns the garage, so its
+            # Progress carries the matching VehicleId / LiveryId; resolve
+            # them the same way so the next Get is self-consistent.  Tyres
+            # and compound keep the fresh values unless the client sent
+            # them: a previous version zeroed TyresRemaining here, which
+            # disagreed with the local save and triggered a reset.
+            inst = int(req.vehicle_inst_id or 0)
+            vehicle_id = int(req.vehicle_id or 0)
+            livery_id = int(req.livery_id or 0)
+            if inst and (not vehicle_id or not livery_id) and self._vehicle_lookup is not None:
+                try:
+                    found = self._vehicle_lookup(inst)
+                except Exception as exc:
+                    self._log(f"[CAREER] vehicle lookup for inst {inst} raised: {exc!r}")
+                    found = None
+                if found:
+                    vehicle_id = vehicle_id or int(found[0] or 0)
+                    livery_id = livery_id or int(found[1] or 0)
+            p["vehicle_inst_id"] = inst
+            p["vehicle_id"] = vehicle_id
+            p["livery_id"] = livery_id
+            if req.tyre_compound:
+                p["tyre_compound"] = int(req.tyre_compound)
+            if req.tyres_remaining:
+                p["tyres_remaining"] = int(req.tyres_remaining)
             state["progress"] = p
             state["is_new_champ"] = False
             self._persist(discipline)

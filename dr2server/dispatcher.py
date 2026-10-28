@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import calendar
 import hashlib
+import json
 import secrets
 import time
 from datetime import datetime
@@ -101,6 +102,21 @@ _LIVERY_FOR_VEHICLE: Dict[int, int] = {
 }
 
 
+# Every vehicle the inventory serves (from the upstream inventory capture),
+# in wire order.  A vehicle's VehicleInstId is its position here plus one;
+# see _all_vehicles and _vehicle_for_inst.
+_INVENTORY_VEHICLE_IDS: List[int] = [
+    382, 395, 396, 399, 400, 401, 468, 469, 470, 471,
+    478, 480, 482, 483, 484, 485, 490, 502, 504, 511,
+    513, 527, 529, 530, 531, 532, 533, 534, 535, 536,
+    537, 538, 541, 543, 547, 548, 550, 554, 555, 556,
+    557, 558, 559, 560, 561, 562, 563, 564, 565, 566,
+    567, 569, 570, 571, 572, 573, 574, 575, 576, 577,
+    578, 579, 580, 581, 582, 585, 586, 587, 588, 589,
+    590, 593, 597, 600,
+]
+
+
 # Official-challenge (Events page) values observed in the real upstream
 # GetChallenges capture (data/upstream_templates/RaceNetChallenges_GetChallenges.bin,
 # decoded 2026-08-03). The game localizes the lng_* keys into "Daily Challenge"
@@ -158,10 +174,8 @@ class RpcDispatcher:
         # Used to identify the player's own row in leaderboard responses.
         self._my_username: Optional[str] = None
         # My Team career ladder, created on the first RaceNetCareerLadder
-        # call (see _career_ladder); the set tracks which ops have had their
-        # request keys logged.
+        # call (see _career_ladder).
         self._career: Optional[CareerLadder] = None
-        self._career_logged_ops: set = set()
         # Streaming-overlay state: track the most recent event/club/vehicle the
         # player engaged with, plus a cached copy of the last clubs payload.
         # Read by StreamingWriter via get_streaming_state(); see dr2server/streaming.py.
@@ -265,8 +279,59 @@ class RpcDispatcher:
             if self.api_client is not None:
                 load = self.api_client.get_career
                 save = self.api_client.set_career
-            self._career = CareerLadder(load=load, save=save)
+            self._career = CareerLadder(load=load, save=save,
+                                        vehicle_lookup=self._vehicle_for_inst)
         return self._career
+
+    def _vehicle_for_inst(self, inst_id: int) -> Optional[tuple[int, int]]:
+        """(VehicleId, LiveryId) of an inventory instance, as GetInventory
+        serves it: the fitted garage livery when there is one, otherwise the
+        vehicle's default livery (the game loads the wrong car for a livery
+        that does not belong to the vehicle)."""
+        idx = int(inst_id) - 1
+        if not 0 <= idx < len(_INVENTORY_VEHICLE_IDS):
+            return None
+        vid = _INVENTORY_VEHICLE_IDS[idx]
+        livery = 0
+        if self.api_client is not None:
+            try:
+                profile = self.api_client.get_profile()
+            except Exception as exc:
+                print(f"[CAREER] get_profile() for vehicle inst {inst_id} raised: {exc}")
+                profile = None
+            garage = (profile or {}).get("garage") or {}
+            fitted = garage.get(str(int(inst_id))) or {}
+            livery = int(fitted.get("livery_id", 0) or 0)
+        return vid, livery or _LIVERY_FOR_VEHICLE.get(vid, 0)
+
+    @staticmethod
+    def _career_plain(obj: Any) -> Any:
+        """Decoded EgoNet value as plain JSON-able Python, for the log."""
+        if isinstance(obj, dict):
+            return {k: RpcDispatcher._career_plain(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [RpcDispatcher._career_plain(v) for v in obj]
+        if isinstance(obj, bytes):
+            return f"<{len(obj)} bytes>"
+        return _val(obj)
+
+    @staticmethod
+    def _career_progress_summary(resp: Dict[str, Any]) -> str:
+        p = resp.get("Progress")
+        if not isinstance(p, dict):
+            return "no Progress"
+        pp = RpcDispatcher._career_plain(p)
+        parts = [f"event={pp.get('EventIndex')} stage={pp.get('StageIndex')} state={pp.get('State')}",
+                 f"vehicle inst={pp.get('VehicleInstId')} id={pp.get('VehicleId')} livery={pp.get('LiveryId')}",
+                 f"tyres={pp.get('TyreCompound')}/{pp.get('TyresRemaining')} attempts={pp.get('AttemptsLeft')}",
+                 f"stage_ms={pp.get('StageTimeMs')} champ_ms={pp.get('ChampTimeMs')}"]
+        if "IsNewChamp" in resp:
+            parts.append(f"new_champ={resp['IsNewChamp']}")
+        champ = resp.get("Championship")
+        if isinstance(champ, dict):
+            locs = [RpcDispatcher._career_plain(ev.get("LocationId")) for ev in champ.get("Events", [])]
+            parts.append(f"locations={locs}")
+        return " ".join(parts)
 
     def _career_handler(self, discipline: str, op: str) -> Handler:
         """Bind one RaceNetCareerLadder method to the career state machine.
@@ -274,16 +339,20 @@ class RpcDispatcher:
         Never answers with a failure code: the client shows CONNECTION
         FAILED for result 1 on these, so an internal error degrades to the
         current Progress instead.
+
+        Every call logs its full decoded request and a summary of the
+        Progress it answered with.  No request capture of these methods
+        exists (GitHub issue #69), so a player's verbose log is the only
+        way to see what the game sends, in particular the Reason it gives
+        a Reset.
         """
         def handler(params: Dict[str, Any]) -> Dict[str, Any]:
             ladder = self._career_ladder()
-            key = f"{discipline}:{op}"
-            if key not in self._career_logged_ops:
-                # Request shapes for these calls are not captured yet (see
-                # GitHub issue #69); log the first of each so a user's
-                # debug log can confirm them.
-                self._career_logged_ops.add(key)
-                print(f"[CAREER] {op} {discipline} keys={sorted(params)}")
+            try:
+                shown = json.dumps(self._career_plain(params), sort_keys=True, default=str)
+            except Exception:
+                shown = repr(params)
+            print(f"[CAREER] {op} {discipline} request={shown}")
             try:
                 if op == "get":
                     resp = ladder.get_championship(discipline)
@@ -306,6 +375,7 @@ class RpcDispatcher:
                 except Exception:
                     from .career import fresh_progress, progress_to_egonet
                     resp = {"Progress": progress_to_egonet(fresh_progress(discipline)), "ResultCode": 0}
+            print(f"[CAREER] {op} {discipline} -> {self._career_progress_summary(resp)}")
             return {"ok": True, **resp}
 
         return handler
@@ -1989,19 +2059,8 @@ class RpcDispatcher:
         across restarts instead of every vehicle reverting to TuningId/LiveryId
         0.  The instance id is the vehicle's ``Id`` field (idx + 1)."""
         garage = garage or {}
-        # All vehicle IDs from the upstream inventory capture
-        vehicle_ids = [
-            382, 395, 396, 399, 400, 401, 468, 469, 470, 471,
-            478, 480, 482, 483, 484, 485, 490, 502, 504, 511,
-            513, 527, 529, 530, 531, 532, 533, 534, 535, 536,
-            537, 538, 541, 543, 547, 548, 550, 554, 555, 556,
-            557, 558, 559, 560, 561, 562, 563, 564, 565, 566,
-            567, 569, 570, 571, 572, 573, 574, 575, 576, 577,
-            578, 579, 580, 581, 582, 585, 586, 587, 588, 589,
-            590, 593, 597, 600,
-        ]
         vehicles = []
-        for idx, vid in enumerate(vehicle_ids):
+        for idx, vid in enumerate(_INVENTORY_VEHICLE_IDS):
             inst_id = idx + 1
             fitted = garage.get(str(inst_id), {}) if garage else {}
             livery_id = int(fitted.get("livery_id", 0) or 0)
