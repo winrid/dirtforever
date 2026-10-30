@@ -581,13 +581,41 @@ class CareerLadder:
         s = max(0, min(max(n_stages - 1, 0), s))
         return e, s
 
-    @staticmethod
-    def _apply_vehicle(p: Dict[str, Any], req: StageBeginRequest) -> None:
-        p["vehicle_id"] = int(req.vehicle_id)
-        p["vehicle_inst_id"] = int(req.vehicle_inst_id)
-        p["livery_id"] = int(req.livery_id)
-        p["tyre_compound"] = int(req.tyre_compound)
-        p["tyres_remaining"] = int(req.tyres_remaining)
+    def _resolve_vehicle(self, p: Dict[str, Any], req: Any) -> None:
+        """Fill the Progress vehicle block from a Begin / Complete request.
+
+        The career requests carry only VehicleInstId (issue #68 logs from
+        2026-10-28 and 2026-10-30; the club requests also carry VehicleId,
+        LiveryId and the tyres).  The real server owns the garage, so its
+        Progress still names the car and livery; resolve them the same way
+        and keep whatever the client did not resend.  Zeroing a field here
+        is what made the next Get disagree with the local save.
+        """
+        inst = int(getattr(req, "vehicle_inst_id", 0) or 0)
+        vehicle_id = int(getattr(req, "vehicle_id", 0) or 0)
+        livery_id = int(getattr(req, "livery_id", 0) or 0)
+        if inst and inst != int(p.get("vehicle_inst_id", 0) or 0):
+            # Another car: forget the old ids rather than mixing them.
+            p["vehicle_inst_id"] = inst
+            p["vehicle_id"] = 0
+            p["livery_id"] = 0
+        if inst and (not vehicle_id or not livery_id) and self._vehicle_lookup is not None:
+            try:
+                found = self._vehicle_lookup(inst)
+            except Exception as exc:
+                self._log(f"[CAREER] vehicle lookup for inst {inst} raised: {exc!r}")
+                found = None
+            if found:
+                vehicle_id = vehicle_id or int(found[0] or 0)
+                livery_id = livery_id or int(found[1] or 0)
+        if vehicle_id:
+            p["vehicle_id"] = vehicle_id
+        if livery_id:
+            p["livery_id"] = livery_id
+        if getattr(req, "tyre_compound", 0):
+            p["tyre_compound"] = int(req.tyre_compound)
+        if getattr(req, "tyres_remaining", 0):
+            p["tyres_remaining"] = int(req.tyres_remaining)
 
     def _finish_championship(self, state: Dict[str, Any], champ_rank: int) -> None:
         discipline = state["discipline"]
@@ -668,32 +696,9 @@ class CareerLadder:
             state = self._state(discipline)
             p = fresh_progress(discipline)
             p["state"] = STATE_BETWEEN_STAGES
-            # The game sends only VehicleInstId here (verbose log in issue
-            # #68, 2026-10-28).  The real server owns the garage, so its
-            # Progress carries the matching VehicleId / LiveryId; resolve
-            # them the same way so the next Get is self-consistent.  Tyres
-            # and compound keep the fresh values unless the client sent
-            # them: a previous version zeroed TyresRemaining here, which
-            # disagreed with the local save and triggered a reset.
-            inst = int(req.vehicle_inst_id or 0)
-            vehicle_id = int(req.vehicle_id or 0)
-            livery_id = int(req.livery_id or 0)
-            if inst and (not vehicle_id or not livery_id) and self._vehicle_lookup is not None:
-                try:
-                    found = self._vehicle_lookup(inst)
-                except Exception as exc:
-                    self._log(f"[CAREER] vehicle lookup for inst {inst} raised: {exc!r}")
-                    found = None
-                if found:
-                    vehicle_id = vehicle_id or int(found[0] or 0)
-                    livery_id = livery_id or int(found[1] or 0)
-            p["vehicle_inst_id"] = inst
-            p["vehicle_id"] = vehicle_id
-            p["livery_id"] = livery_id
-            if req.tyre_compound:
-                p["tyre_compound"] = int(req.tyre_compound)
-            if req.tyres_remaining:
-                p["tyres_remaining"] = int(req.tyres_remaining)
+            # Tyres and compound keep the fresh values unless the client
+            # sent them; the vehicle block comes from the garage.
+            self._resolve_vehicle(p, req)
             state["progress"] = p
             state["is_new_champ"] = False
             self._persist(discipline)
@@ -714,7 +719,7 @@ class CareerLadder:
             p["stage_time_ms"] = 0
             p["meters_driven"] = 0
             p["has_repaired"] = False
-            self._apply_vehicle(p, req)
+            self._resolve_vehicle(p, req)
             state["is_new_champ"] = False
             self._persist(discipline)
             return {"Progress": progress_to_egonet(p), "ResultCode": 0}
@@ -731,9 +736,7 @@ class CareerLadder:
                 return self._stage_complete_response(p)
 
             quick = _val(req.comp_damage.quick_repairs)
-            p["vehicle_id"] = int(req.vehicle_id)
-            p["vehicle_inst_id"] = int(req.vehicle_inst_id)
-            p["livery_id"] = int(req.livery_id)
+            self._resolve_vehicle(p, req)
             p["vehicle_damage"] = dataclasses.asdict(req.comp_damage)
             p["meters_driven"] = int(req.meters_driven)
             p["has_repaired"] = bool(req.recov_to_service or (quick or 0) > 0)

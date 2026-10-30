@@ -74,6 +74,18 @@ HTML_LOGIN = """<!doctype html>
 """
 
 
+class ProxyAll(set):
+    """A ``proxy_methods`` set that contains every method (``--proxy-all``).
+
+    ``_handle_egonet_rpc`` only tests membership, so a set that answers yes
+    to everything forwards the whole session, Login.Login included, which
+    keeps the upstream session id valid for the later calls.
+    """
+
+    def __contains__(self, item: object) -> bool:
+        return True
+
+
 class App:
     def __init__(
         self,
@@ -560,12 +572,7 @@ def main() -> int:
     args = build_arg_parser().parse_args()
     proxy_methods: Optional[Set[str]] = None
     if args.proxy_all:
-        # Special sentinel: _handle_egonet_rpc checks membership, so we use
-        # a set subclass that contains everything.
-        class _AllSet(set):
-            def __contains__(self, item: object) -> bool:
-                return True
-        proxy_methods = _AllSet()
+        proxy_methods = ProxyAll()
         print("[PROXY] Proxy-all mode: ALL EgoNet methods will be forwarded upstream")
     elif args.proxy_method:
         proxy_methods = set(args.proxy_method)

@@ -344,6 +344,45 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     assert (p["TyresRemaining"].value, p["TyreCompound"].value) == (3, 2)
 
 
+def test_stage_calls_keep_the_vehicle_block_the_client_does_not_resend():
+    """Career StageBegin and StageComplete carry only VehicleInstId (issue
+    #68 log, 2026-10-30), and the v1.9.7 handlers zeroed VehicleId, LiveryId
+    and the tyres from them, so the Get after a heat showed a different car
+    than the Get after ChampionshipBegin."""
+    looked_up = []
+
+    def lookup(inst):
+        looked_up.append(inst)
+        return (538, 2926) if inst == 64 else None
+
+    ladder = CareerLadder(rng=random.Random(5), vehicle_lookup=lookup)
+    ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
+    b = ladder.stage_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))["Progress"]
+    assert (b["VehicleInstId"].value, b["VehicleId"].value, b["LiveryId"].value) == (64, 538, 2926)
+    assert (b["TyreCompound"].value, b["TyresRemaining"].value) == (0, 5)
+    c = ladder.stage_complete("rallycross", StageCompleteRequest(
+        vehicle_inst_id=64, stage_time=155.4, distance_driven=4266))["Progress"]
+    assert (c["VehicleInstId"].value, c["VehicleId"].value, c["LiveryId"].value) == (64, 538, 2926)
+    assert (c["TyreCompound"].value, c["TyresRemaining"].value) == (0, 5)
+    assert (c["EventIndex"], c["StageIndex"], c["State"]) == (0, 1, STATE_BETWEEN_STAGES)
+    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(c)
+
+    # Without a garage lookup the ids from ChampionshipBegin survive too.
+    plain = _ladder()
+    plain.championship_begin("rally", StageBeginRequest(vehicle_inst_id=7, vehicle_id=478, livery_id=2915))
+    b = plain.stage_begin("rally", StageBeginRequest(vehicle_inst_id=7))["Progress"]
+    assert (b["VehicleId"].value, b["LiveryId"].value, b["TyresRemaining"].value) == (478, 2915, 1)
+    c = plain.stage_complete("rally", StageCompleteRequest(vehicle_inst_id=7, stage_time=90.0))["Progress"]
+    assert (c["VehicleId"].value, c["LiveryId"].value, c["TyresRemaining"].value) == (478, 2915, 1)
+    # A different car drops the old ids instead of mixing them.
+    b = plain.stage_begin("rally", StageBeginRequest(vehicle_inst_id=8, stage_index=1))["Progress"]
+    assert (b["VehicleInstId"].value, b["VehicleId"].value, b["LiveryId"].value) == (8, 0, 0)
+    # Explicit client values still win, as in the club flow.
+    b = plain.stage_begin("rally", _begin(0, 1))["Progress"]
+    assert (b["VehicleInstId"].value, b["VehicleId"].value, b["LiveryId"].value) == (55, 478, 2915)
+    assert (b["TyreCompound"].value, b["TyresRemaining"].value) == (1, 4)
+
+
 def test_dispatcher_resolves_begin_vehicle_from_the_garage(capsys):
     from dr2server.dispatcher import _INVENTORY_VEHICLE_IDS, _LIVERY_FOR_VEHICLE
 

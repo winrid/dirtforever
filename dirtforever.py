@@ -1318,6 +1318,66 @@ def run_gui():
 
     verbose_logging_var.trace_add("write", _apply_verbose_logging)
 
+    # --- RaceNet capture session (support) ---
+    # Deliberately not saved to the config: left on by accident it would
+    # quietly keep the game on the real Codemasters backend.
+    racenet_capture_var = tk.BooleanVar(value=False)
+    racenet_capture_dir: dict = {"current": None}
+    capture_card = tk.Frame(advanced_tab, bg=BG_CARD,
+                            highlightbackground=BORDER, highlightthickness=1)
+    capture_card.pack(fill="x", padx=20, pady=5)
+    tk.Checkbutton(
+        capture_card,
+        text="RaceNet capture session (only when support asks for it)",
+        variable=racenet_capture_var,
+        bg=BG_CARD, fg=TEXT, activebackground=BG_CARD, activeforeground=TEXT,
+        selectcolor=BG_ELEVATED, font=(UI_FONT, 10),
+        highlightthickness=0, bd=0, anchor="w",
+    ).pack(fill="x", padx=12, pady=(8, 2))
+    tk.Label(
+        capture_card,
+        text=("Applies to the next Start. Every game call is forwarded to the "
+              "real Codemasters servers and recorded, so the game plays on your "
+              "real RaceNet account and DirtForever clubs are unavailable until "
+              "you turn this off and restart the server. Export packs the "
+              "recording with your Steam ticket, session ids and login data "
+              "removed, ready to attach to a GitHub issue."),
+        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=380,
+        justify="left", anchor="w",
+    ).pack(fill="x", padx=12, pady=(0, 4))
+    capture_status_var = tk.StringVar(value="")
+    tk.Label(capture_card, textvariable=capture_status_var, font=(MONO_FONT, 9),
+             fg=TEXT, bg=BG_CARD, anchor="w", justify="left",
+             wraplength=380).pack(fill="x", padx=12)
+
+    def _export_racenet_capture():
+        from dr2server.capture_export import export_capture_zip, list_capture_dirs
+        source = racenet_capture_dir["current"]
+        if source is None or not Path(source).is_dir():
+            sessions = list_capture_dirs(CAPTURES_DIR)
+            source = sessions[0] if sessions else None
+        if source is None:
+            log("No RaceNet capture session recorded yet.")
+            capture_status_var.set("Nothing recorded yet")
+            return
+        source = Path(source)
+        out_zip = DIRTFOREVER_DIR / f"{source.name}.zip"
+        try:
+            count = export_capture_zip(source, out_zip)
+        except Exception as exc:
+            log(f"Could not export {source}: {exc}")
+            return
+        log(f"Exported {count} captured calls to {out_zip}")
+        capture_status_var.set(f"Exported {count} calls: {out_zip}")
+        _reveal_in_explorer(out_zip)
+
+    tk.Button(
+        capture_card, text="Export sanitized zip", font=(UI_FONT, 8, "bold"),
+        bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=_export_racenet_capture,
+    ).pack(anchor="w", padx=12, pady=(4, 8))
+
     # --- Server control ---
     def set_status(running: bool, detail: str = ""):
         if running:
@@ -1343,17 +1403,26 @@ def run_gui():
             api_token = config.get("game_token")
             data_root = str(_data_dir())
 
+            from dr2server.capture_export import (
+                RACENET_UPSTREAM_IP, new_capture_dir, racenet_server_args)
+            racenet_capture = bool(racenet_capture_var.get())
+            capture_dir = new_capture_dir(CAPTURES_DIR) if racenet_capture else CAPTURES_DIR
+            if racenet_capture:
+                racenet_capture_dir["current"] = capture_dir
+
             sys.argv = [sys.argv[0],
                         "--ssl-cert", cert,
                         "--ssl-key", key,
                         "--data-dir", data_root,
-                        "--capture-dir", str(CAPTURES_DIR)]
+                        "--capture-dir", str(capture_dir)]
+            if racenet_capture:
+                sys.argv += racenet_server_args()
             if api_url:
                 sys.argv += ["--api-url", api_url]
             if api_token:
                 sys.argv += ["--api-token", api_token]
 
-            from dr2server.httpd import build_arg_parser, App, create_server
+            from dr2server.httpd import build_arg_parser, App, ProxyAll, create_server
             import ssl
             import time
 
@@ -1369,6 +1438,8 @@ def run_gui():
             app = App(
                 data_root=Path(args.data_dir),
                 capture_root=Path(args.capture_dir),
+                upstream_ip=args.upstream_ip,
+                proxy_methods=ProxyAll() if args.proxy_all else None,
                 api_url=args.api_url,
             )
             if api_client:
@@ -1410,6 +1481,12 @@ def run_gui():
             server_running.set()
             root.after(0, lambda: set_status(True))
             root.after(0, lambda: log("Server listening on HTTPS :443 and HTTP :8080"))
+            if racenet_capture:
+                root.after(0, lambda d=capture_dir: log(
+                    f"RaceNet capture session: forwarding every call to "
+                    f"{RACENET_UPSTREAM_IP} and recording to {d}"))
+                root.after(0, lambda d=capture_dir: capture_status_var.set(
+                    f"Recording to {d.name}"))
 
             # Wait until shutdown is requested
             while not shutdown_flag.is_set():

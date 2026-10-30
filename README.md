@@ -110,6 +110,8 @@ python server.py --ssl-cert ... --ssl-key ... --upstream-ip 159.153.126.42 --pro
 
 Per-method: `--proxy-method RaceNetCareerLadder.GetRallyChampionship`
 
+The GUI does the same from its Advanced tab: "RaceNet capture session" applies to the next Start, records every call under `captures/racenet-<timestamp>/`, and "Export sanitized zip" packs the session with the Steam ticket, session ids and login bodies removed so it can be attached to a bug report.
+
 ### Adding RPC Handlers
 
 1. Add handler in `dispatcher.py`, register in the handler map
