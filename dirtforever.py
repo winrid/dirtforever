@@ -32,6 +32,9 @@ ELEVATION_TIMEOUT_SECONDS = 300
 
 UI_FONT = "Segoe UI" if IS_WIN else "DejaVu Sans"
 MONO_FONT = "Consolas" if IS_WIN else "DejaVu Sans Mono"
+# Wrap width for text inside the Advanced tab cards: the window is 440 wide,
+# minus the tab's scrollbar, the card margins and the card padding.
+ADV_WRAP = 350
 
 def _read_version() -> str:
     """Read version from VERSION file (bundled or local)."""
@@ -821,10 +824,62 @@ def run_gui():
     notebook.pack(fill="both", expand=True)
     main_tab = tk.Frame(notebook, bg=BG)
     streaming_tab = tk.Frame(notebook, bg=BG)
-    advanced_tab = tk.Frame(notebook, bg=BG)
+    advanced_outer = tk.Frame(notebook, bg=BG)
     notebook.add(main_tab, text="Main")
     notebook.add(streaming_tab, text="Streaming")
-    notebook.add(advanced_tab, text="Logs")
+    notebook.add(advanced_outer, text="Advanced")
+
+    def _scrollable_body(outer: tk.Frame) -> tk.Frame:
+        """Return a frame inside ``outer`` that scrolls vertically.
+
+        The window has a fixed size, so a tab whose cards add up to more
+        than the window height would otherwise cut off its bottom part
+        (v1.9.8 hid the capture export button that way, #68)."""
+        canvas = tk.Canvas(outer, bg=BG, highlightthickness=0, bd=0)
+        bar = ttk.Scrollbar(outer, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg=BG)
+        window_id = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def _on_body_configure(_event=None):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _on_canvas_configure(event):
+            canvas.itemconfigure(window_id, width=event.width)
+
+        body.bind("<Configure>", _on_body_configure)
+        canvas.bind("<Configure>", _on_canvas_configure)
+
+        def _on_wheel(event):
+            # Windows and macOS (and X11 on Tk 9) report a signed delta;
+            # X11 on Tk 8.6 reports Button-4 (up) / Button-5 (down).
+            num = getattr(event, "num", None)
+            delta = getattr(event, "delta", 0) or 0
+            if num == 4 or delta > 0:
+                step = -1
+            elif num == 5 or delta < 0:
+                step = 1
+            else:
+                return
+            canvas.yview_scroll(step, "units")
+
+        def _bind_wheel(_event=None):
+            canvas.bind_all("<MouseWheel>", _on_wheel)
+            canvas.bind_all("<Button-4>", _on_wheel)
+            canvas.bind_all("<Button-5>", _on_wheel)
+
+        def _unbind_wheel(_event=None):
+            canvas.unbind_all("<MouseWheel>")
+            canvas.unbind_all("<Button-4>")
+            canvas.unbind_all("<Button-5>")
+
+        canvas.bind("<Enter>", _bind_wheel)
+        canvas.bind("<Leave>", _unbind_wheel)
+        return body
+
+    advanced_tab = _scrollable_body(advanced_outer)
 
     # --- Header ---
     header = tk.Frame(main_tab, bg=BG)
@@ -1262,9 +1317,9 @@ def run_gui():
 
     adv_header = tk.Frame(advanced_tab, bg=BG)
     adv_header.pack(fill="x", padx=20, pady=(20, 5))
-    tk.Label(adv_header, text="Logs", font=(UI_FONT, 16, "bold"),
+    tk.Label(adv_header, text="Advanced", font=(UI_FONT, 16, "bold"),
              fg=ACCENT, bg=BG).pack(side="left")
-    tk.Label(adv_header, text="Diagnostic file locations", font=(UI_FONT, 9),
+    tk.Label(adv_header, text="Logs, diagnostics, support tools", font=(UI_FONT, 9),
              fg=MUTED, bg=BG).pack(side="left", padx=(10, 0), pady=(5, 0))
 
     def _path_card(parent, label: str, path: Path, button_text: str) -> None:
@@ -1274,7 +1329,7 @@ def run_gui():
         tk.Label(card, text=label, font=(UI_FONT, 8, "bold"),
                  fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
         tk.Label(card, text=str(path), font=(MONO_FONT, 9),
-                 fg=TEXT, bg=BG_CARD, anchor="w", wraplength=380,
+                 fg=TEXT, bg=BG_CARD, anchor="w", wraplength=ADV_WRAP,
                  justify="left").pack(anchor="w", fill="x", padx=12)
         tk.Button(
             card, text=button_text, font=(UI_FONT, 8, "bold"),
@@ -1304,7 +1359,7 @@ def run_gui():
         verbose_card,
         text=("Logs every streaming tick and dispatcher state change. "
               "Leave off unless debugging."),
-        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=380,
+        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=ADV_WRAP,
         justify="left", anchor="w",
     ).pack(fill="x", padx=12, pady=(0, 8))
 
@@ -1328,27 +1383,29 @@ def run_gui():
     capture_card.pack(fill="x", padx=20, pady=5)
     tk.Checkbutton(
         capture_card,
-        text="RaceNet capture session (only when support asks for it)",
+        text="RaceNet capture session",
         variable=racenet_capture_var,
         bg=BG_CARD, fg=TEXT, activebackground=BG_CARD, activeforeground=TEXT,
-        selectcolor=BG_ELEVATED, font=(UI_FONT, 10),
-        highlightthickness=0, bd=0, anchor="w",
+        selectcolor=BG_ELEVATED, font=(UI_FONT, 10), wraplength=ADV_WRAP - 30,
+        highlightthickness=0, bd=0, anchor="w", justify="left",
     ).pack(fill="x", padx=12, pady=(8, 2))
     tk.Label(
         capture_card,
-        text=("Applies to the next Start. Every game call is forwarded to the "
-              "real Codemasters servers and recorded, so the game plays on your "
-              "real RaceNet account and DirtForever clubs are unavailable until "
-              "you turn this off and restart the server. Export packs the "
-              "recording with your Steam ticket, session ids and login data "
-              "removed, ready to attach to a GitHub issue."),
-        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=380,
+        text=("Only when support asks for it. Applies to the next Start: every "
+              "game call is forwarded to the real Codemasters servers and "
+              "recorded, so the game plays on your real RaceNet account and "
+              "DirtForever clubs and My Team are unavailable meanwhile. "
+              "The switch turns itself off when the server stops; press Start "
+              "again to get back onto DirtForever. Export packs the recording "
+              "with your Steam ticket, session ids and login data removed, "
+              "ready to attach to a GitHub issue."),
+        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=ADV_WRAP,
         justify="left", anchor="w",
     ).pack(fill="x", padx=12, pady=(0, 4))
-    capture_status_var = tk.StringVar(value="")
+    capture_status_var = tk.StringVar(value="Off")
     tk.Label(capture_card, textvariable=capture_status_var, font=(MONO_FONT, 9),
              fg=TEXT, bg=BG_CARD, anchor="w", justify="left",
-             wraplength=380).pack(fill="x", padx=12)
+             wraplength=ADV_WRAP).pack(fill="x", padx=12)
 
     def _export_racenet_capture():
         from dr2server.capture_export import export_capture_zip, list_capture_dirs
@@ -1505,6 +1562,16 @@ def run_gui():
             for s in servers:
                 s.shutdown()
                 s.server_close()
+
+            if racenet_capture:
+                # One session per tick of the switch: the next Start goes
+                # back to DirtForever unless the player ticks it again.
+                root.after(0, lambda: racenet_capture_var.set(False))
+                root.after(0, lambda d=capture_dir: capture_status_var.set(
+                    f"Recorded {d.name}. Press Export sanitized zip. "
+                    f"Capture is off again; Start returns to DirtForever."))
+                root.after(0, lambda: log(
+                    "RaceNet capture session ended; the switch is off again."))
 
         except Exception:
             import traceback
