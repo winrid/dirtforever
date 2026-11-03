@@ -5,7 +5,7 @@ Tk is kept out of the pytest process on purpose: tearing a Tk interpreter
 down inside a long test run has crashed the interpreter during a later
 garbage collection.
 
-Exit codes: 0 ran, 3 no display available.
+Exit codes: 0 ran, 3 no display or no tkinter available.
 """
 import ast
 import json
@@ -28,8 +28,12 @@ def nested_function_source(module_src: str, outer: str, inner: str) -> str:
 
 
 def main() -> int:
-    import tkinter as tk
-    from tkinter import ttk
+    try:
+        import tkinter as tk
+        from tkinter import ttk
+    except ImportError as exc:
+        print(json.dumps({"skip": f"no tkinter: {exc}"}))
+        return 3
 
     try:
         root = tk.Tk()
