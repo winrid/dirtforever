@@ -225,7 +225,7 @@ def test_full_rallycross_championship_promotes_and_starts_a_new_one():
 
     resp = ladder.championship_begin("rallycross", _begin(0, 0))
     assert list(resp) == ["Progress", "ResultCode"]
-    assert resp["Progress"]["State"] == STATE_BETWEEN_STAGES
+    assert resp["Progress"]["State"] == career.STATE_IN_PROGRESS
     assert resp["Progress"]["VehicleId"].value == 478
 
     total = 0
@@ -313,7 +313,12 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     """The game sends only VehicleInstId to ChampionshipBegin (issue #68 log,
     2026-10-28).  The Progress must still carry a consistent vehicle block
     and the fresh tyre allocation, and the next Get must repeat it exactly,
-    or the client resets the championship."""
+    or the client resets the championship.
+
+    The state after Begin is 1 (in progress, next stage 0), the shape the
+    club listing uses for a championship the player is inside.  State 0
+    there made the game reset with Reason 4 at the next hub refresh even
+    when the vehicle block matched (issue #68 log, 2026-10-30)."""
     looked_up = []
 
     def lookup(inst):
@@ -324,7 +329,8 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     resp = ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=32))
     p = resp["Progress"]
     assert looked_up == [32]
-    assert (p["EventIndex"], p["StageIndex"], p["State"]) == (0, 0, STATE_BETWEEN_STAGES)
+    assert (p["EventIndex"], p["StageIndex"], p["State"]) == (0, 0, career.STATE_IN_PROGRESS)
+    assert p["State"] != STATE_BETWEEN_STAGES
     assert p["VehicleInstId"].value == 32
     assert p["VehicleId"].value == 538
     assert p["LiveryId"].value == 2926
@@ -409,7 +415,7 @@ def test_dispatcher_resolves_begin_vehicle_from_the_garage(capsys):
     out = capsys.readouterr().out
     assert '[CAREER] champ_begin rallycross request={"VehicleInstId": 12}' in out
     assert '[CAREER] reset rallycross request={"IsAutomatic": true, "Reason": 3, "SingleStage": false}' in out
-    assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=0 vehicle inst=12" in out
+    assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=1 vehicle inst=12" in out
     assert "[CAREER] reset rallycross -> event=0 stage=0 state=5" in out
 
 

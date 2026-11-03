@@ -52,6 +52,14 @@ STATE_BETWEEN_STAGES = 0
 STATE_STAGE_ACTIVE = 1
 STATE_EVENT_FINISHED = 2
 STATE_NOT_STARTED = 5  # ASSUMPTION (A5): "championship not begun"
+# What ChampionshipBegin leaves behind.  The club listing reports a
+# championship the player is inside with State 1 and StageIndex pointing at
+# the next stage, and the game resumes from that.  Serving State 0 here made
+# the game reset the career with Reason 4 at the next hub refresh, whether or
+# not a heat had been driven (issue #68 logs, 2026-10-30).  The real server's
+# answer to ChampionshipBegin was never captured; its login no longer accepts
+# the game (2026-11-03), so this is the best-supported reading (A2).
+STATE_IN_PROGRESS = STATE_STAGE_ACTIVE
 
 # ASSUMPTION (A6): after the last stage of a non-final event the server keeps
 # the finished event's index with State 2 (the club flow's shape).  Flip to
@@ -695,7 +703,7 @@ class CareerLadder:
         with self._lock:
             state = self._state(discipline)
             p = fresh_progress(discipline)
-            p["state"] = STATE_BETWEEN_STAGES
+            p["state"] = STATE_IN_PROGRESS
             # Tyres and compound keep the fresh values unless the client
             # sent them; the vehicle block comes from the garage.
             self._resolve_vehicle(p, req)
@@ -710,7 +718,7 @@ class CareerLadder:
             p = state["progress"]
             e, s = self._clamp_indices(state, req.event_index, req.stage_index)
             expected = (int(p.get("event_index", 0)), int(p.get("stage_index", 0)))
-            if (e, s) != expected or int(p.get("state", 0)) == STATE_STAGE_ACTIVE:
+            if (e, s) != expected:
                 self._log(f"[CAREER] {discipline} StageBegin at ({e},{s}) but server had "
                           f"{expected} state={p.get('state')}; adopting the client's position")
             p["event_index"] = e
