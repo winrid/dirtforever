@@ -26,8 +26,8 @@ from dr2server import career
 from dr2server.career import (
     STATE_BETWEEN_STAGES, STATE_EVENT_FINISHED, STATE_NOT_STARTED,
     STATE_STAGE_ACTIVE, CareerLadder, build_championship, fresh_progress,
-    generate_spec, progress_to_egonet, spec_from_championship,
-    tier_list_to_egonet,
+    generate_spec, parse_trial_overrides, progress_to_egonet,
+    spec_from_championship, tier_list_to_egonet,
 )
 from dr2server.dispatcher import RpcDispatcher
 from dr2server.egonet import Int64, UInt16, UInt32, decode_stream, encode_stream
@@ -452,6 +452,88 @@ def test_dispatcher_resolves_begin_vehicle_from_the_garage(capsys):
     assert '[CAREER] reset rallycross request={"IsAutomatic": true, "Reason": 3, "SingleStage": false}' in out
     assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=5 vehicle inst=12" in out
     assert "[CAREER] reset rallycross -> event=0 stage=0 state=5" in out
+
+
+def test_trial_overrides_parse_loosely_and_report_what_was_ignored():
+    overrides, ignored = parse_trial_overrides(
+        "State=4, attemptsleft=0; IsNewChamp=true TyreCompound=0x0b bogus=1 State nope=x HasRepaired=maybe")
+    assert overrides == {"State": 4, "AttemptsLeft": 0, "IsNewChamp": True, "TyreCompound": 11}
+    assert ignored == ["bogus=1", "State", "nope=x", "HasRepaired=maybe"]
+    assert parse_trial_overrides("") == ({}, [])
+    assert parse_trial_overrides(None) == ({}, [])
+    assert parse_trial_overrides("ChampState=1,AttemptsAllowed=2,LiveryId=0")[0] == {
+        "ChampState": 1, "AttemptsAllowed": 2, "LiveryId": 0}
+
+
+def test_trial_overrides_only_touch_answers_about_a_begun_championship():
+    """Issue #68 support trials: the overrides ride on every answer after
+    ChampionshipBegin, keep the wire types, and never touch a fresh
+    championship (the hub before Begin, the Reset answer) so the accepted
+    shapes stay accepted."""
+    ladder = CareerLadder(rng=random.Random(5), vehicle_lookup=lambda inst: (538, 2926),
+                          trial_overrides={"State": 4, "AttemptsLeft": 0, "LiveryId": 0,
+                                           "IsNewChamp": True, "ChampState": 1})
+    before = ladder.get_championship("rallycross")
+    assert before["Progress"]["State"] == STATE_NOT_STARTED
+    assert before["Progress"]["AttemptsLeft"] == 1
+    assert before["Championship"]["State"] == 0 and before["IsNewChamp"] is False
+
+    b = ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))["Progress"]
+    assert (b["State"], b["AttemptsLeft"]) == (4, 0)
+    assert isinstance(b["LiveryId"], UInt32) and b["LiveryId"].value == 0
+    assert b["VehicleId"].value == 538
+    hub = ladder.get_championship("rallycross")
+    assert encode_stream(hub["Progress"]) == encode_stream(b)
+    assert hub["Championship"]["State"] == 1 and hub["IsNewChamp"] is True
+    # The stored progress is untouched: the trial is applied on the way out.
+    assert ladder._states["rallycross"]["progress"]["state"] == STATE_NOT_STARTED
+    assert ladder._states["rallycross"]["progress"]["livery_id"] == 2926
+
+    s = ladder.stage_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))["Progress"]
+    assert (s["State"], s["AttemptsLeft"], s["LiveryId"].value) == (4, 0, 0)
+    c = ladder.stage_complete("rallycross", StageCompleteRequest(
+        vehicle_inst_id=64, stage_time=100.0, distance_driven=4000))["Progress"]
+    assert (c["State"], c["StageIndex"], c["AttemptsLeft"]) == (4, 1, 0)
+
+    reset = ladder.reset_championship("rallycross")
+    assert reset["Progress"]["State"] == STATE_NOT_STARTED
+    assert reset["Progress"]["AttemptsLeft"] == 1
+    assert reset["Championship"]["State"] == 0
+    after = ladder.get_championship("rallycross")
+    assert after["Progress"]["State"] == STATE_NOT_STARTED and after["IsNewChamp"] is False
+
+    # Switching the trial off restores the plain answers at once.
+    ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
+    ladder.set_trial_overrides({})
+    assert ladder.get_championship("rallycross")["Progress"]["State"] == STATE_NOT_STARTED
+
+
+def test_dispatcher_applies_a_career_trial_live(capsys):
+    d = RpcDispatcher(account_store=MagicMock(), api_client=None)
+    d.dispatch("RaceNetCareerLadder.RallycrossChampionshipBegin", {"VehicleInstId": Int64(12)})
+    assert d.dispatch("RaceNetCareerLadder.GetRallycrossChampionship", {})["Progress"]["State"] == STATE_NOT_STARTED
+
+    assert d.set_career_trial("State=3, TyresRemaining=4, junk") == ({"State": 3, "TyresRemaining": 4}, ["junk"])
+    got = d.dispatch("RaceNetCareerLadder.GetRallycrossChampionship", {})
+    assert got["Progress"]["State"] == 3 and got["Progress"]["TyresRemaining"].value == 4
+    # Rally has not begun: untouched.
+    assert d.dispatch("RaceNetCareerLadder.GetRallyChampionship", {})["Progress"]["State"] == STATE_NOT_STARTED
+    # The wire still encodes.
+    assert encode_stream(got["Progress"])
+
+    assert d.set_career_trial("") == ({}, [])
+    assert d.dispatch("RaceNetCareerLadder.GetRallycrossChampionship", {})["Progress"]["State"] == STATE_NOT_STARTED
+    out = capsys.readouterr().out
+    assert "[CAREER] trial overrides set: State=3, TyresRemaining=4" in out
+    assert "[CAREER] trial overrides ignored: junk" in out
+    assert "[CAREER] trial overrides applied to rallycross: State=3, TyresRemaining=4" in out
+    assert "[CAREER] trial overrides cleared" in out
+
+    # A trial given before the ladder exists is picked up on first use.
+    d2 = RpcDispatcher(account_store=MagicMock(), api_client=None)
+    d2.set_career_trial("AttemptsLeft=0")
+    d2.dispatch("RaceNetCareerLadder.RallyChampionshipBegin", {"VehicleInstId": Int64(3)})
+    assert d2.dispatch("RaceNetCareerLadder.GetRallyChampionship", {})["Progress"]["AttemptsLeft"] == 0
 
 
 def test_stage_begin_adopts_the_clients_position():

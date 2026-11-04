@@ -115,6 +115,97 @@ _DISC_CFG: Dict[str, Dict[str, Any]] = {
 }
 FRESH_ATTEMPTS = 1
 
+# Support trials (issue #68).  The game resets a begun championship with
+# Reason 4 ("discrepancy between local and server save data") at the next
+# hub refresh whatever the Progress said so far, and no capture of the real
+# server's answer after ChampionshipBegin exists.  A trial is a set of
+# field overrides, typed in the Advanced tab, that every career answer for
+# a BEGUN championship carries (Get, Begin, StageBegin, StageComplete; never
+# Reset, never a fresh championship), so one build can test one guess per
+# minute instead of one per release.  Keys are matched case-insensitively.
+TRIAL_PROGRESS_KEYS = (
+    "ChallengeID", "EventIndex", "StageIndex", "State", "StageTimeMs",
+    "VehicleInstId", "VehicleId", "LiveryId", "MetersDriven", "Percentile",
+    "ChampTimeMs", "HasRepaired", "RepairPenalty", "TyreCompound",
+    "TyresRemaining", "AttemptsLeft",
+)
+# Top-level / Championship fields of the hub answer.
+TRIAL_HUB_KEYS = ("IsNewChamp", "ChampState", "AttemptsAllowed")
+_TRIAL_KEY_LOOKUP = {k.lower(): k for k in TRIAL_PROGRESS_KEYS + TRIAL_HUB_KEYS}
+_TRIAL_BOOL_KEYS = {"HasRepaired", "IsNewChamp"}
+
+
+def parse_trial_overrides(text: Optional[str]) -> tuple[Dict[str, Any], List[str]]:
+    """``"State=4, AttemptsLeft=0"`` -> ``({"State": 4, "AttemptsLeft": 0}, [])``.
+
+    Separators are commas, semicolons or whitespace.  Returns the parsed
+    overrides (canonical key names, ints or bools) and the tokens that were
+    ignored, so the GUI can show both.  Never raises.
+    """
+    overrides: Dict[str, Any] = {}
+    ignored: List[str] = []
+    for token in (text or "").replace(";", ",").replace("\n", ",").split(","):
+        for piece in token.split():
+            if "=" not in piece:
+                ignored.append(piece)
+                continue
+            raw_key, raw_val = piece.split("=", 1)
+            key = _TRIAL_KEY_LOOKUP.get(raw_key.strip().lower())
+            val = raw_val.strip().lower()
+            if key is None or not val:
+                ignored.append(piece)
+                continue
+            if key in _TRIAL_BOOL_KEYS:
+                if val in ("1", "true", "yes", "on"):
+                    overrides[key] = True
+                elif val in ("0", "false", "no", "off"):
+                    overrides[key] = False
+                else:
+                    ignored.append(piece)
+                continue
+            try:
+                overrides[key] = int(val, 0)
+            except ValueError:
+                ignored.append(piece)
+    return overrides, ignored
+
+
+def describe_trial_overrides(overrides: Dict[str, Any]) -> str:
+    return ", ".join(f"{k}={int(v) if isinstance(v, bool) else v}" for k, v in overrides.items())
+
+
+def _typed_like(current: Any, value: Any) -> Any:
+    """``value`` wrapped in the wire type ``current`` carries."""
+    if isinstance(current, bool):
+        return bool(value)
+    if isinstance(current, UInt32):
+        return UInt32(int(value))
+    if isinstance(current, Int64):
+        return Int64(int(value))
+    return int(value)
+
+
+def apply_trial_overrides(resp: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
+    """Overrides written into a career answer in place (and returned)."""
+    progress = resp.get("Progress")
+    for key, value in overrides.items():
+        if key in TRIAL_PROGRESS_KEYS:
+            if isinstance(progress, dict) and key in progress:
+                progress[key] = _typed_like(progress[key], value)
+        elif key == "IsNewChamp":
+            if "IsNewChamp" in resp:
+                resp["IsNewChamp"] = bool(value)
+        elif key == "ChampState":
+            champ = resp.get("Championship")
+            if isinstance(champ, dict) and "State" in champ:
+                champ["State"] = _typed_like(champ["State"], value)
+        elif key == "AttemptsAllowed":
+            champ = resp.get("Championship")
+            if isinstance(champ, dict) and "AttemptsAllowed" in champ:
+                champ["AttemptsAllowed"] = _typed_like(champ["AttemptsAllowed"], value)
+    return resp
+
+
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "upstream_templates"
 _TIER_TEMPLATES = {
     "rally": "RaceNetCareerLadder_GetRallyTierList.bin",
@@ -515,6 +606,7 @@ class CareerLadder:
         log: Callable[[str], None] = print,
         now: Optional[Callable[[], float]] = None,
         vehicle_lookup: Optional[VehicleLookupFn] = None,
+        trial_overrides: Optional[Dict[str, Any]] = None,
     ) -> None:
         self._load = load
         self._save = save
@@ -523,6 +615,7 @@ class CareerLadder:
         self._log = log
         self._now = now or time.time
         self._states: Dict[str, Dict[str, Any]] = {}
+        self.trial_overrides: Dict[str, Any] = dict(trial_overrides or {})
         # True once the backend copy has been read (or there is no backend).
         # Nothing is written back before that, so a transient failure at
         # startup can never overwrite real server-side progress.
@@ -666,6 +759,27 @@ class CareerLadder:
             "ResultCode":      0,
         }
 
+    def set_trial_overrides(self, overrides: Optional[Dict[str, Any]]) -> None:
+        with self._lock:
+            self.trial_overrides = dict(overrides or {})
+
+    def _trial(self, discipline: str, resp: Dict[str, Any]) -> Dict[str, Any]:
+        """Trial overrides applied to an answer about a begun championship.
+
+        A fresh championship (no car recorded) is never touched, so the
+        hub before Begin and the Reset answer stay the accepted shapes.
+        """
+        overrides = self.trial_overrides
+        if not overrides:
+            return resp
+        p = self._states[discipline]["progress"]
+        if not int(p.get("vehicle_inst_id", 0) or 0):
+            return resp
+        apply_trial_overrides(resp, overrides)
+        self._log(f"[CAREER] trial overrides applied to {discipline}: "
+                  f"{describe_trial_overrides(overrides)}")
+        return resp
+
     # -- public API (one method per EgoNet call) ---------------------------
 
     def current_progress(self, discipline: str) -> Dict[str, Any]:
@@ -679,11 +793,11 @@ class CareerLadder:
         stop the Reason 4 reset after a heat (issue #68 log, 2026-11-04)."""
         with self._lock:
             state = self._state(discipline)
-            return {
+            return self._trial(discipline, {
                 "Championship": build_championship(state["spec"]).to_egonet(),
                 "Progress": progress_to_egonet(state["progress"]),
                 "IsNewChamp": bool(state.get("is_new_champ", False)),
-            }
+            })
 
     def reset_championship(self, discipline: str) -> Dict[str, Any]:
         with self._lock:
@@ -715,7 +829,7 @@ class CareerLadder:
             state["progress"] = p
             state["is_new_champ"] = False
             self._persist(discipline)
-            return {"Progress": progress_to_egonet(p), "ResultCode": 0}
+            return self._trial(discipline, {"Progress": progress_to_egonet(p), "ResultCode": 0})
 
     def stage_begin(self, discipline: str, req: StageBeginRequest) -> Dict[str, Any]:
         with self._lock:
@@ -735,7 +849,7 @@ class CareerLadder:
             self._resolve_vehicle(p, req)
             state["is_new_champ"] = False
             self._persist(discipline)
-            return {"Progress": progress_to_egonet(p), "ResultCode": 0}
+            return self._trial(discipline, {"Progress": progress_to_egonet(p), "ResultCode": 0})
 
     def stage_complete(self, discipline: str, req: StageCompleteRequest) -> Dict[str, Any]:
         with self._lock:
@@ -746,7 +860,7 @@ class CareerLadder:
 
             if p.get("last_completed") == [e, s] and int(p.get("state", 0)) != STATE_STAGE_ACTIVE:
                 # The client re-sent a result we already applied.
-                return self._stage_complete_response(p)
+                return self._trial(discipline, self._stage_complete_response(p))
 
             quick = _val(req.comp_damage.quick_repairs)
             self._resolve_vehicle(p, req)
@@ -782,7 +896,7 @@ class CareerLadder:
                 p["stage_time_ms"] = 0
                 p["state"] = STATE_BETWEEN_STAGES
 
-            resp = self._stage_complete_response(p)
+            resp = self._trial(discipline, self._stage_complete_response(p))
             if finished:
                 self._finish_championship(state, req.champ_rank)
             self._persist(discipline)
