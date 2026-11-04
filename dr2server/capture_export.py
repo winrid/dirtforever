@@ -102,6 +102,46 @@ def sanitize_capture(data: Dict[str, Any]) -> Dict[str, Any]:
     return out
 
 
+RECENT_WINDOW_SECONDS = 48 * 3600
+
+
+def export_recent_captures_zip(captures_root: Path, out_zip: Path,
+                               now: Optional[float] = None,
+                               window: float = RECENT_WINDOW_SECONDS) -> int:
+    """Pack the normal-session captures of the last ``window`` seconds.
+
+    Every server start records one JSON per game call directly under
+    ``captures_root`` (request decoded, local answer included), so a bug
+    report can carry the DataMining telemetry and the exact answers of a
+    session without a RaceNet capture session.  Same sanitizing as
+    :func:`export_capture_zip`.  Returns the number of files packed.
+    """
+    if now is None:
+        now = time.time()
+    cutoff = now - window
+    files: List[Path] = []
+    if captures_root.is_dir():
+        for path in captures_root.iterdir():
+            if path.is_file() and path.suffix == ".json":
+                try:
+                    if path.stat().st_mtime >= cutoff:
+                        files.append(path)
+                except OSError:
+                    continue
+    files.sort(key=lambda p: p.name)
+    folder = out_zip.stem
+    out_zip.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        for path in files:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                text = json.dumps(sanitize_capture(data), indent=2, ensure_ascii=False)
+            except (OSError, ValueError) as exc:
+                text = json.dumps({"unreadable": path.name, "error": str(exc)})
+            zf.writestr(f"{folder}/{path.name}", text)
+    return len(files)
+
+
 def export_capture_zip(capture_dir: Path, out_zip: Path) -> int:
     """Pack every capture JSON in ``capture_dir`` into ``out_zip``, sanitized.
 

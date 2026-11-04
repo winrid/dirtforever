@@ -104,6 +104,51 @@ def test_capture_dir_naming_and_listing(tmp_path: Path):
         "racenet-20261030-093000", "racenet-20261030-080000"]
 
 
+def test_export_recent_sessions_packs_only_fresh_flat_captures(tmp_path: Path):
+    root = tmp_path / "captures"
+    root.mkdir()
+    now = 1_800_000_000.0
+    fresh = root / "20261104-104031-1.json"
+    fresh.write_text(json.dumps({
+        "headers": {"X-EgoNet-Function": "DataMining.DataEvent", "X-EgoNet-SessionID": "abc"},
+        "decoded_body": {"Statistics": {"Data": {"event": "DriveStarted"}}},
+        "response": {"headers": {"X-EgoNet-SessionID": "abc"}, "body": {"Accepted": True}},
+    }), encoding="utf-8")
+    login = root / "20261104-104030-0.json"
+    login.write_text(json.dumps({
+        "headers": {"X-EgoNet-Function": "Login.Login"},
+        "decoded_body": {"SteamTicket": "secret"},
+        "response": {"body": {"AccountId": 1}},
+    }), encoding="utf-8")
+    stale = root / "20261001-000000-9.json"
+    stale.write_text("{}", encoding="utf-8")
+    import os
+    os.utime(fresh, (now - 3600, now - 3600))
+    os.utime(login, (now - 3600, now - 3600))
+    os.utime(stale, (now - 10 * 86400, now - 10 * 86400))
+    # A RaceNet capture session folder is not part of the flat export.
+    (root / "racenet-20261103-225311").mkdir()
+    (root / "racenet-20261103-225311" / "x.json").write_text("{}", encoding="utf-8")
+    (root / "notes.txt").write_text("ignored", encoding="utf-8")
+
+    out = tmp_path / "sessions-20261104-120000.zip"
+    count = ce.export_recent_captures_zip(root, out, now=now)
+    assert count == 2
+    with zipfile.ZipFile(out) as zf:
+        names = sorted(zf.namelist())
+        assert names == ["sessions-20261104-120000/20261104-104030-0.json",
+                         "sessions-20261104-120000/20261104-104031-1.json"]
+        packed = json.loads(zf.read(names[1]))
+        assert packed["headers"]["X-EgoNet-SessionID"] == ce.SESSION_PLACEHOLDER
+        assert packed["decoded_body"]["Statistics"]["Data"]["event"] == "DriveStarted"
+        assert packed["response"]["body"] == {"Accepted": True}
+        login_packed = json.loads(zf.read(names[0]))
+        assert login_packed["decoded_body"] == ce.REMOVED
+        assert login_packed["response"]["body"] == ce.REMOVED
+
+    assert ce.export_recent_captures_zip(tmp_path / "missing", tmp_path / "e.zip", now=now) == 0
+
+
 def test_racenet_server_args_turn_on_proxy_all():
     args = build_arg_parser().parse_args(ce.racenet_server_args())
     assert args.upstream_ip == ce.RACENET_UPSTREAM_IP == "159.153.126.42"

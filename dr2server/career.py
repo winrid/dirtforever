@@ -52,14 +52,15 @@ STATE_BETWEEN_STAGES = 0
 STATE_STAGE_ACTIVE = 1
 STATE_EVENT_FINISHED = 2
 STATE_NOT_STARTED = 5  # ASSUMPTION (A5): "championship not begun"
-# What ChampionshipBegin leaves behind.  The club listing reports a
-# championship the player is inside with State 1 and StageIndex pointing at
-# the next stage, and the game resumes from that.  Serving State 0 here made
-# the game reset the career with Reason 4 at the next hub refresh, whether or
-# not a heat had been driven (issue #68 logs, 2026-10-30).  The real server's
-# answer to ChampionshipBegin was never captured; its login no longer accepts
-# the game (2026-11-03), so this is the best-supported reading (A2).
-STATE_IN_PROGRESS = STATE_STAGE_ACTIVE
+# What ChampionshipBegin leaves behind (A2).  The game compares the hub's
+# Get*Championship with its own save and resets with Reason 4 on a mismatch.
+# Issue #68 logs: with the hub answering State 0 (v1.9.7) or State 1
+# (v1.9.10/v1.9.11) after a bare ChampionshipBegin the game reset; every
+# State 5 answer in the same sessions was accepted.  Begin only records the
+# car; no stage has been driven, so the state stays 5 ("not started") until
+# the first StageBegin.  The real server's answer was never captured and its
+# login no longer accepts the game (2026-11-03).
+STATE_IN_PROGRESS = STATE_NOT_STARTED
 
 # ASSUMPTION (A6): after the last stage of a non-final event the server keeps
 # the finished event's index with State 2 (the club flow's shape).  Flip to
@@ -671,30 +672,16 @@ class CareerLadder:
         with self._lock:
             return progress_to_egonet(self._state(discipline)["progress"])
 
-    @staticmethod
-    def hub_progress(p: Dict[str, Any]) -> Dict[str, Any]:
-        """The Progress the hub (Get*Championship) reports.
-
-        StageComplete answers State 0 between stages, the shape captured from
-        the real club backend, and the stored progress keeps it.  The hub
-        view is different: the club listing has always reported a
-        championship the player is inside with State 1 and StageIndex at the
-        next stage, and the game resumes from it.  Serving the stored State 0
-        to the career hub made the game reset the championship with Reason 4
-        right after the first heat, with every other field identical to the
-        StageComplete answer it had just accepted (issue #68 log,
-        2026-11-04)."""
-        if int(p.get("state", STATE_NOT_STARTED)) == STATE_BETWEEN_STAGES:
-            p = dict(p)
-            p["state"] = STATE_IN_PROGRESS
-        return p
-
     def get_championship(self, discipline: str) -> Dict[str, Any]:
+        """The hub view.  It repeats the stored progress exactly: between
+        stages that is the State 0 shape captured from the real club
+        StageComplete.  Mapping it to State 1 for the hub (v1.9.11) did not
+        stop the Reason 4 reset after a heat (issue #68 log, 2026-11-04)."""
         with self._lock:
             state = self._state(discipline)
             return {
                 "Championship": build_championship(state["spec"]).to_egonet(),
-                "Progress": progress_to_egonet(self.hub_progress(state["progress"])),
+                "Progress": progress_to_egonet(state["progress"]),
                 "IsNewChamp": bool(state.get("is_new_champ", False)),
             }
 
@@ -721,7 +708,7 @@ class CareerLadder:
         with self._lock:
             state = self._state(discipline)
             p = fresh_progress(discipline)
-            p["state"] = STATE_IN_PROGRESS
+            p["state"] = STATE_IN_PROGRESS  # still 5: no stage driven yet
             # Tyres and compound keep the fresh values unless the client
             # sent them; the vehicle block comes from the garage.
             self._resolve_vehicle(p, req)
