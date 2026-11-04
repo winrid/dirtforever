@@ -428,6 +428,43 @@ class StageBeginRequest:
         )
 
 
+# The game never sends ChampRank or EventRank; a career StageComplete carries the
+# standings instead: ``ChampResults`` (DriverID, Points, StageTime 0) on the last
+# stage of the championship and ``DriverResults`` (DriverID, Points 0, StageTime)
+# on the last stage of each event.  The player's own row is DriverID 0 (verified on
+# the 2026-11-04 log: its StageTime equalled the request's StageTime in all three
+# finals).  The ranks are derived from those rows so promotion can work.
+PLAYER_DRIVER_ID = 0
+
+
+def _rank_from_results(rows: Any, key: str, higher_is_better: bool) -> int:
+    """1-based position of the player in ``rows``; 0 when the player is absent."""
+    if not isinstance(rows, list):
+        return 0
+    player = None
+    values: List[float] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        try:
+            driver = int(_val(row.get("DriverID", -1)))
+            value = float(_val(row.get(key, 0)))
+        except (TypeError, ValueError):
+            continue
+        if driver == PLAYER_DRIVER_ID:
+            player = value
+        values.append(value)
+    if player is None:
+        return 0
+    if higher_is_better:
+        return 1 + sum(1 for v in values if v > player)
+    # Lower is better (stage times); a non-positive time is a non-finisher and
+    # ranks behind every finisher.
+    if player <= 0:
+        return len(values)
+    return 1 + sum(1 for v in values if 0 < v < player)
+
+
 @dataclass
 class StageCompleteRequest:
     vehicle_id: int = 0
@@ -462,8 +499,10 @@ class StageCompleteRequest:
             challenge_id=_val(data.get("ChallengeId", 0)),
             nationality_id=_val(data.get("NationalityId", 0)),
             stage_time=float(data.get("StageTime", 0)),
-            champ_rank=_val(data.get("ChampRank", 0)),
-            event_rank=_val(data.get("EventRank", 0)),
+            champ_rank=_val(data.get("ChampRank", 0))
+            or _rank_from_results(data.get("ChampResults"), "Points", True),
+            event_rank=_val(data.get("EventRank", 0))
+            or _rank_from_results(data.get("DriverResults"), "StageTime", False),
             meters_driven=_val(data.get("MetersDriven", 0)),
             distance_driven=_val(data.get("DistanceDriven", 0)),
             using_wheel=bool(data.get("UsingWheel", False)),
