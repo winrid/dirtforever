@@ -264,6 +264,81 @@ def test_full_rallycross_championship_promotes_and_starts_a_new_one():
     assert ladder.get_championship("rallycross")["IsNewChamp"] is False
 
 
+def _results(rows, key):
+    """Standings rows the way the decoded wire stream hands them over."""
+    if key == "Points":
+        return [{"DriverID": UInt32(d), "Points": UInt32(v), "StageTime": 0.0} for d, v in rows]
+    return [{"DriverID": UInt32(d), "Points": UInt32(0), "StageTime": float(v)} for d, v in rows]
+
+
+def test_stage_complete_ranks_come_from_the_standings_the_game_sends():
+    # The real request (2026-11-04 log) has no ChampRank/EventRank, only the
+    # standings; the player is DriverID 0.
+    champ = _results([(55, 2), (250, 3), (136, 4), (9, 25), (0, 90)], "Points")
+    drivers = _results([(136, 258.5), (38, 254.4), (0, 240.3), (9, 255.8)], "StageTime")
+    req = StageCompleteRequest.from_egonet({
+        "ChampResults": champ, "DriverResults": drivers, "StageTime": 240.3,
+        "VehicleInstId": Int64(64), "StageIndex": UInt32(5), "EventIndex": UInt32(2),
+    })
+    assert (req.champ_rank, req.event_rank) == (1, 1)
+
+    mid = StageCompleteRequest.from_egonet({
+        "ChampResults": _results([(55, 2), (250, 40), (136, 40), (9, 25), (0, 30)], "Points"),
+        "DriverResults": _results([(136, 258.5), (38, 0.0), (0, 260.0), (9, 255.8)], "StageTime"),
+    })
+    # Two drivers ahead on points; one non-finisher (time 0) ranks behind the player.
+    assert (mid.champ_rank, mid.event_rank) == (3, 3)
+
+    # A non-finishing player ranks last; between stages there are no standings.
+    dnf = StageCompleteRequest.from_egonet({
+        "DriverResults": _results([(136, 258.5), (0, 0.0), (9, 255.8)], "StageTime"),
+        "ChampResults": [],
+    })
+    assert (dnf.champ_rank, dnf.event_rank) == (0, 3)
+    assert StageCompleteRequest.from_egonet({}).champ_rank == 0
+    assert StageCompleteRequest.from_egonet({"ChampResults": "junk"}).champ_rank == 0
+    assert StageCompleteRequest.from_egonet(
+        {"ChampResults": _results([(55, 2), (9, 25)], "Points")}).champ_rank == 0
+
+    # An explicit rank, if a client ever sends one, wins over the standings.
+    explicit = StageCompleteRequest.from_egonet({"ChampRank": UInt32(7), "ChampResults": champ})
+    assert explicit.champ_rank == 7
+
+
+def _drive_rallycross(ladder: CareerLadder, final_points: int, others: list) -> None:
+    """A whole championship with wire-shaped requests that carry no ChampRank."""
+    ladder.championship_begin("rallycross", _begin(0, 0))
+    for e in range(3):
+        for s in range(6):
+            ladder.stage_begin("rallycross", _begin(e, s))
+            body = {"VehicleInstId": Int64(55), "EventIndex": UInt32(e), "StageIndex": UInt32(s),
+                    "StageTime": 61.5, "RaceStatus": UInt32(0), "ChampResults": [],
+                    "DriverResults": [], "DistanceDriven": UInt32(4200)}
+            if (e, s) == (2, 5):
+                body["ChampResults"] = _results(others + [(0, final_points)], "Points")
+            ladder.stage_complete("rallycross", StageCompleteRequest.from_egonet(body))
+
+
+def test_championship_won_on_points_promotes_and_lost_on_points_relegates():
+    field = [(55, 2), (250, 3), (136, 4), (297, 5), (20, 7), (38, 8), (216, 14), (260, 17),
+             (257, 18), (9, 25), (19, 27), (32, 28), (289, 30), (353, 43), (51, 44), (91, 46),
+             (265, 60), (248, 65), (217, 67)]
+    ladder = _ladder()
+    _drive_rallycross(ladder, 90, field)
+    tiers = ladder.tier_list("rallycross")["TierList"]
+    assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (1, 0)
+
+    # Bottom of the standings at tier 1 drops back to tier 0.
+    _drive_rallycross(ladder, 1, field)
+    tiers = ladder.tier_list("rallycross")["TierList"]
+    assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (0, 1)
+
+    # Mid-table keeps the tier.
+    _drive_rallycross(ladder, 29, field)
+    tiers = ladder.tier_list("rallycross")["TierList"]
+    assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (0, 0)
+
+
 def test_relegation_and_tier_clamps():
     ladder = _ladder()
     # Bottom of the field at tier 0 stays at tier 0.
