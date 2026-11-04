@@ -671,12 +671,30 @@ class CareerLadder:
         with self._lock:
             return progress_to_egonet(self._state(discipline)["progress"])
 
+    @staticmethod
+    def hub_progress(p: Dict[str, Any]) -> Dict[str, Any]:
+        """The Progress the hub (Get*Championship) reports.
+
+        StageComplete answers State 0 between stages, the shape captured from
+        the real club backend, and the stored progress keeps it.  The hub
+        view is different: the club listing has always reported a
+        championship the player is inside with State 1 and StageIndex at the
+        next stage, and the game resumes from it.  Serving the stored State 0
+        to the career hub made the game reset the championship with Reason 4
+        right after the first heat, with every other field identical to the
+        StageComplete answer it had just accepted (issue #68 log,
+        2026-11-04)."""
+        if int(p.get("state", STATE_NOT_STARTED)) == STATE_BETWEEN_STAGES:
+            p = dict(p)
+            p["state"] = STATE_IN_PROGRESS
+        return p
+
     def get_championship(self, discipline: str) -> Dict[str, Any]:
         with self._lock:
             state = self._state(discipline)
             return {
                 "Championship": build_championship(state["spec"]).to_egonet(),
-                "Progress": progress_to_egonet(state["progress"]),
+                "Progress": progress_to_egonet(self.hub_progress(state["progress"])),
                 "IsNewChamp": bool(state.get("is_new_champ", False)),
             }
 
@@ -746,7 +764,9 @@ class CareerLadder:
             quick = _val(req.comp_damage.quick_repairs)
             self._resolve_vehicle(p, req)
             p["vehicle_damage"] = dataclasses.asdict(req.comp_damage)
-            p["meters_driven"] = int(req.meters_driven)
+            # The career StageComplete carries DistanceDriven, not MetersDriven
+            # (issue #68 logs); the Progress field is MetersDriven either way.
+            p["meters_driven"] = int(req.meters_driven or req.distance_driven or 0)
             p["has_repaired"] = bool(req.recov_to_service or (quick or 0) > 0)
             p["event_index"] = e
             p["stage_index"] = s
