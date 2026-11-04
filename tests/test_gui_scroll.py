@@ -25,6 +25,10 @@ def test_advanced_tab_is_scrollable_and_wraps_the_capture_label():
     # The checkbox text that was cut off in v1.9.8 is short and wraps.
     assert 'text="RaceNet capture session",' in GUI_SOURCE
     assert "(only when support asks for it)" not in GUI_SOURCE
+    # The career trial card (issue #68) applies live and at the next Start.
+    assert 'text="CAREER TRIAL"' in GUI_SOURCE
+    assert "disp.set_career_trial(text)" in GUI_SOURCE
+    assert "app.dispatcher.set_career_trial(career_trial_var.get())" in GUI_SOURCE
 
 
 @pytest.fixture(scope="module")

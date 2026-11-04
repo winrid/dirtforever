@@ -1460,6 +1460,56 @@ def run_gui():
         command=_export_racenet_capture,
     ).pack(anchor="w", padx=12, pady=(4, 8))
 
+    # --- Career trial (support) ---
+    # Field overrides for the My Team career answers (issue #68).  Not saved
+    # to the config: a leftover trial would keep changing the career answers.
+    career_trial_var = tk.StringVar(value="")
+    trial_card = tk.Frame(advanced_tab, bg=BG_CARD,
+                          highlightbackground=BORDER, highlightthickness=1)
+    trial_card.pack(fill="x", padx=20, pady=5)
+    tk.Label(trial_card, text="CAREER TRIAL", font=(UI_FONT, 8, "bold"),
+             fg=MUTED, bg=BG_CARD).pack(anchor="w", padx=12, pady=(8, 2))
+    tk.Label(
+        trial_card,
+        text=("Only when support asks for it. Field overrides for the My Team "
+              "career answers, for example State=4 or AttemptsLeft=0. Apply "
+              "takes effect at once, no restart; leave it empty to switch off."),
+        font=(UI_FONT, 8), fg=MUTED, bg=BG_CARD, wraplength=ADV_WRAP,
+        justify="left", anchor="w",
+    ).pack(fill="x", padx=12, pady=(0, 4))
+    trial_row = tk.Frame(trial_card, bg=BG_CARD)
+    trial_row.pack(fill="x", padx=12, pady=(0, 4))
+    tk.Entry(trial_row, textvariable=career_trial_var, font=(MONO_FONT, 9),
+             bg=BG_ELEVATED, fg=TEXT, insertbackground=TEXT, relief="flat",
+             width=30).pack(side="left", fill="x", expand=True, ipady=3)
+    trial_status_var = tk.StringVar(value="Trial off")
+
+    def _apply_career_trial():
+        from dr2server.career import describe_trial_overrides, parse_trial_overrides
+        text = career_trial_var.get()
+        disp = dispatcher_holder.get("instance")
+        if disp is not None:
+            overrides, ignored = disp.set_career_trial(text)
+        else:
+            overrides, ignored = parse_trial_overrides(text)
+        status = ("Trial active: " + describe_trial_overrides(overrides)) if overrides else "Trial off"
+        if ignored:
+            status += " (ignored: " + " ".join(ignored) + ")"
+        if disp is None and overrides:
+            status += ", applies at the next Start"
+        trial_status_var.set(status)
+        log("Career trial: " + status)
+
+    tk.Button(
+        trial_row, text="Apply", font=(UI_FONT, 8, "bold"),
+        bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=_apply_career_trial,
+    ).pack(side="left", padx=(8, 0))
+    tk.Label(trial_card, textvariable=trial_status_var, font=(MONO_FONT, 9),
+             fg=TEXT, bg=BG_CARD, anchor="w", justify="left",
+             wraplength=ADV_WRAP).pack(fill="x", padx=12, pady=(0, 8))
+
     # --- Server control ---
     def set_status(running: bool, detail: str = ""):
         if running:
@@ -1527,6 +1577,8 @@ def run_gui():
             if api_client:
                 app.dispatcher.api_client = api_client
             app.dispatcher.verbose_logging = bool(verbose_logging_var.get())
+            if career_trial_var.get().strip():
+                app.dispatcher.set_career_trial(career_trial_var.get())
             dispatcher_holder["instance"] = app.dispatcher
 
             from dr2server.streaming import StreamingWriter

@@ -557,6 +557,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
                              "When omitted, the server uses local fallback data.")
     parser.add_argument("--api-token", default=None,
                         help="Game API token (df_xxx) for authenticating with dirtforever.net.")
+    parser.add_argument("--career-trial", default=None,
+                        help="Support trial for the My Team career (issue #68): field "
+                             "overrides every answer about a begun championship carries, "
+                             "e.g. \"State=4, AttemptsLeft=0\".")
     return parser
 
 
@@ -592,6 +596,8 @@ def main() -> int:
         api_url=args.api_url,
         api_token=getattr(args, 'api_token', None),
     )
+    if args.career_trial:
+        app.dispatcher.set_career_trial(args.career_trial)
     servers = []
 
     http_server = create_server(args.host, args.port, app)

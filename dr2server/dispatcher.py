@@ -19,7 +19,7 @@ from .game_data import (
     RX_DRYING_TIME, RX_GRID_ENTRANTS, RX_NUMBER_RESTARTS, RX_SVC_SETTINGS_ID,
     rallycross_stage_plan,
 )
-from .career import CareerLadder
+from .career import CareerLadder, describe_trial_overrides, parse_trial_overrides
 from .models import (
     Challenge, Club, CompDamage, EntryWindow, Event, LeaderboardEntry,
     Reward, Stage, StageBeginRequest, StageCompleteRequest, TierReward, _val,
@@ -174,8 +174,10 @@ class RpcDispatcher:
         # Used to identify the player's own row in leaderboard responses.
         self._my_username: Optional[str] = None
         # My Team career ladder, created on the first RaceNetCareerLadder
-        # call (see _career_ladder).
+        # call (see _career_ladder), and the support trial overrides it
+        # carries (set_career_trial).
         self._career: Optional[CareerLadder] = None
+        self.career_trial: Dict[str, Any] = {}
         # Streaming-overlay state: track the most recent event/club/vehicle the
         # player engaged with, plus a cached copy of the last clubs payload.
         # Read by StreamingWriter via get_streaming_state(); see dr2server/streaming.py.
@@ -280,8 +282,27 @@ class RpcDispatcher:
                 load = self.api_client.get_career
                 save = self.api_client.set_career
             self._career = CareerLadder(load=load, save=save,
-                                        vehicle_lookup=self._vehicle_for_inst)
+                                        vehicle_lookup=self._vehicle_for_inst,
+                                        trial_overrides=self.career_trial)
         return self._career
+
+    def set_career_trial(self, text: Optional[str]) -> tuple[Dict[str, Any], List[str]]:
+        """Career trial overrides (issue #68) from ``"State=4, AttemptsLeft=0"``.
+
+        Takes effect on the next career call, no restart needed.  Returns
+        what was parsed and what was ignored.
+        """
+        overrides, ignored = parse_trial_overrides(text)
+        self.career_trial = overrides
+        if self._career is not None:
+            self._career.set_trial_overrides(overrides)
+        if overrides:
+            print(f"[CAREER] trial overrides set: {describe_trial_overrides(overrides)}")
+        else:
+            print("[CAREER] trial overrides cleared")
+        if ignored:
+            print(f"[CAREER] trial overrides ignored: {' '.join(ignored)}")
+        return overrides, ignored
 
     def _vehicle_for_inst(self, inst_id: int) -> Optional[tuple[int, int]]:
         """(VehicleId, LiveryId) of an inventory instance, as GetInventory
