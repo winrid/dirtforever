@@ -1428,8 +1428,33 @@ def run_gui():
         capture_status_var.set(f"Exported {count} calls: {out_zip}")
         _reveal_in_explorer(out_zip)
 
+    def _export_recent_sessions():
+        from dr2server.capture_export import export_recent_captures_zip
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out_zip = DIRTFOREVER_DIR / f"sessions-{stamp}.zip"
+        try:
+            count = export_recent_captures_zip(CAPTURES_DIR, out_zip)
+        except Exception as exc:
+            log(f"Could not export recent sessions: {exc}")
+            return
+        if not count:
+            log("No game calls recorded in the last two days.")
+            capture_status_var.set("Nothing recorded in the last two days")
+            return
+        log(f"Exported {count} calls from the last two days to {out_zip}")
+        capture_status_var.set(f"Exported {count} calls: {out_zip}")
+        _reveal_in_explorer(out_zip)
+
+    export_row = tk.Frame(capture_card, bg=BG_CARD)
+    export_row.pack(anchor="w", padx=12, pady=(4, 8))
     tk.Button(
-        capture_card, text="Export sanitized zip", font=(UI_FONT, 8, "bold"),
+        export_row, text="Export last 2 days (sanitized)", font=(UI_FONT, 8, "bold"),
+        bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
+        relief="flat", cursor="hand2", padx=10, pady=2,
+        command=_export_recent_sessions,
+    ).pack(side="left", padx=(0, 8))
+    tk.Button(
+        export_row, text="Export sanitized zip", font=(UI_FONT, 8, "bold"),
         bg=ACCENT, fg="#111", activebackground=ACCENT_BRIGHT, activeforeground="#111",
         relief="flat", cursor="hand2", padx=10, pady=2,
         command=_export_racenet_capture,

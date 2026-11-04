@@ -315,10 +315,10 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     and the fresh tyre allocation, and the next Get must repeat it exactly,
     or the client resets the championship.
 
-    The state after Begin is 1 (in progress, next stage 0), the shape the
-    club listing uses for a championship the player is inside.  State 0
-    there made the game reset with Reason 4 at the next hub refresh even
-    when the vehicle block matched (issue #68 log, 2026-10-30)."""
+    The state after Begin stays 5: no stage has been driven.  State 0
+    (v1.9.7) and State 1 (v1.9.10) there both made the game reset with
+    Reason 4 at the next hub refresh even when the vehicle block matched
+    (issue #68 logs, 2026-10-30 and 2026-11-04)."""
     looked_up = []
 
     def lookup(inst):
@@ -329,8 +329,8 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     resp = ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=32))
     p = resp["Progress"]
     assert looked_up == [32]
-    assert (p["EventIndex"], p["StageIndex"], p["State"]) == (0, 0, career.STATE_IN_PROGRESS)
-    assert p["State"] != STATE_BETWEEN_STAGES
+    assert (p["EventIndex"], p["StageIndex"], p["State"]) == (0, 0, STATE_NOT_STARTED)
+    assert career.STATE_IN_PROGRESS == STATE_NOT_STARTED
     assert p["VehicleInstId"].value == 32
     assert p["VehicleId"].value == 538
     assert p["LiveryId"].value == 2926
@@ -350,33 +350,30 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     assert (p["TyresRemaining"].value, p["TyreCompound"].value) == (3, 2)
 
 
-def test_hub_reports_a_championship_between_stages_as_in_progress():
-    """v1.9.10 log (issue #68, 2026-11-04): Begin (State 1) -> heat ->
-    StageComplete answered State 0 / StageIndex 1 -> the hub Get repeated it
-    byte for byte -> the game reset with Reason 4.  The club listing has
-    always shown a championship in progress as State 1 at the next stage;
-    the career hub now does the same while StageComplete keeps the captured
-    State 0 shape.  MetersDriven comes from the request's DistanceDriven,
-    which is the only distance the career StageComplete carries."""
+def test_hub_repeats_the_stored_progress_and_begin_keeps_state_5():
+    """Issue #68 logs, 2026-11-04: with the hub answering State 1 after a
+    bare Begin (v1.9.11) the game reset with Reason 4; State 0 (v1.9.7) did
+    the same.  Only State 5 answers were ever accepted, so Begin records the
+    car and leaves the state at 5 until the first StageBegin.  Between
+    stages the hub repeats the StageComplete answer (captured State 0 shape)
+    byte for byte; MetersDriven comes from the request's DistanceDriven,
+    the only distance the career StageComplete carries."""
     ladder = _ladder()
     assert ladder.get_championship("rallycross")["Progress"]["State"] == STATE_NOT_STARTED
 
-    ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
-    assert ladder.get_championship("rallycross")["Progress"]["State"] == career.STATE_IN_PROGRESS
+    b = ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))["Progress"]
+    assert (b["State"], b["VehicleInstId"].value) == (STATE_NOT_STARTED, 64)
+    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(b)
 
     ladder.stage_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
     assert ladder.get_championship("rallycross")["Progress"]["State"] == STATE_STAGE_ACTIVE
 
     c = ladder.stage_complete("rallycross", StageCompleteRequest(
         vehicle_inst_id=64, stage_time=241.942, distance_driven=4266))["Progress"]
-    assert c["State"] == STATE_BETWEEN_STAGES
+    assert (c["EventIndex"], c["StageIndex"], c["State"]) == (0, 1, STATE_BETWEEN_STAGES)
     assert c["MetersDriven"] == 4266
-    hub = ladder.get_championship("rallycross")["Progress"]
-    assert (hub["EventIndex"], hub["StageIndex"], hub["State"]) == (0, 1, career.STATE_IN_PROGRESS)
-    assert hub["MetersDriven"] == 4266
-    assert hub["StageTimeMs"].value == 241942 and hub["ChampTimeMs"].value == 241942
-    # Only the State differs between the StageComplete answer and the hub.
-    assert encode_stream({**hub, "State": STATE_BETWEEN_STAGES}) == encode_stream(c)
+    assert c["StageTimeMs"].value == 241942 and c["ChampTimeMs"].value == 241942
+    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(c)
 
     # The finished-event shape is untouched.
     for s in range(1, 6):
@@ -409,9 +406,7 @@ def test_stage_calls_keep_the_vehicle_block_the_client_does_not_resend():
     assert (c["VehicleInstId"].value, c["VehicleId"].value, c["LiveryId"].value) == (64, 538, 2926)
     assert (c["TyreCompound"].value, c["TyresRemaining"].value) == (0, 5)
     assert (c["EventIndex"], c["StageIndex"], c["State"]) == (0, 1, STATE_BETWEEN_STAGES)
-    hub = ladder.get_championship("rallycross")["Progress"]
-    assert hub["State"] == career.STATE_IN_PROGRESS
-    assert encode_stream({**hub, "State": STATE_BETWEEN_STAGES}) == encode_stream(c)
+    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(c)
 
     # Without a garage lookup the ids from ChampionshipBegin survive too.
     plain = _ladder()
@@ -455,7 +450,7 @@ def test_dispatcher_resolves_begin_vehicle_from_the_garage(capsys):
     out = capsys.readouterr().out
     assert '[CAREER] champ_begin rallycross request={"VehicleInstId": 12}' in out
     assert '[CAREER] reset rallycross request={"IsAutomatic": true, "Reason": 3, "SingleStage": false}' in out
-    assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=1 vehicle inst=12" in out
+    assert "[CAREER] champ_begin rallycross -> event=0 stage=0 state=5 vehicle inst=12" in out
     assert "[CAREER] reset rallycross -> event=0 stage=0 state=5" in out
 
 
