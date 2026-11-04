@@ -350,6 +350,44 @@ def test_championship_begin_resolves_the_vehicle_and_keeps_fresh_tyres():
     assert (p["TyresRemaining"].value, p["TyreCompound"].value) == (3, 2)
 
 
+def test_hub_reports_a_championship_between_stages_as_in_progress():
+    """v1.9.10 log (issue #68, 2026-11-04): Begin (State 1) -> heat ->
+    StageComplete answered State 0 / StageIndex 1 -> the hub Get repeated it
+    byte for byte -> the game reset with Reason 4.  The club listing has
+    always shown a championship in progress as State 1 at the next stage;
+    the career hub now does the same while StageComplete keeps the captured
+    State 0 shape.  MetersDriven comes from the request's DistanceDriven,
+    which is the only distance the career StageComplete carries."""
+    ladder = _ladder()
+    assert ladder.get_championship("rallycross")["Progress"]["State"] == STATE_NOT_STARTED
+
+    ladder.championship_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
+    assert ladder.get_championship("rallycross")["Progress"]["State"] == career.STATE_IN_PROGRESS
+
+    ladder.stage_begin("rallycross", StageBeginRequest(vehicle_inst_id=64))
+    assert ladder.get_championship("rallycross")["Progress"]["State"] == STATE_STAGE_ACTIVE
+
+    c = ladder.stage_complete("rallycross", StageCompleteRequest(
+        vehicle_inst_id=64, stage_time=241.942, distance_driven=4266))["Progress"]
+    assert c["State"] == STATE_BETWEEN_STAGES
+    assert c["MetersDriven"] == 4266
+    hub = ladder.get_championship("rallycross")["Progress"]
+    assert (hub["EventIndex"], hub["StageIndex"], hub["State"]) == (0, 1, career.STATE_IN_PROGRESS)
+    assert hub["MetersDriven"] == 4266
+    assert hub["StageTimeMs"].value == 241942 and hub["ChampTimeMs"].value == 241942
+    # Only the State differs between the StageComplete answer and the hub.
+    assert encode_stream({**hub, "State": STATE_BETWEEN_STAGES}) == encode_stream(c)
+
+    # The finished-event shape is untouched.
+    for s in range(1, 6):
+        ladder.stage_begin("rallycross", StageBeginRequest(vehicle_inst_id=64, stage_index=s))
+        ladder.stage_complete("rallycross", StageCompleteRequest(
+            vehicle_inst_id=64, stage_index=s, stage_time=60.0, meters_driven=1000))
+    hub = ladder.get_championship("rallycross")["Progress"]
+    assert (hub["EventIndex"], hub["StageIndex"], hub["State"]) == (0, 5, STATE_EVENT_FINISHED)
+    assert hub["MetersDriven"] == 1000
+
+
 def test_stage_calls_keep_the_vehicle_block_the_client_does_not_resend():
     """Career StageBegin and StageComplete carry only VehicleInstId (issue
     #68 log, 2026-10-30), and the v1.9.7 handlers zeroed VehicleId, LiveryId
@@ -371,7 +409,9 @@ def test_stage_calls_keep_the_vehicle_block_the_client_does_not_resend():
     assert (c["VehicleInstId"].value, c["VehicleId"].value, c["LiveryId"].value) == (64, 538, 2926)
     assert (c["TyreCompound"].value, c["TyresRemaining"].value) == (0, 5)
     assert (c["EventIndex"], c["StageIndex"], c["State"]) == (0, 1, STATE_BETWEEN_STAGES)
-    assert encode_stream(ladder.get_championship("rallycross")["Progress"]) == encode_stream(c)
+    hub = ladder.get_championship("rallycross")["Progress"]
+    assert hub["State"] == career.STATE_IN_PROGRESS
+    assert encode_stream({**hub, "State": STATE_BETWEEN_STAGES}) == encode_stream(c)
 
     # Without a garage lookup the ids from ChampionshipBegin survive too.
     plain = _ladder()
