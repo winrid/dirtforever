@@ -340,6 +340,10 @@ class RpcDispatcher:
     def _career_progress_summary(resp: Dict[str, Any]) -> str:
         p = resp.get("Progress")
         if not isinstance(p, dict):
+            tiers = resp.get("TierList")
+            if isinstance(tiers, dict):
+                return (f"tier={_val(tiers.get('PlayerTier'))} "
+                        f"prev={_val(tiers.get('PrevPlayerTier'))}")
             return "no Progress"
         pp = RpcDispatcher._career_plain(p)
         parts = [f"event={pp.get('EventIndex')} stage={pp.get('StageIndex')} state={pp.get('State')}",

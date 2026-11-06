@@ -828,6 +828,12 @@ class CareerLadder:
             self._resolve_vehicle(p, req)
             state["progress"] = p
             state["is_new_champ"] = False
+            # The promotion (PrevPlayerTier != PlayerTier) has been shown by
+            # now: the real tier list carried equal tiers for a championship
+            # that could be begun, and leaving them apart for the whole next
+            # championship made every mid-championship hub refresh reset with
+            # Reason 3 instead of 4 once the reporter reached tier 1 (#68).
+            state["prev_tier"] = int(state["tier"])
             self._persist(discipline)
             return self._trial(discipline, {"Progress": progress_to_egonet(p), "ResultCode": 0})
 
@@ -848,6 +854,8 @@ class CareerLadder:
             p["has_repaired"] = False
             self._resolve_vehicle(p, req)
             state["is_new_champ"] = False
+            # Also settles a championship begun before this rule existed.
+            state["prev_tier"] = int(state["tier"])
             self._persist(discipline)
             return self._trial(discipline, {"Progress": progress_to_egonet(p), "ResultCode": 0})
 

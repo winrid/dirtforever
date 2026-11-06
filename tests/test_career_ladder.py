@@ -259,9 +259,16 @@ def test_full_rallycross_championship_promotes_and_starts_a_new_one():
     assert encode_stream(after["Championship"]) != before
     tiers = ladder.tier_list("rallycross")["TierList"]
     assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (1, 0)
-    # Starting the new championship clears the flag.
+    # Starting the new championship clears the flag and settles the
+    # promotion: the tier list no longer announces it mid-championship.
     ladder.championship_begin("rallycross", _begin(0, 0))
     assert ladder.get_championship("rallycross")["IsNewChamp"] is False
+    tiers = ladder.tier_list("rallycross")["TierList"]
+    assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (1, 1)
+    # A reset keeps them settled too.
+    ladder.reset_championship("rallycross")
+    tiers = ladder.tier_list("rallycross")["TierList"]
+    assert (tiers["PlayerTier"], tiers["PrevPlayerTier"]) == (1, 1)
 
 
 def _results(rows, key):
